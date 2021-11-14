@@ -9,7 +9,7 @@ Last changed: 14.11.2021
 
 ## Descrtiption
 GUI chat application that connects two communication partners directly over TCP using TLS/SSL to secure the communication.
-The GUI is very ~basic~ at the moment but is work in progress.
+The GUI is very *basic* at the moment but is work in progress.
 
 ## Usage
 One user plays the server and the other user has to connect to that server.  
