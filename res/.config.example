@@ -1,0 +1,16 @@
+# ip
+127.0.0.1
+# port
+8000
+# ip version
+4
+# user name
+Bob
+# user cert thumb
+DEADC0FFEEBEAADDEDDEAFC0CAF00DFEEDEC0DE0
+# log files dir
+data\logs
+# cert files dir
+data\certs
+# transfered files dir
+data\files

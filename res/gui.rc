@@ -1,0 +1,265 @@
+//Microsoft Visual C++ generated resource script.
+//
+#include "../src/gui/resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE resource.
+//
+#ifndef APSTUDIO_INVOKED
+#include "../src/gui/targetver.h"
+#endif
+#define APSTUDIO_HIDDEN_SYMBOLS
+#include "windows.h"
+#undef APSTUDIO_HIDDEN_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE 9, 1
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+
+IDI_GUI_ON          ICON   "icon-conn.ico"
+IDI_GUI_OFF         ICON   "icon-off.ico"
+IDI_GUI_LISTEN      ICON   "icon-listen.ico"
+IDR_MAINFRAME       ICON   "icon-conn.ico"
+
+// Sounds
+IDW_NOTIFY    WAVE   "sounds\\ding.wav"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDC_GUI MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "P&references ...",     IDM_PREFS
+        MENUITEM "Connection Data ...",  IDM_CONN_DATA
+        MENUITEM "E&xit",                IDM_EXIT
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About ...",           IDM_ABOUT
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDC_GUI ACCELERATORS
+BEGIN
+    "?",            IDM_ABOUT,              ASCII,  ALT
+    "/",            IDM_ABOUT,              ASCII,  ALT
+    0x51,           IDM_EXIT,               VIRTKEY, CONTROL    // ctrl-Q
+END
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+#define LBL_X (10)
+#define IPT_X (50)
+#define IPT_WS (50)
+#define IPT_W (150)
+#define IPT_H (12)
+#define BTN_W (50)
+#define BTN_H (14)
+
+IDD_ABOUT_BOX DIALOGEX 150, 80, 210, 70
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU 
+CAPTION "About SChat"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,14,14,0,0
+    LTEXT           "SChat, Version 1.0.1",IDC_STATIC,42,14,114,8,SS_NOPREFIX
+    LTEXT           "Copyright (c) 2021 Stealthy Shadow Digits Inc.",IDC_STATIC,42,26,200,8
+    DEFPUSHBUTTON   "OK",IDOK,145,41,BTN_W,BTN_H,WS_GROUP
+END
+
+
+IDD_PREFS_BOX DIALOGEX 150, 80, 210, 90
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Preferences"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "Log Dir",IDC_STATIC,20,14,114,8,SS_NOPREFIX
+    LTEXT           "Cert Dir",IDC_STATIC,20,26,200,8
+    LTEXT           "File Dir",IDC_STATIC,20,38,200,8
+    DEFPUSHBUTTON   "OK",IDOK,145,60,BTN_W,BTN_H,WS_GROUP
+    DEFPUSHBUTTON   "Cancel",IDCANCEL,80,60,BTN_W,BTN_H,WS_GROUP
+END
+
+
+IDD_CONN_DATA_BOX DIALOGEX 150, 80, 210, 120
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Connection Data"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "IP",IDC_STATIC,LBL_X,10,114,IPT_H,SS_NOPREFIX
+    CONTROL         "", IDC_CD_IP_IPT, "EDIT", WS_BORDER | WS_CHILD | WS_VISIBLE | WS_GROUP | ES_AUTOHSCROLL, IPT_X,10,IPT_W,IPT_H
+    LTEXT           "Port",IDC_STATIC,LBL_X,25,200,IPT_H
+    CONTROL         "", IDC_CD_PORT_IPT, "EDIT", WS_BORDER | WS_CHILD | WS_VISIBLE | WS_GROUP | ES_AUTOHSCROLL, IPT_X,25,IPT_WS,IPT_H
+    LTEXT           "Version",IDC_STATIC,LBL_X,40,200,IPT_H
+    CONTROL         "", IDC_CD_VS_IPT, "EDIT", WS_BORDER | WS_CHILD | WS_VISIBLE | WS_GROUP | ES_AUTOHSCROLL, IPT_X,40,IPT_WS,IPT_H
+    LTEXT           "Name",IDC_STATIC,LBL_X,55,200,IPT_H
+    CONTROL         "", IDC_CD_NAME_IPT, "EDIT", WS_BORDER | WS_CHILD | WS_VISIBLE | WS_GROUP | ES_AUTOHSCROLL, IPT_X,55,IPT_W,IPT_H
+    LTEXT           "CertThumb",IDC_STATIC,LBL_X,70,200,IPT_H
+    CONTROL         "", IDC_CD_CT_IPT, "EDIT", WS_BORDER | WS_CHILD | WS_VISIBLE | WS_GROUP | ES_AUTOHSCROLL, IPT_X,70,IPT_W,IPT_H
+    DEFPUSHBUTTON   "OK",IDOK,150,95,BTN_W,BTN_H,WS_GROUP
+    DEFPUSHBUTTON   "Cancel",IDCANCEL,90,95,BTN_W,BTN_H,WS_GROUP
+END
+
+
+IDD_ACCEPT_FT_BOX DIALOGEX 150, 80, 210, 70
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "New Filetransfer"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,14,14,0,0
+    LTEXT           "Accept file transfer?",IDC_STATIC,42,14,114,8,SS_NOPREFIX
+    LTEXT           "File:",IDC_ACCEPT_FILE_IPT,42,26,200,8
+    DEFPUSHBUTTON   "YES",IDYES,95,50,BTN_W,BTN_H,WS_GROUP
+    DEFPUSHBUTTON   "NO",IDNO,150,50,BTN_W,BTN_H,WS_GROUP
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// FILE INFO
+//
+#include <winver.h>
+#include <ntdef.h>
+
+//
+// Set up debug information
+//
+#if DBG
+#define VER_DBG VS_FF_DEBUG
+#else
+#define VER_DBG 0
+#endif
+
+// ------- version info -------------------------------------------------------
+#define VER_FILEVERSION             1.0.2.0
+#define VER_FILEVERSION_STR         "1.0.2.0\0"
+
+#define VER_PRODUCTVERSION          VER_FILEVERSION
+#define VER_PRODUCTVERSION_STR      VER_FILEVERSION_STR
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION             VER_FILEVERSION
+PRODUCTVERSION          VER_PRODUCTVERSION
+FILEFLAGSMASK           VS_FFI_FILEFLAGSMASK
+FILEFLAGS               VER_DBG
+FILEOS                  VOS_NT
+FILETYPE                VFT_DRV
+FILESUBTYPE             VFT2_DRV_SYSTEM
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904b0"
+        BEGIN
+		VALUE "Comments",         "SChat"
+		VALUE "CompanyName",      "Stealthy Shadow Digits Inc."
+		VALUE "FileDescription",  "SChat: a secure E2E TLS chat"
+		VALUE "FileVersion",      VER_FILEVERSION_STR
+		VALUE "InternalName",     "SChat"
+		VALUE "LegalCopyright",   "(C) 2021 Stealthy Shadow Digits Inc."
+		VALUE "OriginalFilename", "SChat.exe"
+		VALUE "ProductName",      "SChat"
+		VALUE "ProductVersion",	  VER_PRODUCTVERSION_STR
+        END
+	END
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x0409,1200
+	END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 163
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 55
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+1 TEXTINCLUDE
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE
+BEGIN
+    "#ifndef APSTUDIO_INVOKED\r\n"
+    "#include ""../src/targetver.h""\r\n"
+    "#endif\r\n"
+    "#define APSTUDIO_HIDDEN_SYMBOLS\r\n"
+    "#include ""windows.h""\r\n"
+    "#undef APSTUDIO_HIDDEN_SYMBOLS\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+   IDC_GUI "SChat"
+   IDS_APP_TITLE "SChat"
+END
+
+#endif
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE resource.
+//
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
