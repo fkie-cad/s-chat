@@ -24,6 +24,7 @@
 #include "../utils/ConfigFileParser.h"
 
 #include "dialogs/ConnectionDataDialog.h"
+#include "ConfigFile.h"
 
 #define MAX_LOADSTRING (0x80)
 
@@ -73,14 +74,10 @@ std::mutex cstmtx;
 static ULONG ThreadId = 0;
 static HANDLE Thread = NULL;
 
-static CHAR ip[MAX_IP_LN];
-static CHAR port[MAX_PORT_LN];
-static CHAR name[MAX_NAME_LN];
-static CHAR CertThumb[SHA1_STRING_BUFFER_LN];
-static CHAR LogDir[MAX_PATH];
-static CHAR CertDir[MAX_PATH];
-static CHAR FileDir[MAX_PATH];
+
 extern ADDRESS_FAMILY family;
+PREFERENCES_DATA PreferencesData;
+
 static char* pmsg = NULL;
 static int type = 0;
 
@@ -105,6 +102,7 @@ static LRESULT onCommand(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static LRESULT onCreate(HWND hWnd);
 static LRESULT onPaint(HWND hWnd);
 static LRESULT onDestroy(HWND hWnd);
+static LRESULT SafeData(HWND hWnd);
 
 static LRESULT onSelectFile(HWND hWnd, DWORD flags, HWND output, PCZZSTR prefix);
 static LRESULT SelectFile(HWND hWnd, DWORD flags, HWND output, PCZZSTR prefix);
@@ -118,7 +116,8 @@ static DWORD WINAPI ListenThread(LPVOID lpParam);
 
 static VOID parseCmdLine(LPSTR lpCmdLine);
 static void parseConfigFile();
-void fillParamDefaults();
+static void fillParamDefaults();
+static VOID updateConfigFile(PCONNECTION_DATA ConnData, PPREFERENCES_DATA PrefsData);
 
 static VOID sayHello();
 static VOID setupNetClient();
@@ -128,6 +127,10 @@ static LRESULT sendMessage(PCHAR msg, ULONG msg_len);
 static LRESULT sendFile(PCHAR msg, ULONG msg_len);
 static LRESULT CancelFileTransfer();
 
+CONFIG_FILE CfgFile;
+ConfigFileParser* CfgFileParser = NULL;
+
+CONNECTION_DATA ConnectionData;
 ConnectionDataDialog connectionDataDialog;
 
 #define DEFAULT_WINDOW_WIDTH (800)
@@ -160,10 +163,17 @@ int APIENTRY WinMain(
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
 
+    ZeroMemory(&PreferencesData, sizeof(PREFERENCES_DATA));
+    ZeroMemory(&ConnectionData, sizeof(CONNECTION_DATA));
+    CfgFile.init();
+    CfgFileParser = new ConfigFileParser(CfgFile.Keys, '#');
+
     parseCmdLine(lpCmdLine);
     parseConfigFile();
     fillParamDefaults();
-    
+    connectionDataDialog.setConfigFile(&CfgFile);
+
+
     // load icons
     gui_icon_on = (HICON)LoadImageA(hInstance, MAKEINTRESOURCEA(IDI_GUI_ON), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
     gui_icon_off = (HICON)LoadImageA(hInstance, MAKEINTRESOURCEA(IDI_GUI_OFF), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
@@ -217,14 +227,14 @@ VOID parseCmdLine(LPSTR lpCmdLine)
         return;
     }
 
-    ZeroMemory(ip, MAX_IP_LN);
-    ZeroMemory(port, MAX_PORT_LN);
-    ZeroMemory(name, MAX_NAME_LN);
-    //ZeroMemory(CertFile, MAX_PATH);
-    ZeroMemory(CertThumb, SHA1_STRING_BUFFER_LN);
-    ZeroMemory(LogDir, MAX_PATH);
-    ZeroMemory(CertDir, MAX_PATH);
-    ZeroMemory(FileDir, MAX_PATH);
+    ZeroMemory(ConnectionData.ip, MAX_IP_LN);
+    ZeroMemory(ConnectionData.port, MAX_PORT_LN);
+    ZeroMemory(ConnectionData.name, MAX_NAME_LN);
+    ZeroMemory(ConnectionData.CertThumb, SHA1_STRING_BUFFER_LN);
+
+    ZeroMemory(PreferencesData.LogDir, MAX_PATH);
+    ZeroMemory(PreferencesData.CertDir, MAX_PATH);
+    ZeroMemory(PreferencesData.FileDir, MAX_PATH);
 
     int i;
     char iOption = NULL;
@@ -262,7 +272,7 @@ VOID parseCmdLine(LPSTR lpCmdLine)
 
             if ( pszOptionLen < SHA1_STRING_BUFFER_LN ) 
                 //strcpy_s(CertFile, MAX_PATH, pszOption);
-                strcpy_s(CertThumb, SHA1_STRING_BUFFER_LN, pszOption);
+                strcpy_s(ConnectionData.CertThumb, SHA1_STRING_BUFFER_LN, pszOption);
 
             i++;
             break;
@@ -272,7 +282,7 @@ VOID parseCmdLine(LPSTR lpCmdLine)
                 break;
             
             if ( pszOptionLen < MAX_PATH )
-                strcpy_s(CertDir, MAX_PATH, pszOption);
+                strcpy_s(PreferencesData.CertDir, MAX_PATH, pszOption);
 
             i++;
             break;
@@ -282,7 +292,7 @@ VOID parseCmdLine(LPSTR lpCmdLine)
                 break;
 
             if ( pszOptionLen < MAX_PATH ) 
-                strcpy_s(FileDir, MAX_PATH, pszOption);
+                strcpy_s(PreferencesData.FileDir, MAX_PATH, pszOption);
 
             i++;
             break;
@@ -292,7 +302,7 @@ VOID parseCmdLine(LPSTR lpCmdLine)
                 break;
 
             if ( pszOptionLen < MAX_IP_LN ) 
-                strcpy_s(ip, MAX_IP_LN, pszOption);
+                strcpy_s(ConnectionData.ip, MAX_IP_LN, pszOption);
 
             i++;
             break;
@@ -302,7 +312,7 @@ VOID parseCmdLine(LPSTR lpCmdLine)
                 break;
 
             if ( pszOptionLen < MAX_PATH )
-                strcpy_s(LogDir, MAX_PATH, pszOption);            
+                strcpy_s(PreferencesData.LogDir, MAX_PATH, pszOption);            
 
             i++;
             break;
@@ -312,7 +322,7 @@ VOID parseCmdLine(LPSTR lpCmdLine)
                 break;
 
             if ( pszOptionLen < MAX_NAME_LN ) 
-                strcpy_s(name, MAX_NAME_LN, pszOption);
+                strcpy_s(ConnectionData.name, MAX_NAME_LN, pszOption);
 
             i++;
             break;
@@ -335,7 +345,7 @@ VOID parseCmdLine(LPSTR lpCmdLine)
                 break;
             
             if ( pszOptionLen < MAX_PORT_LN ) 
-                strcpy_s(port, MAX_PORT_LN, pszOption);
+                strcpy_s(ConnectionData.port, MAX_PORT_LN, pszOption);
 
             i++;
             break;
@@ -357,10 +367,12 @@ VOID parseCmdLine(LPSTR lpCmdLine)
             if ( ipv == 4 )
             {
                 family = AF_INET;
+                ConnectionData.family = AF_INET;
             }
             else if ( ipv == 6 )
             {
                 family = AF_INET6;
+                ConnectionData.family = AF_INET6;
             }
 
             i++;
@@ -377,47 +389,47 @@ VOID parseCmdLine(LPSTR lpCmdLine)
 
 void fillParamDefaults()
 {
-    if ( port[0] == 0 )
-        strcpy_s(port, MAX_PORT_LN, DEFAULT_PORT);
+    if ( ConnectionData.port[0] == 0 )
+        strcpy_s(ConnectionData.port, MAX_PORT_LN, DEFAULT_PORT);
 
-    if ( name[0] == 0 )
-        strcpy_s(name, MAX_NAME_LN, ANONYMOUS);
+    if ( ConnectionData.name[0] == 0 )
+        strcpy_s(ConnectionData.name, MAX_NAME_LN, ANONYMOUS);
 
-    if ( ip[0] == 0 )
+    if ( ConnectionData.ip[0] == 0 )
     {
-        strcpy_s(ip, MAX_IP_LN, DEFAULT_IP4);
+        strcpy_s(ConnectionData.ip, MAX_IP_LN, DEFAULT_IP4);
     }
 
-    if ( CertDir[0] == 0 )
+    if ( PreferencesData.CertDir[0] == 0 )
     {
-        strcpy_s(CertDir, MAX_PATH, ".\\");
+        strcpy_s(PreferencesData.CertDir, MAX_PATH, ".\\");
     }
     else
     {
-        cropTrailingSlash(CertDir);
+        cropTrailingSlash(PreferencesData.CertDir);
     }
 
-    if ( LogDir[0] == 0 )
+    if ( PreferencesData.LogDir[0] == 0 )
     {
-        strcpy_s(LogDir, MAX_PATH, ".\\");
+        strcpy_s(PreferencesData.LogDir, MAX_PATH, ".\\");
     }
     else
     {
-        cropTrailingSlash(LogDir);
+        cropTrailingSlash(PreferencesData.LogDir);
     }
 
-    if ( FileDir[0] == 0 )
+    if ( PreferencesData.FileDir[0] == 0 )
     {
-        strcpy_s(FileDir, MAX_PATH, ".\\");
+        strcpy_s(PreferencesData.FileDir, MAX_PATH, ".\\");
     }
     else
     {
-        cropTrailingSlash(FileDir);
+        cropTrailingSlash(PreferencesData.FileDir);
     }
     
-    client_setLogDir(LogDir);
-    client_setCertDir(CertDir);
-    client_setFileDir(FileDir);
+    client_setLogDir(PreferencesData.LogDir);
+    client_setCertDir(PreferencesData.CertDir);
+    client_setFileDir(PreferencesData.FileDir);
 }
 
 //
@@ -669,6 +681,10 @@ LRESULT onCommand(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     //    SetWindowTextA(CertFileIpt, "WM_CTLCOLORSTATIC");
     //    break;
 
+    case IDM_SAVE:
+        SafeData(hWnd);
+        break;
+
     case IDM_EXIT:
         DestroyWindow(hWnd);
         break;
@@ -676,6 +692,17 @@ LRESULT onCommand(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     default:
         return DefWindowProcA(hWnd, message, wParam, lParam);
     }
+
+    return result;
+}
+
+LRESULT SafeData(HWND hWnd)
+{
+    LRESULT result = 0;
+    (hWnd);
+
+    updateConfigFile(&ConnectionData, &PreferencesData);
+    CfgFileParser->save(CfgFile.Path);
 
     return result;
 }
@@ -695,9 +722,14 @@ LRESULT onDestroy(HWND hWnd)
     DestroyIcon(gui_icon_on);
     DestroyIcon(gui_icon_listen);
     FreeResource(notify_snd);
+    
+    SafeData(hWnd);
 
     if ( pmsg )
         delete[] pmsg;
+
+    if ( CfgFileParser )
+        delete CfgFileParser;
 
     return result;
 }
@@ -747,7 +779,7 @@ INT_PTR CALLBACK PrefsDialogCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
  //Message handler for connection data
 INT_PTR CALLBACK ConnectionDataDialogCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    return connectionDataDialog.openCb(hDlg, message, wParam, lParam);
+    return connectionDataDialog.openCb(hDlg, message, wParam, (LPARAM)&ConnectionData);
 }
 
 // Message handler for prefs box.
@@ -813,7 +845,7 @@ LRESULT onCreate(HWND hWnd)
 
     NameIpt = CreateWindowA(
         "EDIT",
-        (name==NULL)?ANONYMOUS:name,
+        (ConnectionData.name==NULL)?ANONYMOUS:ConnectionData.name,
         WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
         ipt_x, rows_y[0], ipt_w1, ipt_h,
         hWnd, (HMENU)HWND_NAME_IPT_IDX, NULL, NULL
@@ -821,7 +853,7 @@ LRESULT onCreate(HWND hWnd)
 
     IpIpt = CreateWindowA(
         "EDIT",
-        (ip==NULL)?"127.0.0.1":ip,
+        (ConnectionData.ip==NULL)?"127.0.0.1":ConnectionData.ip,
         WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
         ipt_x, rows_y[1], ipt_w2, ipt_h,
         hWnd, (HMENU)HWND_IP_IPT_IDX, NULL, NULL
@@ -829,7 +861,7 @@ LRESULT onCreate(HWND hWnd)
 
     IpVersionIpt = CreateWindowA(
         "EDIT",
-        (family==AF_INET)?"4":"6",
+        (ConnectionData.family==AF_INET)?"4":"6",
         WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
         ipt_x2, rows_y[1], ipt_w1, ipt_h,
         hWnd, (HMENU)HWND_IP_IPT_IDX, NULL, NULL
@@ -837,7 +869,7 @@ LRESULT onCreate(HWND hWnd)
 
     PortIpt = CreateWindowA(
         "EDIT",
-        (port==NULL)?"8080":port,
+        (ConnectionData.port==NULL)?"8080":ConnectionData.port,
         WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
         ipt_x, rows_y[2], ipt_w1, ipt_h,
         hWnd, (HMENU)HWND_PORT_IPT_IDX, NULL, NULL
@@ -845,7 +877,7 @@ LRESULT onCreate(HWND hWnd)
 
     CertFileIpt = CreateWindowA(
         "EDIT",
-        (CertThumb[0]==0)?"":CertThumb,
+        (ConnectionData.CertThumb[0]==0)?"":ConnectionData.CertThumb,
         WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
         ipt_x, rows_y[3], ipt_w3, ipt_h,
         hWnd, (HMENU)HWND_CERT_IPT_IDX, NULL, NULL
@@ -1066,43 +1098,44 @@ VOID setupNetClient()
 {
     int ip_len = GetWindowTextLengthA(IpIpt) + 1;
     if ( ip_len > 1 && ip_len <= MAX_IP_LN )
-        GetWindowTextA(IpIpt, ip, ip_len); 
+        GetWindowTextA(IpIpt, ConnectionData.ip, ip_len); 
     else
     {
-        ip[0] = 0;
+        ConnectionData.ip[0] = 0;
         ip_len = 1;
         showStatus("Wrong IP size!");
     }
-    family = deriveFamily(ip, ip_len-1);
+    ConnectionData.family = deriveFamily(ConnectionData.ip, ip_len-1);
+    ConnectionData.family = ConnectionData.family;
         
     int port_len = GetWindowTextLengthA(PortIpt) + 1;
     if ( port_len > 1 && port_len <= MAX_PORT_LN )
-        GetWindowTextA(PortIpt, port, port_len);
+        GetWindowTextA(PortIpt, ConnectionData.port, port_len);
     else
     {
-        port[0] = 0;
+        ConnectionData.port[0] = 0;
         showStatus("Wrong port size!");
     }
 
     int name_len = GetWindowTextLengthA(NameIpt) + 1;
     if ( name_len > 1 && name_len <= MAX_NAME_LN )
-        GetWindowTextA(NameIpt, name, name_len);
+        GetWindowTextA(NameIpt, ConnectionData.name, name_len);
     else
     {
-        strcpy_s(name, MAX_NAME_LN, ANONYMOUS);
+        strcpy_s(ConnectionData.name, MAX_NAME_LN, ANONYMOUS);
         showStatus("Wrong name size!");
     }
 
     int cert_len = GetWindowTextLengthA(CertFileIpt) + 1;
-    if ( cert_len > 1 && cert_len <= MAX_PATH )
-        GetWindowTextA(CertFileIpt, CertThumb, cert_len);
+    if ( cert_len > 1 && cert_len <= SHA1_STRING_BUFFER_LN )
+        GetWindowTextA(CertFileIpt, ConnectionData.CertThumb, cert_len);
     else
     {
-        CertThumb[0] = 0;
-        showStatus("Wrong cert name size!");
+        ConnectionData.CertThumb[0] = 0;
+        showStatus("Wrong cert thumb size!");
     }
 
-    client_setNick(name);
+    client_setNick(ConnectionData.name);
 }
 
 void enableConnectedControls(HWND btn)
@@ -1154,7 +1187,7 @@ LRESULT onConnect(HWND hWnd)
 
         setupNetClient();
 
-        result = initClient(ip, port, family, CertThumb);
+        result = initClient(ConnectionData.ip, ConnectionData.port, ConnectionData.family, ConnectionData.CertThumb);
         if ( result != 0 )
         {
             sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Connecting failed: 0x%X", (INT)result);
@@ -1228,7 +1261,7 @@ LRESULT onListen(HWND hWnd)
 
         setupNetClient();
 
-        result = initServer(ip, port, family, CertThumb);
+        result = initServer(ConnectionData.ip, ConnectionData.port, ConnectionData.family, ConnectionData.CertThumb);
         if ( result != 0 )
         {
             sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Listening failed: 0x%X", (INT)result);
@@ -1349,7 +1382,7 @@ LRESULT sendFile(PCHAR msg, ULONG msg_len)
         return -1;
     }
 
-    r = client_sendFile(path, path_len, ip, port, family);
+    r = client_sendFile(path, path_len, ConnectionData.ip, ConnectionData.port, ConnectionData.family);
     if ( (ULONG)r == SCHAT_ERROR_INVALID_SOCKET )
     {
         sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Not connected yet!");
@@ -1708,29 +1741,17 @@ BOOL loadSound(
 
 void parseConfigFile()
 {
-    CHAR path[MAX_PATH];
     const CHAR* config_name = ".config";
     size_t conifg_name_ln = strlen(config_name);
-    ULONG path_ln = GetFullPathNameA(config_name, MAX_PATH, path, NULL);
+    ULONG path_ln = GetFullPathNameA(config_name, MAX_PATH, CfgFile.Path, NULL);
     if ( path_ln == 0 || path_ln == MAX_PATH )
     {
+        CfgFile.Path[0] = 0;
         return;
     }
-    path[path_ln] = 0;
-    
-    std::vector<std::string> keys = {
-        "ip", 
-        "port", 
-        "ip version",
-        "user name", 
-        "user cert thumb", 
-        "log files dir", 
-        "cert files dir", 
-        "transfered files dir"
+    CfgFile.Path[path_ln] = 0;
 
-    };
-    ConfigFileParser p(keys, '#');
-    bool s = p.run(path);
+    bool s = CfgFileParser->run(CfgFile.Path);
     if ( !s )
         return;
 
@@ -1738,62 +1759,129 @@ void parseConfigFile()
     std::string tempStr;
     std::uint16_t tempShrt;
     
-    if ( ip[0] == 0 )
+    if ( ConnectionData.ip[0] == 0 )
     {
-        tempStr = p.getStringValue(keys[0], MAX_IP_LN-1, "");
-        strcpy_s(ip, MAX_IP_LN, &tempStr[0]);
+        tempStr = CfgFileParser->getStringValue(CfgFile.Keys[0], MAX_IP_LN-1, "");
+        strcpy_s(ConnectionData.ip, MAX_IP_LN, &tempStr[0]);
     }
 
-    if ( port[0] == 0 )
+    if ( ConnectionData.port[0] == 0 )
     {
-        tempStr = p.getStringValue(keys[1], MAX_PORT_LN-1, "");
-        strcpy_s(port, MAX_PORT_LN, &tempStr[0]);
+        tempStr = CfgFileParser->getStringValue(CfgFile.Keys[1], MAX_PORT_LN-1, "");
+        strcpy_s(ConnectionData.port, MAX_PORT_LN, &tempStr[0]);
     }
 
-    if ( family == AF_UNSPEC )
+    if ( ConnectionData.family == AF_UNSPEC )
     {
-        tempShrt = p.getUInt16Value(keys[2], AF_UNSPEC);
+        tempShrt = CfgFileParser->getUInt16Value(CfgFile.Keys[2], AF_UNSPEC);
         
         if ( tempShrt == 4 )
         {
             family = AF_INET;
+            ConnectionData.family = AF_INET;
         }
         else if ( tempShrt == 6 )
         {
             family = AF_INET6;
+            ConnectionData.family = AF_INET6;
         }
     }
 
-    if ( name[0] == 0 )
+    if ( ConnectionData.name[0] == 0 )
     {
-        tempStr = p.getStringValue(keys[3], MAX_NAME_LN-1, "");
-        strcpy_s(name, MAX_NAME_LN, &tempStr[0]);
+        tempStr = CfgFileParser->getStringValue(CfgFile.Keys[3], MAX_NAME_LN-1, "");
+        strcpy_s(ConnectionData.name, MAX_NAME_LN, &tempStr[0]);
     }
 
-    if ( CertThumb[0] == 0 )
+    if ( ConnectionData.CertThumb[0] == 0 )
     {
-        tempStr = p.getStringValue(keys[4], SHA1_STRING_BUFFER_LN-1, "");
-        strcpy_s(CertThumb, SHA1_STRING_BUFFER_LN, &tempStr[0]);
+        tempStr = CfgFileParser->getStringValue(CfgFile.Keys[4], SHA1_STRING_BUFFER_LN-1, "");
+        strcpy_s(ConnectionData.CertThumb, SHA1_STRING_BUFFER_LN, &tempStr[0]);
     }
 
-    if ( LogDir[0] == 0 )
+    if ( PreferencesData.LogDir[0] == 0 )
     {
-        tempStr = p.getStringValue(keys[5], MAX_PATH-1, "");
-        strcpy_s(LogDir, MAX_PATH, &tempStr[0]);
-        cropTrailingSlash(LogDir);
+        tempStr = CfgFileParser->getStringValue(CfgFile.Keys[5], MAX_PATH-1, "");
+        strcpy_s(PreferencesData.LogDir, MAX_PATH, &tempStr[0]);
+        cropTrailingSlash(PreferencesData.LogDir);
     }
 
-    if ( CertDir[0] == 0 )
+    if ( PreferencesData.CertDir[0] == 0 )
     {
-        tempStr = p.getStringValue(keys[6], MAX_PATH-1, "");
-        strcpy_s(CertDir, MAX_PATH, &tempStr[0]);
-        cropTrailingSlash(CertDir);
+        tempStr = CfgFileParser->getStringValue(CfgFile.Keys[6], MAX_PATH-1, "");
+        strcpy_s(PreferencesData.CertDir, MAX_PATH, &tempStr[0]);
+        cropTrailingSlash(PreferencesData.CertDir);
     }
 
-    if ( FileDir[0] == 0 )
+    if ( PreferencesData.FileDir[0] == 0 )
     {
-        tempStr = p.getStringValue(keys[7], MAX_PATH-1, "");
-        strcpy_s(FileDir, MAX_PATH, &tempStr[0]);
-        cropTrailingSlash(FileDir);
+        tempStr = CfgFileParser->getStringValue(CfgFile.Keys[7], MAX_PATH-1, "");
+        strcpy_s(PreferencesData.FileDir, MAX_PATH, &tempStr[0]);
+        cropTrailingSlash(PreferencesData.FileDir);
+    }
+}
+
+VOID updateConfigFile(PCONNECTION_DATA ConnData, PPREFERENCES_DATA PrefsData)
+{
+    std::string tmpStr;
+    uint16_t tmpShrt;
+
+    tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_IP], MAX_IP_LN-1, "");
+    if ( strcmp(&tmpStr[0], ConnData->ip) != 0 )
+    {
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_IP], ConnData->ip, strlen(ConnData->ip));
+    }
+
+    tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_PORT], MAX_PORT_LN-1, "");
+    if ( strcmp(&tmpStr[0], ConnData->port) != 0 )
+    {
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_PORT], ConnData->port, strlen(ConnData->port));
+    }
+
+    tmpShrt = CfgFileParser->getUInt16Value(CfgFile.Keys[CONFIG_FILE_KEY_IP_VS], AF_UNSPEC);
+    if ( tmpShrt == 4 )
+        tmpShrt = AF_INET;
+    else if ( tmpShrt == 6 )
+        tmpShrt = AF_INET6;
+    if ( tmpShrt != ConnData->family )
+    {
+        if ( tmpShrt == AF_INET )
+            tmpShrt = 4;
+        else if ( tmpShrt == AF_INET6 )
+            tmpShrt = 6;
+        else
+            tmpShrt = 0;
+
+        CfgFileParser->setUInt16Value(CfgFile.Keys[CONFIG_FILE_KEY_IP_VS], tmpShrt);
+    }
+
+    tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_USER_NAME], MAX_NAME_LN-1, "");
+    if ( strcmp(&tmpStr[0], ConnData->name) != 0 )
+    {
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_USER_NAME], ConnData->name, strlen(ConnData->name));
+    }
+
+    tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_CERT_THUMB], SHA1_STRING_BUFFER_LN-1, "");
+    if ( strcmp(&tmpStr[0], ConnData->CertThumb) != 0 )
+    {
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_CERT_THUMB], ConnData->CertThumb, strlen(ConnData->CertThumb));
+    }
+
+    tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_LOG_FILES], MAX_PATH-1, "");
+    if ( strcmp(&tmpStr[0], PrefsData->LogDir) != 0 )
+    {
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_LOG_FILES], PrefsData->LogDir, strlen(PrefsData->LogDir));
+    }
+
+    tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_CERT_FILES], MAX_PATH-1, "");
+    if ( strcmp(&tmpStr[0], PrefsData->CertDir) != 0 )
+    {
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_CERT_FILES], PrefsData->CertDir, strlen(PrefsData->CertDir));
+    }
+
+    tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_T_FILES], MAX_PATH-1, "");
+    if ( strcmp(&tmpStr[0],  PrefsData->FileDir) != 0 )
+    {
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_T_FILES], PrefsData->FileDir, strlen(PrefsData->FileDir));
     }
 }

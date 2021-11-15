@@ -1,3 +1,7 @@
+#ifdef _WIN32
+#pragma warning( disable : 4996 )
+#endif
+
 #include "ConfigFileParser.h"
 
 #include <fstream>
@@ -85,6 +89,18 @@ string ConfigFileParser::getStringValue(const string& key, size_t max, const str
         return StringUtil::trim(&raw[0]);
 }
 
+int ConfigFileParser::setStringValue(const string& key, const string& value, size_t size)
+{
+    ValuesMap::iterator it = values.find(key);
+    if ( it == values.end() )
+        return 1;
+
+    it->second = value;
+    (size);
+
+    return 0;
+}
+
 vector<string> ConfigFileParser::getStringListValue(const string& key, const vector<string>& def)
 {
     std::string raw = getRawValue(key);
@@ -131,7 +147,48 @@ uint16_t ConfigFileParser::getUInt16Value(const string& key, uint16_t def)
     return (uint16_t) stoul(raw, nullptr, 0);
 }
 
+int ConfigFileParser::setUInt16Value(const string& key, uint16_t value)
+{
+    ValuesMap::iterator it = values.find(key);
+    if ( it == values.end() )
+        return 1;
+
+    it->second = to_string(value);
+
+    return 0;
+}
+
 map<string, string>* ConfigFileParser::getValues()
 {
     return &values;
+}
+
+int ConfigFileParser::save(const string& path)
+{
+    FILE* file = NULL;
+    char buffer[0x100];
+
+    if ( values.empty() )
+        return 0;
+
+    file = fopen(&path[0], "w");
+    if ( file == NULL )
+        return -1;
+
+    ValuesMap::const_iterator it = values.begin();
+    sprintf(buffer, "# %s\n", it->first.c_str());
+    fwrite(buffer, 1, it->first.size()+3, file);
+    fwrite(&it->second[0], 1, it->second.size(), file);
+
+    for ( ++it; it != values.end(); ++it )
+    {
+        sprintf(buffer, "\n# %s\n", it->first.c_str());
+        fwrite(buffer, 1, it->first.size()+4, file);
+        fwrite(&it->second[0], 1, it->second.size(), file);
+    }
+
+    if ( file != NULL )
+        fclose(file);
+
+    return 0;
 }
