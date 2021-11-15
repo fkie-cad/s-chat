@@ -44,7 +44,7 @@ IDC_GUI MENU
 BEGIN
     POPUP "&File"
     BEGIN
-        MENUITEM "P&references ...",     IDM_PREFS
+        // MENUITEM "P&references ...",     IDM_PREFS
         MENUITEM "Connection Data ...",  IDM_CONN_DATA
         MENUITEM SEPARATOR
         MENUITEM "&Save",                IDM_SAVE
