@@ -30,7 +30,7 @@ class ConnectionDataDialog
     private:
         VOID fillInputs(PCONNECTION_DATA data);
 
-        VOID ConnectionDataDialog::updateData(PCONNECTION_DATA data);
+        VOID updateData(PCONNECTION_DATA data);
         
         //VOID ConnectionDataDialog::updateConfigFile(PCONNECTION_DATA data);
 };

@@ -4,8 +4,8 @@ Secure TLS/SSL Windows E2E Chat.
 Currently just supporting TLS 1.2 due to Windows SChannel restrictions.
 
 ## Version ##
-1.0.2  
-Last changed: 14.11.2021
+1.0.3  
+Last changed: 15.11.2021
 
 ## Descrtiption
 GUI chat application that connects two communication partners directly over TCP using TLS/SSL to secure the communication.
@@ -99,8 +99,6 @@ The certificate of the other side is stored in `<sha256(cert)>.der` in the curre
 The hash (sha256) of the certificate is also displayed with the connection info in the message output.
 This should by verified by calculating and comparing the hash with the comunication partner or sharing it in advance.
 By passing the command line option `/d` the directory where the certificates are saved may be changed.
-
-The command line/config file only option will soon be settable in the app as well, by providing a Settings window.
 
 An example .config is located in [res/.config.example](res/.config.example).
 

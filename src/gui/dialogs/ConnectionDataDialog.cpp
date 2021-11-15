@@ -9,8 +9,6 @@
 //Message handler for connection data
 INT_PTR CALLBACK ConnectionDataDialog::openCb(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    UNREFERENCED_PARAMETER(lParam);
-
     Dlg = hDlg;
     PCONNECTION_DATA data = (PCONNECTION_DATA)lParam;
 

@@ -43,7 +43,8 @@ HINSTANCE hInst;                                // current instance
 static CHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 static CHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 
-static HWND NameIpt, IpIpt, IpVersionIpt, PortIpt, CertFileIpt, MessageIpt, MessageOpt, StatusOpt, ListenBtn, ConnectBtn, SendBtn;
+static HWND MessageIpt, MessageOpt, StatusOpt, ListenBtn, ConnectBtn, SendBtn;
+//HWND NameIpt, IpIpt, IpVersionIpt, PortIpt, CertFileIpt;
 //HWND FileIpt, ShaOpt;
 static HWND SelFileBtn;
 static WNDPROC oldMessageIpt;
@@ -52,11 +53,11 @@ HWND FilePBar;
 #define ERROR_MESSAGE_SIZE (0x200)
 static CHAR err_msg[ERROR_MESSAGE_SIZE];
 
-#define HWND_NAME_IPT_IDX           (0x1)
-#define HWND_IP_IPT_IDX             (0x2)
-#define HWND_PORT_IPT_IDX           (0x3)
-#define HWND_CERT_IPT_IDX           (0x4)
-#define HWND_CERT_BTN_IDX           (0x5)
+//#define HWND_NAME_IPT_IDX           (0x1)
+//#define HWND_IP_IPT_IDX             (0x2)
+//#define HWND_PORT_IPT_IDX           (0x3)
+//#define HWND_CERT_IPT_IDX           (0x4)
+//#define HWND_CERT_BTN_IDX           (0x5)
 #define HWND_MESSAGE_IPT_IDX        (0x6)
 #define HWND_MESSAGE_OPT_IDX        (0x7)
 #define HWND_CONNECT_BTN_IDX        (0x8)
@@ -779,6 +780,7 @@ INT_PTR CALLBACK PrefsDialogCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
  //Message handler for connection data
 INT_PTR CALLBACK ConnectionDataDialogCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    (lParam);
     return connectionDataDialog.openCb(hDlg, message, wParam, (LPARAM)&ConnectionData);
 }
 
@@ -828,60 +830,60 @@ LRESULT onCreate(HWND hWnd)
 {
     LRESULT result = 0;
 
-    int ipt_x = 85;
-    int ipt_x2 = 485;
-    int ipt_w1 = 100;
-    int ipt_w2 = 300;
-    int ipt_w3 = 400;
+    //int ipt_x = 85;
+    //int ipt_x2 = 485;
+    //int ipt_w1 = 100;
+    //int ipt_w2 = 300;
+    //int ipt_w3 = 400;
     int ipt_w4 = 500;
     int ipt_h = DEFAULT_BTN_H;
     int btn_w = DEFAULT_BTN_W;
     int btn_h = 20;
     int send_btn_x = 585;
     int file_btn_x = send_btn_x + btn_w + 10;
-    int msg_ipt_w = ipt_w4;
+    int msg_ipt_w = ipt_w4 + 75;
     int msg_box_w = 600;
     int msg_box_h = 230;
 
-    NameIpt = CreateWindowA(
-        "EDIT",
-        (ConnectionData.name==NULL)?ANONYMOUS:ConnectionData.name,
-        WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        ipt_x, rows_y[0], ipt_w1, ipt_h,
-        hWnd, (HMENU)HWND_NAME_IPT_IDX, NULL, NULL
-    );
+    //NameIpt = CreateWindowA(
+    //    "EDIT",
+    //    (ConnectionData.name==NULL)?ANONYMOUS:ConnectionData.name,
+    //    WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_GROUP | WS_TABSTOP,
+    //    ipt_x, rows_y[0], ipt_w1, ipt_h,
+    //    hWnd, (HMENU)HWND_NAME_IPT_IDX, NULL, NULL
+    //);
 
-    IpIpt = CreateWindowA(
-        "EDIT",
-        (ConnectionData.ip==NULL)?"127.0.0.1":ConnectionData.ip,
-        WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        ipt_x, rows_y[1], ipt_w2, ipt_h,
-        hWnd, (HMENU)HWND_IP_IPT_IDX, NULL, NULL
-    );
+    //IpIpt = CreateWindowA(
+    //    "EDIT",
+    //    (ConnectionData.ip==NULL)?"127.0.0.1":ConnectionData.ip,
+    //    WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_GROUP | WS_TABSTOP,
+    //    ipt_x, rows_y[1], ipt_w2, ipt_h,
+    //    hWnd, (HMENU)HWND_IP_IPT_IDX, NULL, NULL
+    //);
 
-    IpVersionIpt = CreateWindowA(
-        "EDIT",
-        (ConnectionData.family==AF_INET)?"4":"6",
-        WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        ipt_x2, rows_y[1], ipt_w1, ipt_h,
-        hWnd, (HMENU)HWND_IP_IPT_IDX, NULL, NULL
-    );
+    //IpVersionIpt = CreateWindowA(
+    //    "EDIT",
+    //    (ConnectionData.family==AF_INET)?"4":"6",
+    //    WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_GROUP | WS_TABSTOP,
+    //    ipt_x2, rows_y[1], ipt_w1, ipt_h,
+    //    hWnd, (HMENU)HWND_IP_IPT_IDX, NULL, NULL
+    //);
 
-    PortIpt = CreateWindowA(
-        "EDIT",
-        (ConnectionData.port==NULL)?"8080":ConnectionData.port,
-        WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        ipt_x, rows_y[2], ipt_w1, ipt_h,
-        hWnd, (HMENU)HWND_PORT_IPT_IDX, NULL, NULL
-    );
+    //PortIpt = CreateWindowA(
+    //    "EDIT",
+    //    (ConnectionData.port==NULL)?"8080":ConnectionData.port,
+    //    WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_GROUP | WS_TABSTOP,
+    //    ipt_x, rows_y[2], ipt_w1, ipt_h,
+    //    hWnd, (HMENU)HWND_PORT_IPT_IDX, NULL, NULL
+    //);
 
-    CertFileIpt = CreateWindowA(
-        "EDIT",
-        (ConnectionData.CertThumb[0]==0)?"":ConnectionData.CertThumb,
-        WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        ipt_x, rows_y[3], ipt_w3, ipt_h,
-        hWnd, (HMENU)HWND_CERT_IPT_IDX, NULL, NULL
-    );
+    //CertFileIpt = CreateWindowA(
+    //    "EDIT",
+    //    (ConnectionData.CertThumb[0]==0)?"":ConnectionData.CertThumb,
+    //    WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_GROUP | WS_TABSTOP,
+    //    ipt_x, rows_y[3], ipt_w3, ipt_h,
+    //    hWnd, (HMENU)HWND_CERT_IPT_IDX, NULL, NULL
+    //);
     
     //MessageIpt = CreateWindowA(
     //    "EDIT",
@@ -890,7 +892,7 @@ LRESULT onCreate(HWND hWnd)
     //    ipt_x, rows_y[4], msg_ipt_w, ipt_h,
     //    hWnd, (HMENU)HWND_MESSAGE_IPT_IDX, NULL, NULL
     //);
-    MessageIptRect.left = ipt_x;
+    MessageIptRect.left = IPT_PADDING;
     MessageIptRect.top = rows_y[4];
     MessageIptRect.right = msg_ipt_w;
     MessageIptRect.bottom = ipt_h;
@@ -910,7 +912,7 @@ LRESULT onCreate(HWND hWnd)
     SendBtn = CreateWindowA(
         "BUTTON",
         "Send",
-        WS_BORDER | WS_CHILD | WS_VISIBLE,
+        WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
         send_btn_x, rows_y[4], btn_w, btn_h,
         hWnd, (HMENU)HWND_SEND_BTN_IDX, NULL, NULL
     );
@@ -926,7 +928,7 @@ LRESULT onCreate(HWND hWnd)
     SelFileBtn = CreateWindowA(
         "BUTTON",
         FILE_BTN_SELECT_STR,
-        WS_BORDER | WS_CHILD | WS_VISIBLE,
+        WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
         file_btn_x, rows_y[4], btn_w, btn_h,
         hWnd, (HMENU)HWND_FILE_BTN_IDX, NULL, NULL
     );
@@ -964,8 +966,8 @@ LRESULT onCreate(HWND hWnd)
         0,
         "BUTTON",
         "Listen",
-        WS_VISIBLE | WS_CHILD | WS_BORDER,
-        send_btn_x, rows_y[1], btn_w, btn_h,
+        WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
+        0, rows_y[0], btn_w, btn_h,
         hWnd, (HMENU)HWND_LISTEN_BTN_IDX, NULL, NULL
     );
 
@@ -973,8 +975,8 @@ LRESULT onCreate(HWND hWnd)
         0,
         "BUTTON",
         "Connect",
-        WS_VISIBLE | WS_CHILD | WS_BORDER,
-        send_btn_x, rows_y[2], btn_w, btn_h,
+        WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
+        btn_w + 10, rows_y[0], btn_w, btn_h,
         hWnd, (HMENU)HWND_CONNECT_BTN_IDX, NULL, NULL
     );
 
@@ -1009,30 +1011,30 @@ LRESULT onCreate(HWND hWnd)
 LRESULT onPaint(HWND hWnd)
 {
     LRESULT result = 0;
-    CHAR name_lbl[] = "User name";
-    CHAR ip_lbl[] = "IP";
-    CHAR ipv_lbl[] = "Version";
-    CHAR port_lbl[] = "Port";
-    CHAR cert_lbl[] = "Cert thumb";
+    //CHAR name_lbl[] = "User name";
+    //CHAR ip_lbl[] = "IP";
+    //CHAR ipv_lbl[] = "Version";
+    //CHAR port_lbl[] = "Port";
+    //CHAR cert_lbl[] = "Cert thumb";
     CHAR message_lbl[] = "Message";
 
     int lbl_x = 10;
-    int lbl_x2 = 425;
+    //int lbl_x2 = 425;
 
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hWnd, &ps);
 
-    TextOutA(hdc, lbl_x, rows_y[0], name_lbl, (int)strlen(name_lbl));
+    //TextOutA(hdc, lbl_x, rows_y[0], name_lbl, (int)strlen(name_lbl));
 
-    TextOutA(hdc, lbl_x, rows_y[1], ip_lbl, (int)strlen(ip_lbl));
+    //TextOutA(hdc, lbl_x, rows_y[1], ip_lbl, (int)strlen(ip_lbl));
 
-    TextOutA(hdc, lbl_x2, rows_y[1], ipv_lbl, (int)strlen(ipv_lbl));
+    //TextOutA(hdc, lbl_x2, rows_y[1], ipv_lbl, (int)strlen(ipv_lbl));
     
-    TextOutA(hdc, lbl_x, rows_y[2], port_lbl, (int)strlen(port_lbl));
+    //TextOutA(hdc, lbl_x, rows_y[2], port_lbl, (int)strlen(port_lbl));
 
-    TextOutA(hdc, lbl_x, rows_y[3], cert_lbl, (int)strlen(cert_lbl));
+    //TextOutA(hdc, lbl_x, rows_y[3], cert_lbl, (int)strlen(cert_lbl));
 
-    TextOutA(hdc, lbl_x, rows_y[4], message_lbl, (int)strlen(message_lbl));
+    TextOutA(hdc, lbl_x, rows_y[3], message_lbl, (int)strlen(message_lbl));
 
     EndPaint(hWnd, &ps);
     
@@ -1040,26 +1042,14 @@ LRESULT onPaint(HWND hWnd)
 }
 
 __forceinline
-ADDRESS_FAMILY deriveFamily(PCHAR ip_, int n)
+ADDRESS_FAMILY deriveFamily(PCHAR ip_, size_t n)
 {
     if ( n >= MAX_IP_LN )
         return 0;
     
     if ( n == 0 )
     {
-        int ipv_len = GetWindowTextLengthA(IpVersionIpt) + 1;
-        if ( ipv_len > 2 )
-        {
-            showStatus("Wrong IP Version size!");
-            return 0;
-        }
-        char ipv_str[2];
-        GetWindowTextA(IpVersionIpt, ipv_str, ipv_len);
-        int ipv = (int)strtoul(ipv_str, NULL, 0);
-        if ( ipv == 4 )
-            return AF_INET;
-        else if ( ipv == 6 )
-            return AF_INET6;
+        return ConnectionData.family;
     }
 
     char* ptr = strstr(ip_, ".");
@@ -1096,65 +1086,65 @@ VOID changeIcon(CONNECTION_STATUS status)
 
 VOID setupNetClient()
 {
-    int ip_len = GetWindowTextLengthA(IpIpt) + 1;
-    if ( ip_len > 1 && ip_len <= MAX_IP_LN )
-        GetWindowTextA(IpIpt, ConnectionData.ip, ip_len); 
-    else
-    {
-        ConnectionData.ip[0] = 0;
-        ip_len = 1;
-        showStatus("Wrong IP size!");
-    }
-    ConnectionData.family = deriveFamily(ConnectionData.ip, ip_len-1);
-    ConnectionData.family = ConnectionData.family;
+    //int ip_len = GetWindowTextLengthA(IpIpt) + 1;
+    //if ( ip_len > 1 && ip_len <= MAX_IP_LN )
+    //    GetWindowTextA(IpIpt, ConnectionData.ip, ip_len); 
+    //else
+    //{
+    //    ConnectionData.ip[0] = 0;
+    //    ip_len = 1;
+    //    showStatus("Wrong IP size!");
+    //}
+    ConnectionData.family = deriveFamily(ConnectionData.ip, strlen(ConnectionData.ip));
+    family = ConnectionData.family;
         
-    int port_len = GetWindowTextLengthA(PortIpt) + 1;
-    if ( port_len > 1 && port_len <= MAX_PORT_LN )
-        GetWindowTextA(PortIpt, ConnectionData.port, port_len);
-    else
-    {
-        ConnectionData.port[0] = 0;
-        showStatus("Wrong port size!");
-    }
+    //int port_len = GetWindowTextLengthA(PortIpt) + 1;
+    //if ( port_len > 1 && port_len <= MAX_PORT_LN )
+    //    GetWindowTextA(PortIpt, ConnectionData.port, port_len);
+    //else
+    //{
+    //    ConnectionData.port[0] = 0;
+    //    showStatus("Wrong port size!");
+    //}
 
-    int name_len = GetWindowTextLengthA(NameIpt) + 1;
-    if ( name_len > 1 && name_len <= MAX_NAME_LN )
-        GetWindowTextA(NameIpt, ConnectionData.name, name_len);
-    else
-    {
-        strcpy_s(ConnectionData.name, MAX_NAME_LN, ANONYMOUS);
-        showStatus("Wrong name size!");
-    }
+    //int name_len = GetWindowTextLengthA(NameIpt) + 1;
+    //if ( name_len > 1 && name_len <= MAX_NAME_LN )
+    //    GetWindowTextA(NameIpt, ConnectionData.name, name_len);
+    //else
+    //{
+    //    strcpy_s(ConnectionData.name, MAX_NAME_LN, ANONYMOUS);
+    //    showStatus("Wrong name size!");
+    //}
 
-    int cert_len = GetWindowTextLengthA(CertFileIpt) + 1;
-    if ( cert_len > 1 && cert_len <= SHA1_STRING_BUFFER_LN )
-        GetWindowTextA(CertFileIpt, ConnectionData.CertThumb, cert_len);
-    else
-    {
-        ConnectionData.CertThumb[0] = 0;
-        showStatus("Wrong cert thumb size!");
-    }
+    //int cert_len = GetWindowTextLengthA(CertFileIpt) + 1;
+    //if ( cert_len > 1 && cert_len <= SHA1_STRING_BUFFER_LN )
+    //    GetWindowTextA(CertFileIpt, ConnectionData.CertThumb, cert_len);
+    //else
+    //{
+    //    ConnectionData.CertThumb[0] = 0;
+    //    showStatus("Wrong cert thumb size!");
+    //}
 
     client_setNick(ConnectionData.name);
 }
 
 void enableConnectedControls(HWND btn)
 {
-    SendMessageA(NameIpt, EM_SETREADONLY, FALSE, NULL);
-    SendMessageA(IpIpt, EM_SETREADONLY, FALSE, NULL);
-    SendMessageA(PortIpt, EM_SETREADONLY, FALSE, NULL);
-    SendMessageA(IpVersionIpt, EM_SETREADONLY, FALSE, NULL);
-    SendMessageA(CertFileIpt, EM_SETREADONLY, FALSE, NULL);
+    //SendMessageA(NameIpt, EM_SETREADONLY, FALSE, NULL);
+    //SendMessageA(IpIpt, EM_SETREADONLY, FALSE, NULL);
+    //SendMessageA(PortIpt, EM_SETREADONLY, FALSE, NULL);
+    //SendMessageA(IpVersionIpt, EM_SETREADONLY, FALSE, NULL);
+    //SendMessageA(CertFileIpt, EM_SETREADONLY, FALSE, NULL);
     EnableWindow(btn, TRUE);
 }
 
 void disableConnectedControls(HWND btn)
 {
-    SendMessageA(NameIpt, EM_SETREADONLY, TRUE, NULL);
-    SendMessageA(IpIpt, EM_SETREADONLY, TRUE, NULL);
-    SendMessageA(PortIpt, EM_SETREADONLY, TRUE, NULL);
-    SendMessageA(IpVersionIpt, EM_SETREADONLY, TRUE, NULL);
-    SendMessageA(CertFileIpt, EM_SETREADONLY, TRUE, NULL);
+    //SendMessageA(NameIpt, EM_SETREADONLY, TRUE, NULL);
+    //SendMessageA(IpIpt, EM_SETREADONLY, TRUE, NULL);
+    //SendMessageA(PortIpt, EM_SETREADONLY, TRUE, NULL);
+    //SendMessageA(IpVersionIpt, EM_SETREADONLY, TRUE, NULL);
+    //SendMessageA(CertFileIpt, EM_SETREADONLY, TRUE, NULL);
     EnableWindow(btn, FALSE);
 }
 
@@ -1742,7 +1732,7 @@ BOOL loadSound(
 void parseConfigFile()
 {
     const CHAR* config_name = ".config";
-    size_t conifg_name_ln = strlen(config_name);
+    //size_t conifg_name_ln = strlen(config_name);
     ULONG path_ln = GetFullPathNameA(config_name, MAX_PATH, CfgFile.Path, NULL);
     if ( path_ln == 0 || path_ln == MAX_PATH )
     {
