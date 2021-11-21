@@ -2,6 +2,8 @@
 #pragma warning( disable : 4100 4101 4102 4189 )
 #endif
 
+#pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+
 #include "framework.h"
 #include <Commdlg.h>
 #include <shobjidl.h>
@@ -23,7 +25,10 @@
 
 #include "../utils/ConfigFileParser.h"
 
+#include "dialogs/BasicDialog.h"
 #include "dialogs/ConnectionDataDialog.h"
+#include "dialogs/PreferencesDialog.h"
+#include "dialogs/FileSelector.h"
 #include "ConfigFile.h"
 
 #define MAX_LOADSTRING (0x80)
@@ -37,57 +42,6 @@
 #define MSG_CMD_FILE_LN (strlen(MSG_CMD_FILE))
 
 
-// Global Variables:
-HWND MainWindow;
-HINSTANCE hInst;                                // current instance
-static CHAR szTitle[MAX_LOADSTRING];                  // The title bar text
-static CHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
-
-static HWND MessageIpt, MessageOpt, StatusOpt, ListenBtn, ConnectBtn, SendBtn;
-//HWND NameIpt, IpIpt, IpVersionIpt, PortIpt, CertFileIpt;
-//HWND FileIpt, ShaOpt;
-static HWND SelFileBtn;
-static WNDPROC oldMessageIpt;
-HWND FilePBar;
-
-#define ERROR_MESSAGE_SIZE (0x200)
-static CHAR err_msg[ERROR_MESSAGE_SIZE];
-
-//#define HWND_NAME_IPT_IDX           (0x1)
-//#define HWND_IP_IPT_IDX             (0x2)
-//#define HWND_PORT_IPT_IDX           (0x3)
-//#define HWND_CERT_IPT_IDX           (0x4)
-//#define HWND_CERT_BTN_IDX           (0x5)
-#define HWND_MESSAGE_IPT_IDX        (0x6)
-#define HWND_MESSAGE_OPT_IDX        (0x7)
-#define HWND_CONNECT_BTN_IDX        (0x8)
-#define HWND_LISTEN_BTN_IDX         (0x9)
-#define HWND_STATUS_OPT_IDX         (0xa)
-#define HWND_SEND_BTN_IDX           (0xb)
-#define HWND_FILE_PROGRESS_IDX      (0xc)
-#define HWND_IP_VERSION_IPT_IDX     (0xd)
-#define HWND_FILE_IPT_IDX           (0xe)
-#define HWND_FILE_BTN_IDX           (0xf)
-
-static CONNECTION_STATUS ConnectionStatus = CONNECTION_STATUS::STOPPED;
-static FILE_TRANSFER_STATUS FileTransferStatus = FILE_TRANSFER_STATUS::STOPPED;
-std::mutex cstmtx;
-static ULONG ThreadId = 0;
-static HANDLE Thread = NULL;
-
-
-extern ADDRESS_FAMILY family;
-PREFERENCES_DATA PreferencesData;
-
-static char* pmsg = NULL;
-static int type = 0;
-
-
-static HICON gui_icon_on = NULL;
-static HICON gui_icon_off = NULL;
-static HICON gui_icon_listen = NULL;
-
-HGLOBAL notify_snd = NULL; 
 
 // Forward declarations of functions included in this code module:
 static ATOM MyRegisterClass(HINSTANCE hInstance);
@@ -98,12 +52,15 @@ static INT_PTR CALLBACK AboutDialogCB(HWND, UINT, WPARAM, LPARAM);
 static INT_PTR CALLBACK PrefsDialogCB(HWND, UINT, WPARAM, LPARAM);
 static INT_PTR CALLBACK ConnectionDataDialogCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK FTAcceptDialog(HWND, UINT, WPARAM, LPARAM);
+static INT ConfirmClose(HWND hWnd);
+static INT_PTR CALLBACK onCloseCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 static LRESULT onCommand(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static LRESULT onCreate(HWND hWnd);
 static LRESULT onPaint(HWND hWnd);
+//static LRESULT onClose(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static LRESULT onDestroy(HWND hWnd);
-static LRESULT SafeData(HWND hWnd);
+static LRESULT onSafeData();
 
 static LRESULT onSelectFile(HWND hWnd, DWORD flags, HWND output, PCZZSTR prefix);
 static LRESULT SelectFile(HWND hWnd, DWORD flags, HWND output, PCZZSTR prefix);
@@ -128,27 +85,102 @@ static LRESULT sendMessage(PCHAR msg, ULONG msg_len);
 static LRESULT sendFile(PCHAR msg, ULONG msg_len);
 static LRESULT CancelFileTransfer();
 
+DWORD WINAPI InfoStatusFade(LPVOID lpParam);
+void ShowInfoStatus(_In_ const char* msg);
+
+
+
+// Global Variables:
+HWND MainWindow;
+HINSTANCE MainInstance;                                // current instance
+static CHAR WindowTitleD[MAX_LOADSTRING];                  // The title bar default text
+static CHAR WindowTitleC[MAX_LOADSTRING];                  // The title bar changed text
+static CONST CHAR* WindowTitle = NULL;                  // The title bar text
+static CHAR WindowClass[MAX_LOADSTRING];            // the main window class name
+
+static HWND MessageIpt, MessageOpt, ListenBtn, ConnectBtn, SendBtn;
+static HWND StatusOpt, InfoStatusOpt;
+//HWND NameIpt, IpIpt, IpVersionIpt, PortIpt, CertFileIpt;
+//HWND FileIpt, ShaOpt;
+static HWND SelFileBtn;
+static WNDPROC oldMessageIpt;
+HWND FilePBar;
+
+#define ERROR_MESSAGE_SIZE (0x200)
+static CHAR err_msg[ERROR_MESSAGE_SIZE];
+
+//#define WND_NAME_IPT_IDX           (0x1)
+//#define WND_IP_IPT_IDX             (0x2)
+//#define WND_PORT_IPT_IDX           (0x3)
+//#define WND_CERT_IPT_IDX           (0x4)
+#define WND_INFO_STATUS_OPT_IDX    (0x5)
+#define WND_MESSAGE_IPT_IDX        (0x6)
+#define WND_MESSAGE_OPT_IDX        (0x7)
+#define WND_CONNECT_BTN_IDX        (0x8)
+#define WND_LISTEN_BTN_IDX         (0x9)
+#define WND_STATUS_OPT_IDX         (0xa)
+#define WND_SEND_BTN_IDX           (0xb)
+#define WND_FILE_PROGRESS_IDX      (0xc)
+#define WND_IP_VERSION_IPT_IDX     (0xd)
+#define WND_FILE_IPT_IDX           (0xe)
+#define WND_FILE_BTN_IDX           (0xf)
+
+static CONNECTION_STATUS ConnectionStatus = CONNECTION_STATUS::STOPPED;
+static FILE_TRANSFER_STATUS FileTransferStatus = FILE_TRANSFER_STATUS::STOPPED;
+std::mutex cstmtx;
+static ULONG ThreadId = 0;
+static HANDLE Thread = NULL;
+static ULONG InfoStatusThreadId = 0;
+static HANDLE InfoStatusThread = NULL;
+
+
+extern ADDRESS_FAMILY family;
+
+static char* pmsg = NULL;
+static int type = 0;
+
+
+static HICON gui_icon_on = NULL;
+static HICON gui_icon_off = NULL;
+static HICON gui_icon_listen = NULL;
+
+HGLOBAL notify_snd = NULL; 
+
 CONFIG_FILE CfgFile;
-ConfigFileParser* CfgFileParser = NULL;
+ConfigFileParser* CfgFileParser = nullptr;
+
+BOOL DataHasChanged = FALSE;
+
+PREFERENCES_DATA PreferencesData;
+PreferencesDialog PreferencesDlg;
 
 CONNECTION_DATA ConnectionData;
-ConnectionDataDialog connectionDataDialog;
+ConnectionDataDialog ConnectionDataDlg;
+
+BasicDialog CloseDlg;
+BasicDialog AboutDlg;
+
+FileSelector FileSel;
 
 #define DEFAULT_WINDOW_WIDTH (800)
 #define DEFAULT_WINDOW_HEIGHT (530)
 #define MIN_WINDOW_WIDTH (600)
 #define MIN_WINDOW_HEIGHT (260)
-#define DEFAULT_BTN_W (100)
-#define DEFAULT_BTN_H (20)
+#define BTN_W (100)
+#define BTN_H (20)
 #define PARENT_PADDING (10)
-#define IPT_PADDING (10)
-#define IPT_H (10)
+#define IPT_MARGIN (10)
+#define IPT_H (20)
 #define DEFAULT_PROG_BAR_W (100)
 #define DEFAULT_PROG_BAR_H (20)
+#define STATUS_OPT_W (200)
+#define STATUS_MARGIN (1)
+
 RECT MainRect;
 RECT MessageOptRect;
-RECT StatusOptRect;
 RECT MessageIptRect;
+RECT StatusOptRect;
+RECT InfoStatusOptRect;
 
 int rows_y[] = { 10, 30, 50, 70, 100, 130, 370, 400, 430 };
 
@@ -166,13 +198,13 @@ int APIENTRY WinMain(
 
     ZeroMemory(&PreferencesData, sizeof(PREFERENCES_DATA));
     ZeroMemory(&ConnectionData, sizeof(CONNECTION_DATA));
+    
     CfgFile.init();
     CfgFileParser = new ConfigFileParser(CfgFile.Keys, '#');
 
     parseCmdLine(lpCmdLine);
     parseConfigFile();
     fillParamDefaults();
-    connectionDataDialog.setConfigFile(&CfgFile);
 
 
     // load icons
@@ -190,8 +222,23 @@ int APIENTRY WinMain(
         notify_snd = NULL;
 
     // Initialize global strings
-    LoadStringA(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-    LoadStringA(hInstance, IDC_GUI, szWindowClass, MAX_LOADSTRING);
+    int ln = LoadStringA(hInstance, IDS_APP_TITLE, WindowTitleD, MAX_LOADSTRING);
+    if ( ln >= MAX_LOADSTRING )
+        WindowTitleD[MAX_LOADSTRING-1] = 0;
+    strcpy_s(WindowTitleC, MAX_LOADSTRING, WindowTitleD);
+    if ( ln >= MAX_LOADSTRING-1 )
+    {
+        WindowTitleC[MAX_LOADSTRING-2] = '*';
+        WindowTitleC[MAX_LOADSTRING-1] = 0;
+    }
+    else
+    {
+        WindowTitleC[ln] = '*';
+        WindowTitleC[ln+1] = 0;
+    }
+    WindowTitle = WindowTitleD;
+
+    LoadStringA(hInstance, IDC_GUI, WindowClass, MAX_LOADSTRING);
     MyRegisterClass(hInstance);
 
     // Perform application initialization:
@@ -200,6 +247,17 @@ int APIENTRY WinMain(
         return 0;
     }
     
+    ConnectionDataDlg.setConfigFile(&CfgFile);
+	ConnectionDataDlg.setMainWindow(MainWindow);
+	
+	PreferencesDlg.setMainWindow(MainWindow);
+    PreferencesDlg.setConfigFile(&CfgFile);
+
+	AboutDlg.setMainWindow(MainWindow);
+
+    CloseDlg.setMainWindow(MainWindow);
+
+
     HACCEL hAccelTable = LoadAcceleratorsA(hInstance, MAKEINTRESOURCEA(IDC_GUI));
 
     MSG msg;
@@ -427,10 +485,6 @@ void fillParamDefaults()
     {
         cropTrailingSlash(PreferencesData.FileDir);
     }
-    
-    client_setLogDir(PreferencesData.LogDir);
-    client_setCertDir(PreferencesData.CertDir);
-    client_setFileDir(PreferencesData.FileDir);
 }
 
 //
@@ -452,7 +506,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.hCursor = LoadCursorA(nullptr, IDC_ARROW);
     wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wcex.lpszMenuName = MAKEINTRESOURCEA(IDC_GUI);
-    wcex.lpszClassName = szWindowClass;
+    wcex.lpszClassName = WindowClass;
     wcex.hIconSm = gui_icon_off;
     //wcex.hIconSm = small_icon_off;
 
@@ -471,21 +525,30 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-    hInst = hInstance; // Store instance handle in our global variable
+    MainInstance = hInstance; // Store instance handle in our global variable
+    
+	HWND Desktop = GetDesktopWindow();
+	RECT DesktopRect;
+	GetClientRect(Desktop, &DesktopRect);
 
-    LONG ww = DEFAULT_WINDOW_WIDTH;
-    LONG wh = DEFAULT_WINDOW_HEIGHT;
-    MainRect = { 0, 0, ww, wh };
+	INT x = (DesktopRect.right - DEFAULT_WINDOW_WIDTH) / 2;
+	INT y = (DesktopRect.bottom - DEFAULT_WINDOW_HEIGHT) / 2;
+	if ( x < 0 )
+		x = 0;
+	if ( y < 0 )
+		y = 0;
+
+    MainRect = { x, y, DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT };
 
     MainWindow = CreateWindowExA(
         0,
-        szWindowClass,
-        szTitle,
+        WindowClass,
+        WindowTitle,
         WS_OVERLAPPEDWINDOW | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-        CW_USEDEFAULT,
-        0,
-        MainRect.right - MainRect.left,
-        MainRect.bottom - MainRect.top,
+        x,
+        y,
+        DEFAULT_WINDOW_WIDTH,
+        DEFAULT_WINDOW_HEIGHT,
         NULL,
         NULL,
         hInstance,
@@ -514,9 +577,9 @@ BOOL CALLBACK EnumChildProc(HWND hwndChild, LPARAM lParam)
     INT ParentW = rcParent->right;
     INT ParentH = rcParent->bottom;
     
-    //DOUBLE cxRate, cyRate; 
     INT newX, newY, newW, newH; 
 
+    // check min width
     if ( rcParent->right < MIN_WINDOW_WIDTH && rcParent->bottom < MIN_WINDOW_HEIGHT )
         return TRUE;
 
@@ -525,67 +588,74 @@ BOOL CALLBACK EnumChildProc(HWND hwndChild, LPARAM lParam)
     if ( rcParent->bottom < MIN_WINDOW_HEIGHT )
         ParentH = MIN_WINDOW_HEIGHT;
 
-    if ( idChild == HWND_MESSAGE_OPT_IDX )
+    // check child id
+    if ( idChild == WND_MESSAGE_OPT_IDX )
         rcChild = &MessageOptRect;
-    else if ( idChild == HWND_STATUS_OPT_IDX )
+    else if ( idChild == WND_STATUS_OPT_IDX )
         rcChild = &StatusOptRect;
-    else if ( idChild == HWND_MESSAGE_IPT_IDX || HWND_FILE_BTN_IDX || HWND_SEND_BTN_IDX || HWND_FILE_PROGRESS_IDX )
+    else if ( idChild == WND_INFO_STATUS_OPT_IDX )
+        rcChild = &InfoStatusOptRect;
+    else if ( idChild == WND_MESSAGE_IPT_IDX || WND_FILE_BTN_IDX || WND_SEND_BTN_IDX || WND_FILE_PROGRESS_IDX )
         rcChild = &MessageIptRect;
     else
         return TRUE;
 
-    //cxRate = (DOUBLE)rcParent->right / DEFAULT_WINDOW_WIDTH;
-    //cyRate = (DOUBLE)rcParent->bottom / DEFAULT_WINDOW_HEIGHT;
+//#ifdef DEBUG_PRINT
+//    std::string s = "left: "+std::to_string(rcParent->left)
+//        +", top: "+std::to_string(rcParent->top)
+//        +", right: "+std::to_string(rcParent->right)
+//        +", bottom: "+std::to_string(rcParent->bottom);
+//    showStatus(s.c_str());
+//#endif
 
-#ifdef DEBUG_PRINT
-    std::string s = "left: "+std::to_string(rcParent->left)
-        +", top: "+std::to_string(rcParent->top)
-        +", right: "+std::to_string(rcParent->right)
-        +", bottom: "+std::to_string(rcParent->bottom);
-    showStatus(s.c_str());
-#endif
-
-    if ( idChild == HWND_MESSAGE_OPT_IDX )
+    if ( idChild == WND_MESSAGE_OPT_IDX )
     {
         newX = (INT)(rcChild->left);
         newY = (INT)(rcChild->top);
         newW = (INT)(ParentW - PARENT_PADDING*2);
         newH = (INT)(ParentH - rcChild->top - PARENT_PADDING*3);
     }
-    else if ( idChild == HWND_STATUS_OPT_IDX )
-    {
-        newX = (INT)(rcChild->left);
-        newY = (INT)(ParentH - IPT_H*2);
-        newW = (INT)(ParentW);
-        newH = (INT)(rcChild->bottom);
-    }
-    else if ( idChild == HWND_MESSAGE_IPT_IDX )
+    else if ( idChild == WND_MESSAGE_IPT_IDX )
     {
         newX = (INT)(rcChild->left);
         newY = (INT)(rcChild->top);
-        newW = (INT)(ParentW - rcChild->left - DEFAULT_BTN_W*2 - PARENT_PADDING - IPT_PADDING*2);
+        newW = (INT)(ParentW - rcChild->left - BTN_W*2 - PARENT_PADDING - IPT_MARGIN*2);
         newH = (INT)(rcChild->bottom);
     }
-    else if ( idChild == HWND_FILE_BTN_IDX )
+    else if ( idChild == WND_FILE_BTN_IDX )
     {
-        newX = (INT)(ParentW - DEFAULT_BTN_W - PARENT_PADDING);
+        newX = (INT)(ParentW - BTN_W - PARENT_PADDING);
         newY = (INT)(rcChild->top);
-        newW = (INT)(DEFAULT_BTN_W);
-        newH = (INT)(DEFAULT_BTN_H);
+        newW = (INT)(BTN_W);
+        newH = (INT)(BTN_H);
     }
-    else if ( idChild == HWND_SEND_BTN_IDX )
+    else if ( idChild == WND_SEND_BTN_IDX )
     {
-        newX = (INT)(ParentW - DEFAULT_BTN_W*2 - PARENT_PADDING - IPT_PADDING);
+        newX = (INT)(ParentW - BTN_W*2 - PARENT_PADDING - IPT_MARGIN);
         newY = (INT)(rcChild->top);
-        newW = (INT)(DEFAULT_BTN_W);
-        newH = (INT)(DEFAULT_BTN_H);
+        newW = (INT)(BTN_W);
+        newH = (INT)(BTN_H);
     }
-    else if ( idChild == HWND_FILE_PROGRESS_IDX )
+    else if ( idChild == WND_FILE_PROGRESS_IDX )
     {
         newX = (INT)(ParentW - DEFAULT_PROG_BAR_W - PARENT_PADDING);
         newY = (INT)(rcChild->top - DEFAULT_PROG_BAR_H);
         newW = (INT)(DEFAULT_PROG_BAR_W);
         newH = (INT)(DEFAULT_PROG_BAR_H);
+    }
+    else if ( idChild == WND_STATUS_OPT_IDX )
+    {
+        newX = (INT)(rcChild->left);
+        newY = (INT)(ParentH - IPT_H);
+        newW = (INT)(rcChild->right);
+        newH = (INT)(rcChild->bottom);
+    }
+    else if ( idChild == WND_INFO_STATUS_OPT_IDX )
+    {
+        newX = (INT)(rcChild->left);
+        newY = (INT)(ParentH - IPT_H);
+        newW = (INT)(ParentW - STATUS_OPT_W+STATUS_MARGIN);
+        newH = (INT)(rcChild->bottom);
     }
     else
         return TRUE;
@@ -612,6 +682,7 @@ BOOL CALLBACK EnumChildProc(HWND hwndChild, LPARAM lParam)
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     LRESULT result = 0;
+    std::string r;
 
     switch ( message )
     {
@@ -632,6 +703,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         EnumChildWindows(hWnd, EnumChildProc, (LPARAM)&MainRect);
         return 0;
 
+	case WM_CLOSE:
+        result = ConfirmClose(hWnd);
+        if ( result == IDOK )
+            return DefWindowProcA(hWnd, message, wParam, lParam);
+        else
+            break;
+
     case WM_DESTROY:
         result = onDestroy(hWnd);
         break;
@@ -645,37 +723,47 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 LRESULT onCommand(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     LRESULT result = 0;
-
     int wmId = LOWORD(wParam);
+    std::string r;
 
     switch ( wmId )
     {
-    case HWND_CONNECT_BTN_IDX:
+    case WND_CONNECT_BTN_IDX:
         result = onConnect(hWnd);
         break;
 
-    case HWND_LISTEN_BTN_IDX:
+    case WND_LISTEN_BTN_IDX:
         result = onListen(hWnd);
         break;
 
-    case HWND_FILE_BTN_IDX:
+    case WND_FILE_BTN_IDX:
         result = onSelectFile(hWnd, FOS_FORCEFILESYSTEM, MessageIpt, MSG_CMD_FILE);
         break;
 
-    case HWND_SEND_BTN_IDX:
+    case WND_SEND_BTN_IDX:
         result = onSend(hWnd);
         break;
 
     case IDM_ABOUT:
-        DialogBoxA(hInst, MAKEINTRESOURCEA(IDD_ABOUT_BOX), hWnd, AboutDialogCB);
+        DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_ABOUT_DLG), hWnd, AboutDialogCB, 0L);
         break;
 
     case IDM_PREFS:
-        DialogBoxA(hInst, MAKEINTRESOURCEA(IDD_PREFS_BOX), hWnd, PrefsDialogCB);
+        result = (LRESULT)DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_PREFS_DLG), hWnd, PrefsDialogCB, 0L);
+        if ( PreferencesDlg.hasChanged() )
+        {
+            DataHasChanged = true;
+            SetWindowTextA(MainWindow, WindowTitleC);
+        }
         break;
 
     case IDM_CONN_DATA:
-        DialogBoxA(hInst, MAKEINTRESOURCEA(IDD_CONN_DATA_BOX), hWnd, ConnectionDataDialogCB);
+        DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_CONN_DATA_DLG), hWnd, ConnectionDataDialogCB, 0L);
+        if ( ConnectionDataDlg.hasChanged() )
+        {
+            DataHasChanged = true;
+            SetWindowTextA(MainWindow, WindowTitleC);
+        }
         break;
 
     //case WM_CTLCOLORSTATIC:
@@ -683,11 +771,13 @@ LRESULT onCommand(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     //    break;
 
     case IDM_SAVE:
-        SafeData(hWnd);
+        onSafeData();
         break;
 
     case IDM_EXIT:
-        DestroyWindow(hWnd);
+        result = ConfirmClose(hWnd);
+        if ( result == IDOK )
+            DestroyWindow(hWnd);
         break;
 
     default:
@@ -697,16 +787,81 @@ LRESULT onCommand(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return result;
 }
 
-LRESULT SafeData(HWND hWnd)
+LRESULT onSafeData()
 {
     LRESULT result = 0;
-    (hWnd);
 
     updateConfigFile(&ConnectionData, &PreferencesData);
-    CfgFileParser->save(CfgFile.Path);
+    result = CfgFileParser->save(CfgFile.Path);
+    
+	if ( result != 0 )
+		ShowInfoStatus("Saving failed");
+	else
+    {
+        ShowInfoStatus("Saved");
+        SetWindowText(MainWindow, WindowTitleD);
+    }
 
     return result;
 }
+
+// Message handler for about box.
+INT_PTR CALLBACK AboutDialogCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    return AboutDlg.openCb(hDlg, message, wParam, lParam);
+}
+
+ //Message handler for prefs box.
+INT_PTR CALLBACK PrefsDialogCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    (lParam);
+    return PreferencesDlg.openCb(hDlg, message, wParam, (LPARAM)&PreferencesData);
+}
+
+ //Message handler for connection data
+INT_PTR CALLBACK ConnectionDataDialogCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    (lParam);
+    return ConnectionDataDlg.openCb(hDlg, message, wParam, (LPARAM)&ConnectionData);
+}
+
+INT ConfirmClose(HWND hWnd)
+{
+    INT result = IDOK;
+    if ( ConnectionStatus == CONNECTION_STATUS::CONNECTED )
+    {
+        result = (INT)DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_CLOSE_DLG), hWnd, onCloseCB, 0L);
+        std::string r = "close result: "+std::to_string(result);
+        ShowInfoStatus(r.c_str());
+    }
+
+    return result;
+}
+
+INT_PTR CALLBACK onCloseCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    return CloseDlg.openCb(hDlg, message, wParam, lParam);
+}
+
+//LRESULT onClose(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+//{
+//	LRESULT result = 0;
+//	UNREFERENCED_PARAMETER(hWnd);
+//	
+//    std::string m = "status: "+std::to_string((int)ConnectionStatus);
+//    showStatus(m.c_str());
+//    if ( ConnectionStatus == CONNECTION_STATUS::LISTENING )
+//    {
+//        result = MessageBoxA(NULL, "Alert",  "Message", MB_OKCANCEL | MB_ICONINFORMATION);
+//        
+//        if ( result != IDOK )
+//        {
+//            return result;
+//        }
+//    }
+//
+//	return DefWindowProcA(hWnd, message, wParam, lParam);
+//}
 
 LRESULT onDestroy(HWND hWnd)
 {
@@ -724,7 +879,7 @@ LRESULT onDestroy(HWND hWnd)
     DestroyIcon(gui_icon_listen);
     FreeResource(notify_snd);
     
-    SafeData(hWnd);
+    //onSafeData();
 
     if ( pmsg )
         delete[] pmsg;
@@ -735,56 +890,6 @@ LRESULT onDestroy(HWND hWnd)
     return result;
 }
 
-
-// Message handler for about box.
-INT_PTR CALLBACK AboutDialogCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    UNREFERENCED_PARAMETER(lParam);
-    switch ( message )
-    {
-    case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
-
-    case WM_COMMAND:
-        if ( LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL )
-        {
-            EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
-        }
-        break;
-    }
-    return (INT_PTR)FALSE;
-}
-
- //Message handler for prefs box.
-INT_PTR CALLBACK PrefsDialogCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    UNREFERENCED_PARAMETER(lParam);
-
-    switch ( message )
-    {
-    case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
-
-    case WM_COMMAND:
-        if ( LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL )
-        {
-            EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
-        }
-        break;
-    }
-    return (INT_PTR)FALSE;
-}
-
- //Message handler for connection data
-INT_PTR CALLBACK ConnectionDataDialogCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    (lParam);
-    return connectionDataDialog.openCb(hDlg, message, wParam, (LPARAM)&ConnectionData);
-}
-
-// Message handler for prefs box.
 INT_PTR CALLBACK FTAcceptDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     char* base_name;
@@ -820,8 +925,9 @@ LRESULT CALLBACK subEditProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         default:
             break;
     }
-    return CallWindowProc(oldMessageIpt, hWnd, msg, wParam, lParam);
+    return CallWindowProcA(oldMessageIpt, hWnd, msg, wParam, lParam);
 }
+
 //#include "Richedit.h"
 //#include "commctrl.h"
 
@@ -830,154 +936,76 @@ LRESULT onCreate(HWND hWnd)
 {
     LRESULT result = 0;
 
-    //int ipt_x = 85;
-    //int ipt_x2 = 485;
-    //int ipt_w1 = 100;
-    //int ipt_w2 = 300;
-    //int ipt_w3 = 400;
-    int ipt_w4 = 500;
-    int ipt_h = DEFAULT_BTN_H;
-    int btn_w = DEFAULT_BTN_W;
-    int btn_h = 20;
-    int send_btn_x = 585;
-    int file_btn_x = send_btn_x + btn_w + 10;
-    int msg_ipt_w = ipt_w4 + 75;
+    int file_btn_x = DEFAULT_WINDOW_WIDTH - PARENT_PADDING;
     int msg_box_w = 600;
     int msg_box_h = 230;
 
-    //NameIpt = CreateWindowA(
-    //    "EDIT",
-    //    (ConnectionData.name==NULL)?ANONYMOUS:ConnectionData.name,
-    //    WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_GROUP | WS_TABSTOP,
-    //    ipt_x, rows_y[0], ipt_w1, ipt_h,
-    //    hWnd, (HMENU)HWND_NAME_IPT_IDX, NULL, NULL
-    //);
-
-    //IpIpt = CreateWindowA(
-    //    "EDIT",
-    //    (ConnectionData.ip==NULL)?"127.0.0.1":ConnectionData.ip,
-    //    WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_GROUP | WS_TABSTOP,
-    //    ipt_x, rows_y[1], ipt_w2, ipt_h,
-    //    hWnd, (HMENU)HWND_IP_IPT_IDX, NULL, NULL
-    //);
-
-    //IpVersionIpt = CreateWindowA(
-    //    "EDIT",
-    //    (ConnectionData.family==AF_INET)?"4":"6",
-    //    WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_GROUP | WS_TABSTOP,
-    //    ipt_x2, rows_y[1], ipt_w1, ipt_h,
-    //    hWnd, (HMENU)HWND_IP_IPT_IDX, NULL, NULL
-    //);
-
-    //PortIpt = CreateWindowA(
-    //    "EDIT",
-    //    (ConnectionData.port==NULL)?"8080":ConnectionData.port,
-    //    WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_GROUP | WS_TABSTOP,
-    //    ipt_x, rows_y[2], ipt_w1, ipt_h,
-    //    hWnd, (HMENU)HWND_PORT_IPT_IDX, NULL, NULL
-    //);
-
-    //CertFileIpt = CreateWindowA(
-    //    "EDIT",
-    //    (ConnectionData.CertThumb[0]==0)?"":ConnectionData.CertThumb,
-    //    WS_BORDER | WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_GROUP | WS_TABSTOP,
-    //    ipt_x, rows_y[3], ipt_w3, ipt_h,
-    //    hWnd, (HMENU)HWND_CERT_IPT_IDX, NULL, NULL
-    //);
-    
-    //MessageIpt = CreateWindowA(
-    //    "EDIT",
-    //    "",
-    //    WS_BORDER | WS_CHILD | WS_VISIBLE | WS_GROUP | ES_AUTOHSCROLL,
-    //    ipt_x, rows_y[4], msg_ipt_w, ipt_h,
-    //    hWnd, (HMENU)HWND_MESSAGE_IPT_IDX, NULL, NULL
-    //);
-    MessageIptRect.left = IPT_PADDING;
-    MessageIptRect.top = rows_y[4];
-    MessageIptRect.right = msg_ipt_w;
-    MessageIptRect.bottom = ipt_h;
+    MessageIptRect.left = PARENT_PADDING;
+    MessageIptRect.top = rows_y[3];
+    MessageIptRect.right = DEFAULT_WINDOW_WIDTH - PARENT_PADDING*2 - BTN_W*2 - IPT_MARGIN*2;
+    MessageIptRect.bottom = IPT_H;
     MessageIpt = CreateWindowExA(
         0, // WS_EX_CLIENTEDGE
-        "EDIT", 
+        WC_EDITA, 
         (pmsg)?pmsg:"", 
         WS_BORDER | WS_CHILD | WS_VISIBLE  | ES_AUTOHSCROLL | ES_MULTILINE,
         MessageIptRect.left, MessageIptRect.top, MessageIptRect.right, MessageIptRect.bottom,
         hWnd, 
-        (HMENU)HWND_MESSAGE_IPT_IDX, 
+        (HMENU)WND_MESSAGE_IPT_IDX, 
         GetModuleHandle(NULL), 
         NULL
     );
-    oldMessageIpt = (WNDPROC)SetWindowLongPtr(MessageIpt, GWLP_WNDPROC, (LONG_PTR)subEditProc);
+    oldMessageIpt = (WNDPROC)SetWindowLongPtrA(MessageIpt, GWLP_WNDPROC, (LONG_PTR)subEditProc);
 
     SendBtn = CreateWindowA(
-        "BUTTON",
+        WC_BUTTONA,
         "Send",
         WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
-        send_btn_x, rows_y[4], btn_w, btn_h,
-        hWnd, (HMENU)HWND_SEND_BTN_IDX, NULL, NULL
+        MessageIptRect.left + MessageIptRect.right + IPT_MARGIN, rows_y[3], BTN_W, BTN_H,
+        hWnd, (HMENU)WND_SEND_BTN_IDX, NULL, NULL
     );
 
-    //FileIpt = CreateWindowA(
-    //    "EDIT",
-    //    "",
-    //    WS_BORDER | WS_CHILD | WS_VISIBLE  | ES_AUTOHSCROLL,
-    //    ipt_x, rows_y[5], ipt_w4, ipt_h,
-    //    hWnd, (HMENU)HWND_FILE_IPT_IDX, NULL, NULL
-    //);
-
     SelFileBtn = CreateWindowA(
-        "BUTTON",
+        WC_BUTTONA,
         FILE_BTN_SELECT_STR,
         WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
-        file_btn_x, rows_y[4], btn_w, btn_h,
-        hWnd, (HMENU)HWND_FILE_BTN_IDX, NULL, NULL
+        file_btn_x, rows_y[3], BTN_W, BTN_H,
+        hWnd, (HMENU)WND_FILE_BTN_IDX, NULL, NULL
     );
      
     //LoadLibrary("Msftedit.dll");
     //    MessageOpt = CreateWindowExA(0, "RICHEDIT50W", "Type here",
     //    WS_BORDER | WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY, 
     //    ipt_x, rows_y[6], msg_box_w, msg_box_h,
-    //    hWnd, (HMENU)HWND_MESSAGE_OPT_IDX, hInst, NULL);
+    //    hWnd, (HMENU)WND_MESSAGE_OPT_IDX, MainInstance, NULL);
     MessageOptRect.left = PARENT_PADDING;
-    MessageOptRect.top = rows_y[5];
+    MessageOptRect.top = rows_y[4];
     MessageOptRect.right = msg_box_w;
     MessageOptRect.bottom = msg_box_h;
     MessageOpt = CreateWindowA(
-        "EDIT",
+        WC_EDITA,
         "",
         WS_BORDER | WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY,
         MessageOptRect.left, MessageOptRect.top, MessageOptRect.right, MessageOptRect.bottom,
-        hWnd, (HMENU)HWND_MESSAGE_OPT_IDX, NULL, NULL
-    );
-
-    StatusOptRect.left = 0;
-    StatusOptRect.top = DEFAULT_WINDOW_HEIGHT - 20;
-    StatusOptRect.right = DEFAULT_WINDOW_WIDTH;
-    StatusOptRect.bottom = ipt_h;
-    StatusOpt = CreateWindowA(
-        "EDIT",
-        "",
-        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_READONLY,
-        StatusOptRect.left, StatusOptRect.top, StatusOptRect.right, StatusOptRect.bottom,
-        hWnd, (HMENU)HWND_STATUS_OPT_IDX, NULL, NULL
+        hWnd, (HMENU)WND_MESSAGE_OPT_IDX, NULL, NULL
     );
 
     ListenBtn = CreateWindowExA(
         0,
-        "BUTTON",
+        WC_BUTTONA,
         "Listen",
         WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
-        0, rows_y[0], btn_w, btn_h,
-        hWnd, (HMENU)HWND_LISTEN_BTN_IDX, NULL, NULL
+        PARENT_PADDING, rows_y[0], BTN_W, BTN_H,
+        hWnd, (HMENU)WND_LISTEN_BTN_IDX, NULL, NULL
     );
 
     ConnectBtn = CreateWindowExA(
         0,
-        "BUTTON",
+        WC_BUTTONA,
         "Connect",
         WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
-        btn_w + 10, rows_y[0], btn_w, btn_h,
-        hWnd, (HMENU)HWND_CONNECT_BTN_IDX, NULL, NULL
+        PARENT_PADDING + IPT_MARGIN + BTN_W, rows_y[0], BTN_W, BTN_H,
+        hWnd, (HMENU)WND_CONNECT_BTN_IDX, NULL, NULL
     );
 
     FilePBar = CreateWindowExA(
@@ -985,17 +1013,47 @@ LRESULT onCreate(HWND hWnd)
                 PROGRESS_CLASS, 
                 (LPTSTR) NULL, 
                 WS_CHILD | WS_VISIBLE, 
-                file_btn_x, rows_y[5], DEFAULT_PROG_BAR_W, DEFAULT_PROG_BAR_H,
+                file_btn_x, rows_y[4], DEFAULT_PROG_BAR_W, DEFAULT_PROG_BAR_H,
                 hWnd, 
-                (HMENU)HWND_FILE_PROGRESS_IDX, 
+                (HMENU)WND_FILE_PROGRESS_IDX, 
                 GetModuleHandle(NULL), 
                 NULL
             );
-
     SendMessage(FilePBar, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
     ShowWindow(FilePBar, SW_HIDE);
+
+
+
+    StatusOptRect.left = 0;
+    StatusOptRect.top = DEFAULT_WINDOW_HEIGHT - 20;
+    StatusOptRect.right = STATUS_OPT_W;
+    StatusOptRect.bottom = IPT_H;
+    StatusOpt = CreateWindowA(
+        WC_EDITA,
+        "",
+        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_READONLY,
+        StatusOptRect.left, StatusOptRect.top, StatusOptRect.right, StatusOptRect.bottom,
+        hWnd, (HMENU)WND_STATUS_OPT_IDX, NULL, NULL
+    );
+
+
+
+    InfoStatusOptRect.left = STATUS_OPT_W + STATUS_MARGIN;
+    InfoStatusOptRect.top = DEFAULT_WINDOW_HEIGHT - 20;
+    InfoStatusOptRect.right = DEFAULT_WINDOW_WIDTH - STATUS_OPT_W + STATUS_MARGIN;
+    InfoStatusOptRect.bottom = IPT_H;
+    InfoStatusOpt = CreateWindowA(
+        WC_EDITA,
+        "",
+        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_READONLY,
+        InfoStatusOptRect.left, InfoStatusOptRect.top, InfoStatusOptRect.right, InfoStatusOptRect.bottom,
+        hWnd, (HMENU)WND_INFO_STATUS_OPT_IDX, NULL, NULL
+    );
+
+
+
     
-    setStatusOutput(StatusOpt);
+    setStatusOutput(InfoStatusOpt);
     setMessageOutput(MessageOpt);
     setFilePBar(FilePBar);
 
@@ -1011,11 +1069,6 @@ LRESULT onCreate(HWND hWnd)
 LRESULT onPaint(HWND hWnd)
 {
     LRESULT result = 0;
-    //CHAR name_lbl[] = "User name";
-    //CHAR ip_lbl[] = "IP";
-    //CHAR ipv_lbl[] = "Version";
-    //CHAR port_lbl[] = "Port";
-    //CHAR cert_lbl[] = "Cert thumb";
     CHAR message_lbl[] = "Message";
 
     int lbl_x = 10;
@@ -1024,17 +1077,7 @@ LRESULT onPaint(HWND hWnd)
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hWnd, &ps);
 
-    //TextOutA(hdc, lbl_x, rows_y[0], name_lbl, (int)strlen(name_lbl));
-
-    //TextOutA(hdc, lbl_x, rows_y[1], ip_lbl, (int)strlen(ip_lbl));
-
-    //TextOutA(hdc, lbl_x2, rows_y[1], ipv_lbl, (int)strlen(ipv_lbl));
-    
-    //TextOutA(hdc, lbl_x, rows_y[2], port_lbl, (int)strlen(port_lbl));
-
-    //TextOutA(hdc, lbl_x, rows_y[3], cert_lbl, (int)strlen(cert_lbl));
-
-    TextOutA(hdc, lbl_x, rows_y[3], message_lbl, (int)strlen(message_lbl));
+    TextOutA(hdc, lbl_x, rows_y[2], message_lbl, (int)strlen(message_lbl));
 
     EndPaint(hWnd, &ps);
     
@@ -1086,65 +1129,25 @@ VOID changeIcon(CONNECTION_STATUS status)
 
 VOID setupNetClient()
 {
-    //int ip_len = GetWindowTextLengthA(IpIpt) + 1;
-    //if ( ip_len > 1 && ip_len <= MAX_IP_LN )
-    //    GetWindowTextA(IpIpt, ConnectionData.ip, ip_len); 
-    //else
-    //{
-    //    ConnectionData.ip[0] = 0;
-    //    ip_len = 1;
-    //    showStatus("Wrong IP size!");
-    //}
     ConnectionData.family = deriveFamily(ConnectionData.ip, strlen(ConnectionData.ip));
     family = ConnectionData.family;
         
-    //int port_len = GetWindowTextLengthA(PortIpt) + 1;
-    //if ( port_len > 1 && port_len <= MAX_PORT_LN )
-    //    GetWindowTextA(PortIpt, ConnectionData.port, port_len);
-    //else
-    //{
-    //    ConnectionData.port[0] = 0;
-    //    showStatus("Wrong port size!");
-    //}
-
-    //int name_len = GetWindowTextLengthA(NameIpt) + 1;
-    //if ( name_len > 1 && name_len <= MAX_NAME_LN )
-    //    GetWindowTextA(NameIpt, ConnectionData.name, name_len);
-    //else
-    //{
-    //    strcpy_s(ConnectionData.name, MAX_NAME_LN, ANONYMOUS);
-    //    showStatus("Wrong name size!");
-    //}
-
-    //int cert_len = GetWindowTextLengthA(CertFileIpt) + 1;
-    //if ( cert_len > 1 && cert_len <= SHA1_STRING_BUFFER_LN )
-    //    GetWindowTextA(CertFileIpt, ConnectionData.CertThumb, cert_len);
-    //else
-    //{
-    //    ConnectionData.CertThumb[0] = 0;
-    //    showStatus("Wrong cert thumb size!");
-    //}
+    client_setLogDir(PreferencesData.LogDir);
+    client_setCertDir(PreferencesData.CertDir);
+    client_setFileDir(PreferencesData.FileDir);
 
     client_setNick(ConnectionData.name);
 }
 
 void enableConnectedControls(HWND btn)
 {
-    //SendMessageA(NameIpt, EM_SETREADONLY, FALSE, NULL);
-    //SendMessageA(IpIpt, EM_SETREADONLY, FALSE, NULL);
-    //SendMessageA(PortIpt, EM_SETREADONLY, FALSE, NULL);
-    //SendMessageA(IpVersionIpt, EM_SETREADONLY, FALSE, NULL);
-    //SendMessageA(CertFileIpt, EM_SETREADONLY, FALSE, NULL);
+    ConnectionDataDlg.enable();
     EnableWindow(btn, TRUE);
 }
 
 void disableConnectedControls(HWND btn)
 {
-    //SendMessageA(NameIpt, EM_SETREADONLY, TRUE, NULL);
-    //SendMessageA(IpIpt, EM_SETREADONLY, TRUE, NULL);
-    //SendMessageA(PortIpt, EM_SETREADONLY, TRUE, NULL);
-    //SendMessageA(IpVersionIpt, EM_SETREADONLY, TRUE, NULL);
-    //SendMessageA(CertFileIpt, EM_SETREADONLY, TRUE, NULL);
+    ConnectionDataDlg.disable();
     EnableWindow(btn, FALSE);
 }
 
@@ -1226,6 +1229,7 @@ LRESULT onListen(HWND hWnd)
 {
     LRESULT result = 0;
     UNREFERENCED_PARAMETER(hWnd);
+    CHAR buffer[0x50];
 
     initLog("server");
 
@@ -1278,7 +1282,8 @@ LRESULT onListen(HWND hWnd)
         
         disableConnectedControls(ConnectBtn);
         SetWindowTextA(ListenBtn, "Stop");
-        showStatus("Listening");
+        sprintf_s(buffer, 0x50, "Listening on %s", ConnectionData.port);
+        showStatus(buffer);
         changeIcon(CONNECTION_STATUS::LISTENING);
         
         cstmtx.lock();
@@ -1512,184 +1517,13 @@ LRESULT onSelectFile(HWND hWnd, DWORD flags, HWND output, PCZZSTR prefix)
 {
     if ( FileTransferStatus == FILE_TRANSFER_STATUS::STOPPED )
     {
-        return SelectFile(hWnd, flags, output, prefix);
+        return FileSel.select(hWnd, flags, output, prefix);
     }
     else if ( FileTransferStatus == FILE_TRANSFER_STATUS::ACTIVE )
     {
         return CancelFileTransfer();
     }
     return 0;
-}
-
-//LRESULT SelectFile(HWND hWnd, DWORD flags, HWND output, PCZZSTR prefix)
-//{
-//    LRESULT r = 0;
-//
-//    OPENFILENAME ofn;       // common dialog box structure
-//    char szFile[MAX_PATH];       // buffer for file name
-//
-//    // Initialize OPENFILENAME
-//    ZeroMemory(&ofn, sizeof(ofn));
-//    ofn.lStructSize = sizeof(ofn);
-//    ofn.hwndOwner = hWnd;
-//    ofn.lpstrFile = szFile;
-//    // Set lpstrFile[0] to '\0' so that GetOpenFileName does not 
-//    // use the contents of szFile to initialize itself.
-//    ofn.lpstrFile[0] = '\0';
-//    ofn.nMaxFile = sizeof(szFile);
-//    ofn.lpstrFilter = "All\0*.*\0";
-//    ofn.nFilterIndex = 0;
-//    ofn.lpstrFileTitle = NULL;
-//    ofn.nMaxFileTitle = 0;
-//    ofn.lpstrInitialDir = NULL;
-//    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
-//
-//    (flags);
-//    // Display the Open dialog box. 
-//    if ( GetOpenFileName(&ofn) == TRUE )
-//    {
-//        if ( prefix != NULL && prefix[0] != 0 )
-//        {
-//            size_t value_size = strlen(ofn.lpstrFile)+7;
-//            char* value = new char[value_size];
-//            sprintf_s(value, value_size, "%s%s", prefix, ofn.lpstrFile);
-//            value[value_size-1] = 0;
-//            SetWindowTextA(output, value);
-//            delete[] value;
-//        }
-//        else
-//        {
-//            SetWindowTextA(output, ofn.lpstrFile);
-//        }
-//    }
-//
-//    return r;
-//}
-// Only appears after a large file has been sent.
-// VERIFIER STOP 0000000000000350: pid 0x2AE8: Unloading DLL that allocated TLS index that was not freed. 
-//
-//    000000000047ABBA : TLS index
-//    00007FFEA0AB5EE3 : Address of the code that allocated this TLS index.
-//    00000207945E7FD8 : DLL name address. Use du to dump it.
-//    00007FFEA0AB0000 : DLL base address.
-//
-// dlnashext!wil::init_once_nothrow<<lambda_ba621665f78b7b7f3bfc8a7498684c3d> >
-#include "CDialogEventHandler.h"
-LRESULT SelectFile(HWND hWnd, DWORD flags, HWND output, PCZZSTR prefix)
-{
-    UNREFERENCED_PARAMETER(hWnd);
-
-    DWORD dwCookie = 0;
-    BOOL bCookie = FALSE;
-    DWORD dwFlags = 0;
-    IShellItem *psiResult = NULL;
-    PWSTR pszFilePath = NULL;
-    IFileDialogEvents *pfde = NULL;
-    IFileDialog *pfd = NULL;
-
-    // CoCreate the File Open Dialog object.
-    HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, 
-                      NULL, 
-                      CLSCTX_INPROC_SERVER, 
-                      IID_PPV_ARGS(&pfd));
-    if ( FAILED(hr) )
-        return hr;
-
-    // Create an event handling object, and hook it up to the dialog.
-    hr = CDialogEventHandler_CreateInstance(IID_PPV_ARGS(&pfde));
-    if ( FAILED(hr) )
-        goto clean;
-
-    // Hook up the event handler.
-    hr = pfd->Advise(pfde, &dwCookie);
-    if ( FAILED(hr) )
-        goto clean;
-    bCookie = TRUE;
-
-    // Set the options on the dialog.
-    // Before setting, always get the options first in order 
-    // not to override existing options.
-    hr = pfd->GetOptions(&dwFlags);
-    if ( FAILED(hr) )
-        goto clean;
-
-    // In this case, get shell items only for file system items.
-    hr = pfd->SetOptions(dwFlags | flags);
-    if ( FAILED(hr) )
-        goto clean;
-
-    // Set the file types to display only. 
-    // Notice that this is a 1-based array.
-    //hr = pfd->SetFileTypes(ARRAYSIZE(c_rgSaveTypes), c_rgSaveTypes);
-    //if ( FAILED(hr) )
-    //    goto clean;
-    // 
-    // Set the selected file type index to Word Docs for this example.
-    //hr = pfd->SetFileTypeIndex(INDEX_WORDDOC);
-    //if ( FAILED(hr) )
-    //    goto clean;
-    // 
-    // Set the default extension to be ".doc" file.
-    //hr = pfd->SetDefaultExtension(L"doc;docx");
-    //if ( FAILED(hr) )
-    //    goto clean;
-    
-    // Show the dialog
-    hr = pfd->Show(NULL);
-    if ( FAILED(hr) )
-        goto clean;
-     
-    // Obtain the result once the user clicks 
-    // the 'Open' button.
-    // The result is an IShellItem object.
-    hr = pfd->GetResult(&psiResult);
-    if ( FAILED(hr) )
-        goto clean;
-
-    // We are just going to print out the 
-    // name of the file for sample sake.
-    hr = psiResult->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
-    if ( FAILED(hr) )
-        goto clean;
-
-    if ( output != NULL )
-    {
-        if ( prefix != NULL && prefix[0] != 0 )
-        {
-            size_t value_size = wcslen(pszFilePath)+7;
-            wchar_t* value = new wchar_t[value_size];
-            swprintf_s(value, value_size, L"%hs%s", prefix, pszFilePath);
-            value[value_size-1] = 0;
-            SetWindowTextW(output, value);
-            delete[] value;
-        }
-        else
-        {
-            SetWindowTextW(output, pszFilePath);
-        }
-    }
-    //TaskDialog(NULL,
-    //           NULL,
-    //           L"CommonFileDialogApp",
-    //           pszFilePath,
-    //           NULL,
-    //           TDCBF_OK_BUTTON,
-    //           TD_INFORMATION_ICON,
-    //           NULL);
-
-clean:
-    if ( pszFilePath != NULL )
-        CoTaskMemFree(pszFilePath);
-    if ( psiResult != NULL )
-        psiResult->Release();
-    if ( bCookie )
-        pfd->Unadvise(dwCookie);
-    if ( pfde != NULL )
-        pfde->Release();
-    if ( pfd != NULL )
-        pfd->Release();
-
-    return hr;
 }
 
 #define GUI_HELLO_MSG_LN (0x200)
@@ -1717,12 +1551,12 @@ BOOL loadSound(
     HRSRC hResInfo;
  
     // Find the WAVE resource. 
-    hResInfo = FindResourceA(hInst, lpName, "WAVE"); 
+    hResInfo = FindResourceA(MainInstance, lpName, "WAVE"); 
     if (hResInfo == NULL) 
         return FALSE; 
  
     // Load the WAVE resource. 
-    *Res = LoadResource((HMODULE)hInst, (HRSRC)hResInfo); 
+    *Res = LoadResource((HMODULE)MainInstance, (HRSRC)hResInfo); 
     if ( *Res == NULL )
         return FALSE; 
  
@@ -1748,6 +1582,11 @@ void parseConfigFile()
 
     std::string tempStr;
     std::uint16_t tempShrt;
+
+
+    // 
+    // Connnection Data
+    //
     
     if ( ConnectionData.ip[0] == 0 )
     {
@@ -1789,11 +1628,17 @@ void parseConfigFile()
         strcpy_s(ConnectionData.CertThumb, SHA1_STRING_BUFFER_LN, &tempStr[0]);
     }
 
+
+    // 
+    // Preferences
+    //
+
     if ( PreferencesData.LogDir[0] == 0 )
     {
         tempStr = CfgFileParser->getStringValue(CfgFile.Keys[5], MAX_PATH-1, "");
         strcpy_s(PreferencesData.LogDir, MAX_PATH, &tempStr[0]);
         cropTrailingSlash(PreferencesData.LogDir);
+        GetFullPathName(PreferencesData.LogDir, MAX_PATH, PreferencesData.LogDir, NULL);
     }
 
     if ( PreferencesData.CertDir[0] == 0 )
@@ -1801,6 +1646,7 @@ void parseConfigFile()
         tempStr = CfgFileParser->getStringValue(CfgFile.Keys[6], MAX_PATH-1, "");
         strcpy_s(PreferencesData.CertDir, MAX_PATH, &tempStr[0]);
         cropTrailingSlash(PreferencesData.CertDir);
+        GetFullPathName(PreferencesData.CertDir, MAX_PATH, PreferencesData.CertDir, NULL);
     }
 
     if ( PreferencesData.FileDir[0] == 0 )
@@ -1808,6 +1654,7 @@ void parseConfigFile()
         tempStr = CfgFileParser->getStringValue(CfgFile.Keys[7], MAX_PATH-1, "");
         strcpy_s(PreferencesData.FileDir, MAX_PATH, &tempStr[0]);
         cropTrailingSlash(PreferencesData.FileDir);
+        GetFullPathName(PreferencesData.FileDir, MAX_PATH, PreferencesData.FileDir, NULL);
     }
 }
 
@@ -1874,4 +1721,43 @@ VOID updateConfigFile(PCONNECTION_DATA ConnData, PPREFERENCES_DATA PrefsData)
     {
         CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_T_FILES], PrefsData->FileDir, strlen(PrefsData->FileDir));
     }
+}
+
+
+#define SHOW_STATUS_DURATION (2000)
+DWORD WINAPI InfoStatusFade(LPVOID lpParam)
+{
+	Sleep(SHOW_STATUS_DURATION);
+	SetWindowTextA(InfoStatusOpt, "");
+	return 0;
+}
+
+void ShowInfoStatus(
+	_In_ const char* msg
+)
+{
+	if ( InfoStatusOpt == NULL )
+		return;
+
+	//status_mtx.lock();
+	SetWindowTextA(InfoStatusOpt, msg);
+
+	if ( InfoStatusThread != NULL )
+	{
+		TerminateThread(InfoStatusThread, 0);
+		CloseHandle(InfoStatusThread);
+		InfoStatusThread = NULL;
+        InfoStatusThreadId = 0;
+	}
+
+	InfoStatusThread = CreateThread(
+			NULL,                   // default security attributes
+			0,                      // use default stack size  
+			InfoStatusFade,       // thread function name
+			NULL,          // argument to thread function 
+			0,                      // use default creation flags 
+			&InfoStatusThreadId    // returns the thread identifier 
+		);
+	//T = NULL;
+	//status_mtx.unlock();
 }

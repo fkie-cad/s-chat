@@ -11,7 +11,7 @@
 #include "MessageHandler.h"
 
 #ifdef GUI
-extern HINSTANCE hInst;
+extern HINSTANCE MainInstance;
 extern HWND MainWindow;
 INT_PTR CALLBACK FTAcceptDialog(HWND, UINT, WPARAM, LPARAM);
 #endif
@@ -325,8 +325,8 @@ ULONG recvFTDataThread(
     //            MB_YESNO | MB_ICONEXCLAMATION | MB_APPLMODAL
     //        );
     answer = (INT) DialogBoxParamA(
-                hInst, 
-                MAKEINTRESOURCEA(IDD_ACCEPT_FT_BOX), 
+                MainInstance, 
+                MAKEINTRESOURCEA(IDD_ACCEPT_FT_DLG), 
                 MainWindow, 
                 FTAcceptDialog, 
                 (LPARAM)msg

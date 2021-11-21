@@ -44,16 +44,16 @@ IDC_GUI MENU
 BEGIN
     POPUP "&File"
     BEGIN
-        // MENUITEM "P&references ...",     IDM_PREFS
-        MENUITEM "Connection Data ...",  IDM_CONN_DATA
+        MENUITEM "P&references ... \t ALT+P",     IDM_PREFS
+        MENUITEM "Connection Data ... \t ALT+C",  IDM_CONN_DATA
         MENUITEM SEPARATOR
-        MENUITEM "&Save",                IDM_SAVE
+        MENUITEM "&Save \t CTRL+S",                IDM_SAVE
         MENUITEM SEPARATOR
-        MENUITEM "E&xit",                IDM_EXIT
+        MENUITEM "E&xit \t CTRL+Q",                IDM_EXIT
     END
     POPUP "&Help"
     BEGIN
-        MENUITEM "&About ...",           IDM_ABOUT
+        MENUITEM "&About ... \t ALT+?",           IDM_ABOUT
     END
 END
 
@@ -65,10 +65,11 @@ END
 
 IDC_GUI ACCELERATORS
 BEGIN
-    "?",            IDM_ABOUT,              ASCII,  ALT
-    "/",            IDM_ABOUT,              ASCII,  ALT
-    0x53,           IDM_SAVE,               VIRTKEY, CONTROL    // ctrl-S
+    0xDB,           IDM_ABOUT,              VIRTKEY, ALT        // alt+?
+    0x43,           IDM_CONN_DATA,          VIRTKEY, ALT        // alt-C
+    0x50,           IDM_PREFS,              VIRTKEY, ALT        // alt-P
     0x51,           IDM_EXIT,               VIRTKEY, CONTROL    // ctrl-Q
+    0x53,           IDM_SAVE,               VIRTKEY, CONTROL    // ctrl-S
 END
 
 /////////////////////////////////////////////////////////////////////////////
@@ -78,8 +79,11 @@ END
 
 #define DIALOG_X (150)
 #define DIALOG_Y (80)
-#define DIALOG_W (240)
-#define DIALOG_H (70)
+#define DIALOG_W (210)
+#define DIALOG_W1 (240)
+#define DIALOG_W2 (300)
+#define DIALOG_H1 (60)
+#define DIALOG_H2 (70)
 
 #define LBL_X (10)
 #define LBL_H (12)
@@ -89,47 +93,72 @@ END
 #define IPT_W (180)
 #define IPT_H (12)
 
-#define OK_BTN_X (120)
-#define CANCEL_BTN_X (180)
+#define ICON_X (10)
+#define ICON_Y (10)
+
+#define SEL_BTN_X (240)
+
+#define OK_BTN_X (90)
+#define OK_BTN_X1 (120)
+#define CANCEL_BTN_X (150)
+#define CANCEL_BTN_X1 (180)
 #define BTN_W (50)
 #define BTN_H (14)
+#define BTN_Y (45)
 #define BTN_Y1 (60)
 #define BTN_Y2 (95
 
 #define IPT_STYLE (WS_BORDER | WS_CHILD | WS_VISIBLE | WS_GROUP | ES_AUTOHSCROLL | WS_TABSTOP)
+#define PUSH_BTN_STYLE (WS_TABSTOP | WS_GROUP)
 #define DLG_BTN_STYLE (WS_TABSTOP | WS_GROUP)
 #define DEF_BTN_STYLE (BS_DEFPUSHBUTTON | WS_TABSTOP | WS_GROUP)
 
 
-IDD_ABOUT_BOX DIALOGEX DIALOG_X, DIALOG_Y, DIALOG_W, DIALOG_H
+IDD_ABOUT_DLG DIALOGEX DIALOG_X, DIALOG_Y, DIALOG_W, 57
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU 
 CAPTION "About SChat"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON            IDR_MAINFRAME,IDC_STATIC,14,14,0,0
-    LTEXT           "SChat, Version 1.0.1",IDC_STATIC,42,14,114,8,SS_NOPREFIX
-    LTEXT           "Copyright (c) 2021 Stealthy Shadow Digits Inc.",IDC_STATIC,42,26,200,8
-    DEFPUSHBUTTON   "OK",IDOK,145,41,BTN_W,BTN_H, DEF_BTN_STYLE
+    ICON            IDR_MAINFRAME,IDC_STATIC,ICON_X,ICON_Y,0,0
+    LTEXT           "SChat, Version 1.0.5",IDC_STATIC,42,10,114,LBL_H,SS_NOPREFIX
+    LTEXT           "Copyright (c) 2021 FKIE CA&&D",IDC_STATIC,42,20,200,LBL_H
+    DEFPUSHBUTTON   "OK",IDOK, CANCEL_BTN_X,33,BTN_W,BTN_H, DEF_BTN_STYLE
 END
 
 
-IDD_PREFS_BOX DIALOGEX DIALOG_X, DIALOG_Y, DIALOG_W, 90
+IDD_CLOSE_DLG DIALOGEX DIALOG_X, DIALOG_Y, DIALOG_W, 57
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU 
+CAPTION "Close Connection?"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    ICON            IDR_MAINFRAME, IDC_STATIC, ICON_X,ICON_Y,0,0
+    LTEXT           "You are still connected.",IDC_STATIC,42,10,200,LBL_H,SS_NOPREFIX
+    LTEXT           "Close connection and exit?",IDC_STATIC,42,20,200,LBL_H,SS_NOPREFIX
+    PUSHBUTTON      "Cancel", IDCANCEL, CANCEL_BTN_X,33,BTN_W,BTN_H, DLG_BTN_STYLE
+    DEFPUSHBUTTON   "OK", IDOK, OK_BTN_X,33,BTN_W,BTN_H, DEF_BTN_STYLE
+END
+
+
+IDD_PREFS_DLG DIALOGEX DIALOG_X, DIALOG_Y, DIALOG_W2, 90
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Preferences"
 FONT 8, "MS Shell Dlg"
 BEGIN
     LTEXT           "Log Dir",IDC_STATIC,LBL_X,10,114,LBL_H,SS_NOPREFIX
     CONTROL         "", IDC_PD_LOG_IPT, "EDIT", IPT_STYLE, IPT_X,10,IPT_W,IPT_H
+    PUSHBUTTON      "Select", IDC_PD_LOG_BTN, SEL_BTN_X,10,BTN_W,BTN_H, PUSH_BTN_STYLE
     LTEXT           "Cert Dir",IDC_STATIC,LBL_X,25,200,LBL_H
     CONTROL         "", IDC_PD_CERT_IPT, "EDIT", IPT_STYLE, IPT_X,25,IPT_W,IPT_H
+    PUSHBUTTON      "Select", IDC_PD_CERT_BTN, SEL_BTN_X,25,BTN_W,BTN_H, PUSH_BTN_STYLE
     LTEXT           "File Dir",IDC_STATIC,LBL_X,40,200,LBL_H
     CONTROL         "", IDC_PD_FILE_IPT, "EDIT", IPT_STYLE, IPT_X,40,IPT_W,IPT_H
-    PUSHBUTTON      "Cancel",IDCANCEL,CANCEL_BTN_X,BTN_Y1,BTN_W,BTN_H, DLG_BTN_STYLE
-    DEFPUSHBUTTON   "OK",IDOK,OK_BTN_X,BTN_Y1,BTN_W,BTN_H, DEF_BTN_STYLE
+    PUSHBUTTON      "Select", IDC_PD_FILE_BTN, SEL_BTN_X,40,BTN_W,BTN_H, PUSH_BTN_STYLE
+    PUSHBUTTON      "Cancel",IDCANCEL,CANCEL_BTN_X1,BTN_Y1,BTN_W,BTN_H, DLG_BTN_STYLE
+    DEFPUSHBUTTON   "OK",IDOK,OK_BTN_X1,BTN_Y1,BTN_W,BTN_H, DEF_BTN_STYLE
 END
 
 
-IDD_CONN_DATA_BOX DIALOGEX DIALOG_X, DIALOG_Y, DIALOG_W, 120
+IDD_CONN_DATA_DLG DIALOGEX DIALOG_X, DIALOG_Y, DIALOG_W1, 120
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Connection Data"
 FONT 8, "MS Shell Dlg"
@@ -138,18 +167,18 @@ BEGIN
     CONTROL         "", IDC_CD_IP_IPT, "EDIT", IPT_STYLE, IPT_X,10,IPT_W,IPT_H
     LTEXT           "Port",IDC_STATIC,LBL_X,25,200,LBL_H
     CONTROL         "", IDC_CD_PORT_IPT, "EDIT", IPT_STYLE, IPT_X,25,IPT_WS,IPT_H
-    LTEXT           "Version",IDC_STATIC,LBL_X,40,200,LBL_H
+    LTEXT           "IP Version",IDC_STATIC,LBL_X,40,200,LBL_H
     CONTROL         "", IDC_CD_VS_IPT, "EDIT", IPT_STYLE, IPT_X,40,IPT_WS,IPT_H
-    LTEXT           "Name",IDC_STATIC,LBL_X,55,200,LBL_H
+    LTEXT           "Nickname",IDC_STATIC,LBL_X,55,200,LBL_H
     CONTROL         "", IDC_CD_NAME_IPT, "EDIT", IPT_STYLE, IPT_X,55,IPT_W,IPT_H
     LTEXT           "CertThumb",IDC_STATIC,LBL_X,70,200,LBL_H
     CONTROL         "", IDC_CD_CT_IPT, "EDIT", IPT_STYLE, IPT_X,70,IPT_W,IPT_H
-    PUSHBUTTON      "Cancel",IDCANCEL,CANCEL_BTN_X,BTN_Y2,BTN_W,BTN_H, DLG_BTN_STYLE
-    DEFPUSHBUTTON   "OK",IDOK,OK_BTN_X,BTN_Y2,BTN_W,BTN_H, DEF_BTN_STYLE
+    PUSHBUTTON      "Cancel",IDCANCEL,CANCEL_BTN_X1,BTN_Y2,BTN_W,BTN_H, DLG_BTN_STYLE
+    DEFPUSHBUTTON   "OK",IDOK,OK_BTN_X1,BTN_Y2,BTN_W,BTN_H, DEF_BTN_STYLE
 END
 
 
-IDD_ACCEPT_FT_BOX DIALOGEX DIALOG_X, DIALOG_Y, DIALOG_W, DIALOG_H
+IDD_ACCEPT_FT_DLG DIALOGEX DIALOG_X, DIALOG_Y, DIALOG_W1, DIALOG_H2
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "New Filetransfer"
 FONT 8, "MS Shell Dlg"
@@ -179,13 +208,13 @@ END
 #endif
 
 // ------- version info -------------------------------------------------------
-#define COMPANY_NAME                "Stealthy Shadow Digits Inc."
+#define COMPANY_NAME                "FKIE CA&D."
 
 #define APP_NAME                    "SChat"
 #define BIN_TYPE                    ".exe"
 
-#define VER_FILEVERSION             1.0.3.0
-#define VER_FILEVERSION_STR         "1.0.3.0\0"
+#define VER_FILEVERSION             1.0.5.0
+#define VER_FILEVERSION_STR         "1.0.5.0\0"
 
 #define VER_PRODUCTVERSION          VER_FILEVERSION
 #define VER_PRODUCTVERSION_STR      VER_FILEVERSION_STR

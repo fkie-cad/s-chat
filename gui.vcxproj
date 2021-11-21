@@ -161,7 +161,11 @@
 
   <ItemGroup>
     <ClCompile Include="src\gui\gui.cpp;" />
+    <ClCompile Include="src\gui\dialogs\BasicDialog.cpp;" />
+    <ClCompile Include="src\gui\dialogs\CDialogEventHandler.cpp;" />
     <ClCompile Include="src\gui\dialogs\ConnectionDataDialog.cpp;" />
+    <ClCompile Include="src\gui\dialogs\FileSelector.cpp;" />
+    <ClCompile Include="src\gui\dialogs\PreferencesDialog.cpp;" />
     <ClCompile Include="src\engine.cpp;src\guiBridge.cpp;" />
     <ClCompile Include="src\crypto\windows\HasherCNG.cpp;" />
     <ClCompile Include="src\engine\filetransfer.cpp;src\engine\MessageHandler.cpp;" />

@@ -1,4 +1,4 @@
-#define  _CRT_SECURE_NO_WARNINGS
+#pragma warning( disable : 4996 )
 
 #include <stdio.h>
 
@@ -11,28 +11,9 @@
 
 
 
-static int createHash(PSha256Ctxt ctxt);
-
-
-
-int sha256File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
-{
-    Sha256Ctxt ctxt;
-    int s = 0;
-
-    s = initSha256(&ctxt);
-    if ( s != 0 )
-    {
-        goto clean;
-    }
-
-    s = sha256FileC(path, hash_bytes, hash_bytes_size, &ctxt);
-
-clean:
-    cleanSha256(&ctxt);
-
-    return s;
-}
+static int createHash(
+    PHashCtxt ctxt
+);
 
 __forceinline
 int hashData(
@@ -40,7 +21,7 @@ int hashData(
     size_t to_read,
     size_t offset,
     FILE* fp, 
-    PSha256Ctxt ctxt
+    PHashCtxt ctxt
 )
 {
     size_t bytes_read;
@@ -77,7 +58,7 @@ clean:
     return status;
 }
 
-int sha256FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PSha256Ctxt ctxt)
+int hashFileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PHashCtxt ctxt)
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     FILE* fp = NULL;
@@ -172,36 +153,12 @@ clean:
     return s;
 }
 
-int sha256Buffer(
-    uint8_t* buffer, 
-    uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
-    uint16_t hash_bytes_size
-)
-{
-    Sha256Ctxt ctxt;
-    int s = 0;
-
-    s = initSha256(&ctxt);
-    if (s != 0)
-    {
-        goto clean;
-    }
-
-    s = sha256BufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, &ctxt);
-
-clean:
-    cleanSha256(&ctxt);
-
-    return s;
-}
-
-int sha256BufferC(
+int hashBufferC(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
     unsigned char* hash_bytes, 
     uint16_t hash_bytes_size, 
-    PSha256Ctxt ctxt
+    PHashCtxt ctxt
 )
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -223,7 +180,9 @@ int sha256BufferC(
     status = BCryptHashData(ctxt->hash, buffer, (ULONG)buffer_ln, 0);
     if ( !NT_SUCCESS(status) )
     {
+#ifdef ERROR_PRINT
         printf("Error 0x%x returned by BCryptHashData\n", status);
+#endif
         s = 8;
         goto clean;
     }
@@ -232,7 +191,9 @@ int sha256BufferC(
     status = BCryptFinishHash(ctxt->hash, hash_bytes, ctxt->hash_size, 0);
     if ( !NT_SUCCESS(status) )
     {
+#ifdef ERROR_PRINT
         printf("Error (0x%x): BCryptFinishHash\n", status);
+#endif
         s = 9;
         goto clean;
     }
@@ -241,6 +202,184 @@ clean:
     ;
 
     return s;
+}
+
+
+int sha256File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
+{
+    Sha256Ctxt ctxt;
+    int s = 0;
+
+    s = initSha256(&ctxt);
+    if ( s != 0 )
+    {
+        goto clean;
+    }
+
+    s = sha256FileC(path, hash_bytes, hash_bytes_size, &ctxt);
+
+clean:
+    cleanSha256(&ctxt);
+
+    return s;
+}
+
+int sha256FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PSha256Ctxt ctxt)
+{
+    return hashFileC(path, hash_bytes, hash_bytes_size, ctxt);
+}
+
+int sha256Buffer(
+    uint8_t* buffer, 
+    uint32_t buffer_ln, 
+    unsigned char* hash_bytes, 
+    uint16_t hash_bytes_size
+)
+{
+    Sha256Ctxt ctxt;
+    int s = 0;
+
+    s = initSha256(&ctxt);
+    if ( s != 0 )
+    {
+        goto clean;
+    }
+
+    s = sha256BufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, &ctxt);
+
+clean:
+    cleanSha256(&ctxt);
+
+    return s;
+}
+
+int sha256BufferC(
+    uint8_t* buffer, 
+    uint32_t buffer_ln, 
+    unsigned char* hash_bytes, 
+    uint16_t hash_bytes_size, 
+    PSha256Ctxt ctxt
+)
+{
+    return hashBufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, ctxt);
+}
+
+int sha1File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
+{
+    Sha1Ctxt ctxt;
+    int s = 0;
+
+    s = initSha1(&ctxt);
+    if ( s != 0 )
+    {
+        goto clean;
+    }
+
+    s = sha1FileC(path, hash_bytes, hash_bytes_size, &ctxt);
+
+clean:
+    cleanSha1(&ctxt);
+
+    return s;
+}
+
+int sha1FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PSha1Ctxt ctxt)
+{
+    return hashFileC(path, hash_bytes, hash_bytes_size, ctxt);
+}
+
+int sha1Buffer(
+    uint8_t* buffer, 
+    uint32_t buffer_ln, 
+    unsigned char* hash_bytes, 
+    uint16_t hash_bytes_size
+)
+{
+    Sha1Ctxt ctxt;
+    int s = 0;
+
+    s = initSha1(&ctxt);
+    if ( s != 0 )
+    {
+        goto clean;
+    }
+
+    s = sha1BufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, &ctxt);
+
+clean:
+    cleanSha1(&ctxt);
+
+    return s;
+}
+
+int sha1BufferC(
+    uint8_t* buffer, 
+    uint32_t buffer_ln, 
+    unsigned char* hash_bytes, 
+    uint16_t hash_bytes_size, 
+    PSha1Ctxt ctxt
+)
+{
+    return hashBufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, ctxt);
+}
+
+int md5File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
+{
+    Md5Ctxt ctxt;
+    int s = 0;
+
+    s = initMd5(&ctxt);
+    if ( s != 0 )
+    {
+        goto clean;
+    }
+
+    s = md5FileC(path, hash_bytes, hash_bytes_size, &ctxt);
+
+clean:
+    cleanMd5(&ctxt);
+
+    return s;
+}
+
+int md5FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PMd5Ctxt ctxt)
+{
+    return hashFileC(path, hash_bytes, hash_bytes_size, ctxt);
+}
+
+int md5Buffer(
+    uint8_t* buffer, 
+    uint32_t buffer_ln, 
+    unsigned char* hash_bytes, 
+    uint16_t hash_bytes_size
+)
+{
+    Md5Ctxt ctxt;
+    int s = 0;
+
+    s = initMd5(&ctxt);
+    if ( s != 0 )
+    {
+        goto clean;
+    }
+
+    s = md5BufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, &ctxt);
+
+clean:
+    cleanMd5(&ctxt);
+
+    return s;
+}
+
+int md5BufferC(
+    uint8_t* buffer, 
+    uint32_t buffer_ln, 
+    unsigned char* hash_bytes, 
+    uint16_t hash_bytes_size, 
+    PMd5Ctxt ctxt
+)
+{
+    return hashBufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, ctxt);
 }
 
 void hashToString(const unsigned char* hash, uint16_t hash_size, char* output, uint16_t output_size)
@@ -267,79 +406,93 @@ void printHash(const unsigned char* hash, uint16_t hash_size, const char* prefix
     printf("%s", postfix);
 }
 
+int initSha1(PSha1Ctxt ctxt)
+{
+    return initHashCtxt(ctxt, BCRYPT_SHA1_ALGORITHM);
+}
+
 int initSha256(PSha256Ctxt ctxt)
+{
+    return initHashCtxt(ctxt, BCRYPT_SHA256_ALGORITHM);
+}
+
+int initMd5(PMd5Ctxt ctxt)
+{
+    return initHashCtxt(ctxt, BCRYPT_MD5_ALGORITHM);
+}
+
+int initHashCtxt(PHashCtxt ctxt, LPCWSTR AlgId)
 {
     int s = 0;
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     HANDLE heap = GetProcessHeap();
 
-    memset(ctxt, 0, sizeof(Sha256Ctxt));
+    memset(ctxt, 0, sizeof(HashCtxt));
 
     //open an algorithm handle
     status = BCryptOpenAlgorithmProvider(
         &(ctxt->alg),
-        BCRYPT_SHA256_ALGORITHM,
+        AlgId,
         NULL,
         0);
     if (!NT_SUCCESS(status))
     {
+#ifdef ERROR_PRINT
         printf("Error (0x%x): BCryptOpenAlgorithmProvider\n", status);
-        cleanSha256(ctxt);
-        return 1;
+#endif
+        cleanHashCtxt(ctxt);
+        return -1;
     }
 
     //calculate the size of the buffer to hold the hash object
     status = BCryptGetProperty(
         ctxt->alg,
         BCRYPT_OBJECT_LENGTH,
-        (PBYTE) & (ctxt->hash_object_size),
+        (PBYTE) &(ctxt->hash_object_size),
         sizeof(DWORD),
         &(ctxt->data_size),
         0);
     if (!NT_SUCCESS(status))
     {
+#ifdef ERROR_PRINT
         printf("Error (0x%x): BCryptGetProperty\n", status);
-        cleanSha256(ctxt);
-        return 2;
+#endif
+        cleanHashCtxt(ctxt);
+        return -2;
     }
-
-    //printf("cbHashObject: 0x%lx\n", cbHashObject);
-    //printf("cbData: 0x%lx\n", cbData);
 
     // allocate the hash object on the heap
     ctxt->hash_object = (PBYTE)HeapAlloc(heap, 0, ctxt->hash_object_size);
-    if (NULL == ctxt->hash_object)
+    if ( NULL == ctxt->hash_object )
     {
+#ifdef ERROR_PRINT
         printf("ERROR: memory allocation failed\n");
-        cleanSha256(ctxt);
-        return 3;
+#endif
+        cleanHashCtxt(ctxt);
+        return -3;
     }
 
     // calculate the length of the hash
     status = BCryptGetProperty(
         ctxt->alg,
         BCRYPT_HASH_LENGTH,
-        (PBYTE) & (ctxt->hash_size),
+        (PBYTE)&(ctxt->hash_size),
         sizeof(DWORD),
         &(ctxt->data_size),
         0);
     if (!NT_SUCCESS(status))
     {
+#ifdef ERROR_PRINT
         printf("Error 0x%x returned by BCryptGetProperty\n", status);
-        cleanSha256(ctxt);
-        return 4;
+#endif
+        cleanHashCtxt(ctxt);
+        return -4;
     }
-    //printf("cbHash: 0x%lx\n", cbHash);
-    //printf("cbData: 0x%lx\n", cbData);
-
-
-    //printf("hHash: 0x%p\n", hHash);
-    //printf("pbHashObject: 0x%p\n", pbHashObject);
 
     return s;
 }
 
-int createHash(PSha256Ctxt ctxt)
+int createHash(PHashCtxt ctxt)
 {
     if (ctxt->hash)
     {
@@ -358,14 +511,31 @@ int createHash(PSha256Ctxt ctxt)
         0);
     if (!NT_SUCCESS(status))
     {
+#ifdef ERROR_PRINT
         printf("Error (0x%x): BCryptCreateHash\n", status);
-        cleanSha256(ctxt);
+#endif
+        cleanHashCtxt(ctxt);
         return 6;
     }
     return status;
 }
 
+int cleanSha1(PSha1Ctxt ctxt)
+{
+    return cleanHashCtxt(ctxt);
+}
+
 int cleanSha256(PSha256Ctxt ctxt)
+{
+    return cleanHashCtxt(ctxt);
+}
+
+int cleanMd5(PMd5Ctxt ctxt)
+{
+    return cleanHashCtxt(ctxt);
+}
+
+int cleanHashCtxt(PHashCtxt ctxt)
 {
     HANDLE heap = GetProcessHeap();
 

@@ -90,9 +90,9 @@ int acceptTLSSocket(
         printCert(pRemoteCertContext, out);
 #endif
 
-        char hash[SHA256_STRING_BUFFER_LN];
+        char hash[SHA1_STRING_BUFFER_LN];
         hashCert(pRemoteCertContext, CertHash, hash);
-        fprintf(out, "sha256 of certificate: %s\n", hash);
+        fprintf(out, "sha1 of certificate: %s\n", hash);
 #ifdef GUI
         showCertSha(hash);
 #endif
@@ -215,9 +215,9 @@ int connectTLSSocket(
     printCert(remoteCertContext, out);
 #endif
     
-    char hash[SHA256_STRING_BUFFER_LN];
+    char hash[SHA1_STRING_BUFFER_LN];
     hashCert(remoteCertContext, CertHash, hash);
-    fprintf(out, "sha256 of certificate: %s\n", hash);
+    fprintf(out, "sha1 of certificate: %s\n", hash);
 #ifdef GUI
     showCertSha(hash);
 #endif
@@ -276,7 +276,7 @@ void hashCert(
 {
     int s;
 
-    s = sha256Buffer(cert->pbCertEncoded, cert->cbCertEncoded, bytes, SHA256_BYTES_LN);
+    s = sha1Buffer(cert->pbCertEncoded, cert->cbCertEncoded, bytes, SHA1_BYTES_LN);
     if ( s != 0 )
     {
         fprintf(out, "ERROR (0x%x): Calculating hash failed!\n", s);
@@ -286,5 +286,5 @@ void hashCert(
         return;
     }
 
-    hashToString(bytes, SHA256_BYTES_LN, str, SHA256_STRING_BUFFER_LN);
+    hashToString(bytes, SHA1_BYTES_LN, str, SHA1_STRING_BUFFER_LN);
 }

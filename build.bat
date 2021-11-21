@@ -39,7 +39,7 @@ GOTO :ParseParams
         SET /a engine=1
         goto reParseParams
     )
-    IF "%~1"=="/g" (
+    IF "%~1"=="/sc" (
         SET /a gui=1
         goto reParseParams
     )
@@ -164,7 +164,7 @@ exit /B 0
 
 
 :usage
-    echo Usage: %prog_name% [/e] [/g] [/d] [/r] [/dp] [/dphd] [/dpm] [/rtl] [/b 32^|64] [/pdb]
+    echo Usage: %prog_name% [/sc] [/e] [/d] [/r] [/dp] [/dphd] [/dpm] [/rtl] [/b 32^|64] [/pdb]
     echo Default: %prog_name% [/g /r /b 64]
     exit /B 0
     
@@ -172,8 +172,8 @@ exit /B 0
     call :usage
     echo.
     echo Targets:
+    echo /sc: Build the complete gui program.
     echo [/e: Build engine.]
-    echo /g: Build the complete gui program.
     echo.
     echo Build modes:
     echo /d: Build in debug mode.

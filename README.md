@@ -4,8 +4,8 @@ Secure TLS/SSL Windows E2E Chat.
 Currently just supporting TLS 1.2 due to Windows SChannel restrictions.
 
 ## Version ##
-1.0.3  
-Last changed: 15.11.2021
+1.0.5  
+Last changed: 20.11.2021
 
 ## Descrtiption
 GUI chat application that connects two communication partners directly over TCP using TLS/SSL to secure the communication.
