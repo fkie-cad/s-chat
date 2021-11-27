@@ -1,8 +1,8 @@
 #include <string>
 
 #include "ConnectionDataDialog.h"
-#include "../Resource.h"
 #include "../../utils/ConfigFileParser.h"
+#include "../ToolTip.h"
 
 
 //Message handler for connection data
@@ -15,14 +15,14 @@ INT_PTR CALLBACK ConnectionDataDialog::openCb(HWND hDlg, UINT message, WPARAM wP
     {
         case WM_INITDIALOG:
             has_changed = FALSE;    
-            CreateToolTip(IDC_CD_IP_IPT, hDlg, "Server Ip. The Server may leave this empty.");
-            CreateToolTip(IDC_CD_PORT_IPT, hDlg, "Server/Listening Port");
-            CreateToolTip(IDC_CD_VS_IPT, hDlg, "Ip version 4 or 6. Can be left empty, if Ip is filled.");
-            CreateToolTip(IDC_CD_NAME_IPT, hDlg, "Your nick name apearing in the chat.");
-            CreateToolTip(IDC_CD_CT_IPT, hDlg, "Thumb print (sha1) of your certificate.");
+            ToolTip::forChildId(IDC_CD_IP_IPT, hDlg, "Server Ip. The Server may leave this empty.");
+            ToolTip::forChildId(IDC_CD_PORT_IPT, hDlg, "Server/Listening Port");
+            ToolTip::forChildId(IDC_CD_VS_IPT, hDlg, "Ip version 4 or 6. Can be left empty, if Ip is filled.");
+            ToolTip::forChildId(IDC_CD_NAME_IPT, hDlg, "Your nick name apearing in the chat.");
+            ToolTip::forChildId(IDC_CD_CT_IPT, hDlg, "Thumb print (sha1) of your certificate.");
             fillInputs(data);
             if ( disabled )
-                disableInputs(hDlg);
+                disableInputs(hDlg, iptIds.data(), (ULONG)iptIds.size());
             break;
 
         case WM_COMMAND:
@@ -137,19 +137,6 @@ VOID ConnectionDataDialog::updateData(PCONNECTION_DATA data)
     {
         strcpy_s(data->CertThumb, SHA1_STRING_BUFFER_LN, tmpStr);
         has_changed = TRUE;
-    }
-}
-
-VOID ConnectionDataDialog::disableInputs(HWND hDlg)
-{
-    ULONG iptIds[] = { IDC_CD_IP_IPT, IDC_CD_PORT_IPT, IDC_CD_VS_IPT, IDC_CD_NAME_IPT, IDC_CD_CT_IPT };
-    size_t nIpts = sizeof(iptIds) / sizeof(ULONG);
-
-    for ( size_t i = 0; i < nIpts; i++ )
-    {
-        HWND ipt = GetDlgItem(hDlg, iptIds[i]);
-        SendMessageA(ipt, EM_SETREADONLY, TRUE, NULL);
-        SendMessageA(ipt, WS_TABSTOP, FALSE, NULL);
     }
 }
         

@@ -65,7 +65,7 @@ int handleMessage(
         fprintf(out, "received corrupted message:\n");
         PrintHexDump(dataSize, data, out);
 #ifdef GUI
-        showStatus("corrupted data");
+        showInfoStatus("corrupted data");
 #endif
         *running = FALSE;
         s = SCHAT_ERROR_CORRUPTED_DATA;
@@ -115,7 +115,7 @@ int handleMessage(
         fprintf(out, "received unknown msg type:\n");
         PrintHexDump(dataSize, data, out);
 #ifdef GUI
-        showStatus("unknown data");
+        showInfoStatus("unknown data");
 #endif
         *running = FALSE;
         s = SCHAT_ERROR_UNKNOWN_DATA;

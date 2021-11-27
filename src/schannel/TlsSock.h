@@ -54,10 +54,9 @@ int connectTLSSocket(
     _Out_ uint8_t* CertHash
 );
 
-void hashCert(
+int hashCert(
     _In_ PCCERT_CONTEXT cert, 
-    _Out_ uint8_t* bytes,
-    _Out_ char* str
+    _Out_ uint8_t* bytes
 );
 
 #endif

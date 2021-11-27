@@ -85,7 +85,7 @@
   
   <ItemDefinitionGroup>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies);ws2_32.lib;Secur32.lib;Crypt32.lib;Bcrypt.lib;Winmm.lib;propsys.lib;shlwapi.lib;</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies);ws2_32.lib;Comctl32.lib;Secur32.lib;Crypt32.lib;Bcrypt.lib;Winmm.lib;propsys.lib;shlwapi.lib;</AdditionalDependencies>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
@@ -161,14 +161,18 @@
 
   <ItemGroup>
     <ClCompile Include="src\gui\gui.cpp;" />
+    <ClCompile Include="src\gui\ToolTip.cpp;" />
+    <ClCompile Include="src\gui\dialogs\AboutDialog.cpp;" />
     <ClCompile Include="src\gui\dialogs\BasicDialog.cpp;" />
+    <ClCompile Include="src\gui\dialogs\ConfirmCloseDialog.cpp;" />
     <ClCompile Include="src\gui\dialogs\CDialogEventHandler.cpp;" />
     <ClCompile Include="src\gui\dialogs\ConnectionDataDialog.cpp;" />
     <ClCompile Include="src\gui\dialogs\FileSelector.cpp;" />
+    <ClCompile Include="src\gui\dialogs\FileTransferDialog.cpp;" />
     <ClCompile Include="src\gui\dialogs\PreferencesDialog.cpp;" />
-    <ClCompile Include="src\engine.cpp;src\guiBridge.cpp;" />
+    <ClCompile Include="src\guiBridge.cpp;" />
     <ClCompile Include="src\crypto\windows\HasherCNG.cpp;" />
-    <ClCompile Include="src\engine\filetransfer.cpp;src\engine\MessageHandler.cpp;" />
+    <ClCompile Include="src\engine\engine.cpp;src\engine\filetransfer.cpp;src\engine\MessageHandler.cpp;" />
     <ClCompile Include="src\files\Files.cpp;" />
     <ClCompile Include="src\net\sock.cpp;src\net\winSock.cpp;" />
     <ClCompile Include="src\schannel\common.cpp;src\schannel\connection.cpp;src\schannel\TlsSock.cpp;" />

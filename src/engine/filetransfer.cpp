@@ -81,7 +81,7 @@ void sendReceivedFileInfo(
         {
             fprintf(log, "ERROR (0x%x): Calculating hash failed!\n", s);
     #ifdef GUI
-            showStatus("ERROR: Calculating hash failed!\n");
+            showInfoStatus("ERROR: Calculating hash failed!\n");
     #endif
             return;
         }
@@ -124,7 +124,7 @@ void sendReceivedFileInfo(
     if ( n != 0 )
     {
         fprintf(log, "error sending data\n");
-        //showStatus("error sending data");
+        //showInfoStatus("error sending data");
     }
 }
 
@@ -187,7 +187,7 @@ int sendAcceptedFileInfo(
     if ( s != 0 )
     {
         fprintf(log, "error sending data\n");
-        //showStatus("error sending data");
+        //showInfoStatus("error sending data");
     }
 
     return s;
@@ -231,7 +231,7 @@ ULONG recvFTDataThread(
     
     const char* base_name = NULL;
     size_t base_name_ln = 0;
-    const char* fmt_str = "Accept file transfer?\r\nfile: %s";
+    const char* fmt_str = "Accept file transfer?\r\nFile: %s";
     size_t msg_ln = 0;
     char* msg = NULL;
     
@@ -313,7 +313,7 @@ ULONG recvFTDataThread(
     //            MB_YESNO | MB_ICONEXCLAMATION | MB_APPLMODAL
     //        );
     base_name_ln = getBaseName(rtd->ftd->path, rtd->ftd->path_ln, &base_name);
-    fmt_str = "file: %s";
+    fmt_str = "File: %s";
     msg_ln = strlen(fmt_str) + base_name_ln;
     msg = new char[msg_ln];
     sprintf_s(msg, msg_ln, fmt_str, base_name);
@@ -347,18 +347,18 @@ ULONG recvFTDataThread(
     
     if ( answer != IDYES || s != 0 )
     {
-        showStatus("FT not accepted");
+        showInfoStatus("Filetransfer not accepted");
         s = SCHAT_ERROR_FT_NOT_ACCEPTED;
         goto clean;
     }
-    showStatus("FT Accepted");
+    showInfoStatus("Filetransfer accepted");
 #endif
     //
     // enter receiving loop
     //
 
 #ifdef GUI
-    showStatus("FT Connected");
+    showInfoStatus("Filetransfer connected");
     togglePBar(TRUE);
     toggleFileBtn(FILE_TRANSFER_STATUS::ACTIVE);
 #endif
@@ -403,7 +403,7 @@ int disconnectFTRecvSocket(
     
     if ( s == SEC_E_OK )
     {
-        fprintf(out, "SUCCESS: FT Socket disconnected\n");
+        fprintf(out, "SUCCESS: FT Socket terminated\n");
     }
     else
     {
@@ -419,7 +419,7 @@ int disconnectFTRecvSocket(
     }
 
 #ifdef GUI
-    showStatus("FT Disonnected");
+    showInfoStatus("Filetransfer terminated");
 #endif
 
 //#ifdef GUI

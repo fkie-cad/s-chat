@@ -18,17 +18,17 @@
 FILE* out = NULL;
 FILE* log_out = NULL;
 
-#include "dbg.h"
-#include "version.h"
-#include "crypto/windows/HasherCNG.h"
-#include "net/sock.h"
+#include "../dbg.h"
+#include "../version.h"
+#include "../crypto/windows/HasherCNG.h"
+#include "../net/sock.h"
 #include "engine.h"
-#include "schannel/common.h"
-#include "schannel/TlsSock.h"
-#include "crypto/windows/HasherCNG.h"
-#include "files/Files.h"
-#include "engine/filetransfer.h"
-#include "engine/MessageHandler.h"
+#include "../schannel/common.h"
+#include "../schannel/TlsSock.h"
+#include "../crypto/windows/HasherCNG.h"
+#include "../files/Files.h"
+#include "filetransfer.h"
+#include "MessageHandler.h"
 
 
 
@@ -81,7 +81,7 @@ static BOOL receiving = false;
 static BOOL listening = false;
 
 #ifdef GUI
-#include "guiBridge.h"
+#include "../guiBridge.h"
 #endif
 
 
@@ -228,7 +228,6 @@ int initClient(
     {
         s = SCHAT_ERROR_NO_IP;
         fprintf(out, "ERROR (0x%x): No ip!\n", s);
-        //showStatus("No ip");
         return s;
     }
 
@@ -236,7 +235,6 @@ int initClient(
     {
         s = SCHAT_ERROR_WRONG_IPV;
         fprintf(out, "ERROR (0x%x): Wrong ip version!\n", s);
-        //showStatus("Wrong ip version");
         return s;
     }
 
@@ -244,7 +242,6 @@ int initClient(
     {
         s = SCHAT_ERROR_NO_PORT;
         fprintf(out, "ERROR (0x%x): No port!\n", s);
-        //showStatus("No port");
         return s;
     }
 
@@ -252,7 +249,6 @@ int initClient(
     {
         s = SCHAT_ERROR_NO_CERT;
         fprintf(out, "ERROR (0x%x): No cert name!\n", s);
-        //showStatus("No cert name");
         return s;
     }
 
@@ -292,6 +288,12 @@ int initClient(
     if ( s != 0 )
         goto clean;
     wsaStarted = true;
+    
+#ifdef GUI
+    char hash[SHA1_STRING_BUFFER_LN];
+    hashToString(other_cert_hash, SHA1_BYTES_LN, hash, SHA1_STRING_BUFFER_LN);
+    showCertSha(hash);
+#endif
 
     s = readStreamEncryptionProperties(&Sizes, &hContext);
     if ( s != 0 )
@@ -366,10 +368,6 @@ int initServer(
     // may be empty for servers
     if ( ip != NULL && ip[0] == 0 )
     {
-        //s = SCHAT_ERROR_NO_IP;
-        //fprintf(out, "ERROR (0x%x): No ip!\n", s);
-        //showStatus("No ip");
-        //return s;
         ip = NULL;
     }
 
@@ -522,6 +520,12 @@ int handleConnection(
         );
     if ( s != 0 )
         goto clean;
+    
+#ifdef GUI
+    char hash[SHA1_STRING_BUFFER_LN];
+    hashToString(other_cert_hash, SHA1_BYTES_LN, hash, SHA1_STRING_BUFFER_LN);
+    showCertSha(hash);
+#endif
 
     s = readStreamEncryptionProperties(&Sizes, &hContext);
     if ( s != 0 )
@@ -556,7 +560,7 @@ int handleConnection(
     }
 
 #ifdef GUI
-    showStatus("Connected");
+    showConnStatus("Connected");
     changeIcon(CONNECTION_STATUS::CONNECTED);
 #endif
 
@@ -568,7 +572,7 @@ int handleConnection(
             raddr_ln
         );
 #ifdef GUI
-    showStatus("Disonnected");
+    showConnStatus("Disonnected");
     if ( listening )
         changeIcon(CONNECTION_STATUS::LISTENING);
 #endif
@@ -788,7 +792,6 @@ int client_sendMessage(
     if ( n != 0 )
     {
         fprintf(out, "error sending data\n");
-        //showStatus("error sending data");
     }
     return n;
 }
@@ -802,7 +805,7 @@ int client_sendFile(
     ADDRESS_FAMILY family_
 )
 {
-    // Currently don't support sending and receiving files at once.
+    // Currently not supporting sending and receiving files at once.
     // Would be possible though with layout changes in gui.
     if ( ft_send_obj.thread_id != 0  || ft_recv_obj.thread_id != 0 )
     {
@@ -1316,9 +1319,9 @@ clean:
             other_name,
             false
         );
-        s = sprintf_s((char*)buffer, buffer_size, "FT Error: 0x%x", s);
+        s = sprintf_s((char*)buffer, buffer_size, "Filetransfer Error: 0x%x", s);
         buffer[s] = 0;
-        showStatus((char*)buffer);
+        showInfoStatus((char*)buffer);
     }
 
     togglePBar(false);

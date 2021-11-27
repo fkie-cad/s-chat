@@ -90,12 +90,11 @@ int acceptTLSSocket(
         printCert(pRemoteCertContext, out);
 #endif
 
+        hashCert(pRemoteCertContext, CertHash);
         char hash[SHA1_STRING_BUFFER_LN];
-        hashCert(pRemoteCertContext, CertHash, hash);
+        hashToString(CertHash, SHA1_BYTES_LN, hash, SHA1_STRING_BUFFER_LN);
         fprintf(out, "sha1 of certificate: %s\n", hash);
-#ifdef GUI
-        showCertSha(hash);
-#endif
+
         s = saveCert(pRemoteCertContext, hash, cert_dir, out);
         if ( s != 0 )
         {
@@ -215,12 +214,12 @@ int connectTLSSocket(
     printCert(remoteCertContext, out);
 #endif
     
+    hashCert(remoteCertContext, CertHash);
+
     char hash[SHA1_STRING_BUFFER_LN];
-    hashCert(remoteCertContext, CertHash, hash);
+    hashToString(CertHash, SHA1_BYTES_LN, hash, SHA1_STRING_BUFFER_LN);
     fprintf(out, "sha1 of certificate: %s\n", hash);
-#ifdef GUI
-    showCertSha(hash);
-#endif
+
     s = saveCert(remoteCertContext, hash, cert_dir, out);
     if ( s != 0 )
     {
@@ -268,10 +267,9 @@ clean:
     return s;
 }
 
-void hashCert(
+int hashCert(
     _In_ PCCERT_CONTEXT cert, 
-    _Out_ uint8_t* bytes,
-    _Out_ char* str
+    _Out_ uint8_t* bytes
 )
 {
     int s;
@@ -280,11 +278,8 @@ void hashCert(
     if ( s != 0 )
     {
         fprintf(out, "ERROR (0x%x): Calculating hash failed!\n", s);
-#ifdef GUI
-        showStatus("ERROR: Calculating hash failed!\n");
-#endif
-        return;
+        return SCHAT_ERROR_CALCULATE_HASH;
     }
 
-    hashToString(bytes, SHA1_BYTES_LN, str, SHA1_STRING_BUFFER_LN);
+    return 0;
 }

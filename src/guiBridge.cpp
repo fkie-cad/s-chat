@@ -1,4 +1,4 @@
-#include "guiBridge.h"
+ #include "guiBridge.h"
 
 #include <string.h>
 #include <stdint.h>
@@ -19,7 +19,8 @@ bool RemoteFmtInitialized = false;
 
 extern int last_type;
 
-static HWND StatusOutput = NULL;
+static HWND InfoStatusOpt = NULL;
+static HWND ConnStatusOpt = NULL;
 static HWND MessageOutput = NULL;
 //static HWND ThumbPrintOutput = NULL;
 static HWND FilePBar = NULL;
@@ -30,6 +31,8 @@ static std::mutex pg_mtx;
 extern HWND MainWindow;
 extern HGLOBAL notify_snd;
 
+static ULONG InfoStatusThreadId = 0;
+static HANDLE InfoStatusThread = NULL;
 
 
 void initFormats()
@@ -63,11 +66,18 @@ void initFormats()
     }
 }
 
-void setStatusOutput(
-    _In_ HWND StatusOutput_
+void setConnStatusOutput(
+    _In_ HWND Output_
 )
 {
-    StatusOutput = StatusOutput_;
+    ConnStatusOpt = Output_;
+}
+
+void setInfoStatusOutput(
+    _In_ HWND Output_
+)
+{
+    InfoStatusOpt = Output_;
 }
 
 void setMessageOutput(
@@ -91,18 +101,58 @@ void setFilePBar(
 //    ThumbPrintOutput = ThumbPrintOutput_;
 //}
 
-void showStatus(
+void showConnStatus(
     _In_ const char* msg
 )
 {
-    if ( StatusOutput == NULL )
+    if ( ConnStatusOpt == NULL )
         return;
     //if ( status_mtx.try_lock() )
     {
         status_mtx.lock();
-        SetWindowTextA(StatusOutput, msg);
+        SetWindowTextA(ConnStatusOpt, msg);
         status_mtx.unlock();
     }
+}
+
+
+#define SHOW_STATUS_DURATION (2000)
+DWORD WINAPI InfoStatusFade(LPVOID lpParam)
+{
+    (lpParam);
+    Sleep(SHOW_STATUS_DURATION);
+    SetWindowTextA(InfoStatusOpt, "");
+    return 0;
+}
+
+void showInfoStatus(
+    _In_ const char* msg
+)
+{
+    if ( InfoStatusOpt == NULL )
+        return;
+
+    //status_mtx.lock();
+    SetWindowTextA(InfoStatusOpt, msg);
+
+    if ( InfoStatusThread != NULL )
+    {
+        TerminateThread(InfoStatusThread, 0);
+        CloseHandle(InfoStatusThread);
+        InfoStatusThread = NULL;
+        InfoStatusThreadId = 0;
+    }
+
+    InfoStatusThread = CreateThread(
+            NULL,                   // default security attributes
+            0,                      // use default stack size  
+            InfoStatusFade,       // thread function name
+            NULL,          // argument to thread function 
+            0,                      // use default creation flags 
+            &InfoStatusThreadId    // returns the thread identifier 
+        );
+    //T = NULL;
+    //status_mtx.unlock();
 }
 
 //#include <richedit.h>
@@ -121,8 +171,11 @@ void AppendWindowTextA(
     SendMessage(ctrl, EM_SETSEL, outLength, outLength);
     
     // insert the text at the new caret position
-    std::string t = std::string(Text) + "\r\n";
-    SendMessage(ctrl, EM_REPLACESEL, TRUE, (LPARAM)(t.c_str()));
+    SendMessage(ctrl, EM_REPLACESEL, TRUE, (LPARAM)(Text));
+    
+    outLength = GetWindowTextLength(ctrl);
+    SendMessage(ctrl, EM_SETSEL, outLength, outLength);
+    SendMessage(ctrl, EM_REPLACESEL, TRUE, (LPARAM)("\r\n"));
     
     if ( fmt != NULL )
     {
@@ -276,8 +329,9 @@ void showCertSha(
     _In_ const char* hash
 )
 {
-    std::string msg = "cert: "+std::string(hash);
-    showMessages(&msg[0], MSG_TYPE_INFO);
+    char msg[SHA1_STRING_BUFFER_LN + 7];
+    sprintf_s(msg, (SHA1_STRING_BUFFER_LN + 6), "cert: %s", hash);
+    showMessages(msg, MSG_TYPE_INFO);
 }
 
 #define PG_STRING_SIZE (0x1f)
@@ -290,7 +344,7 @@ void showProgress(
     char pc[PG_STRING_SIZE];
     sprintf_s(pc, PG_STRING_SIZE, "0x%zx / 0x%zx (%u%%)", v, s, percent);
     pc[PG_STRING_SIZE-1] = 0;
-    showStatus(pc);
+    showInfoStatus(pc);
     
     if ( FilePBar == NULL )
         return;

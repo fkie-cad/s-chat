@@ -18,16 +18,19 @@
 #include "helper.h"
 #include "../values.h"
 #include "../version.h"
-#include "../engine.h"
+#include "../engine/engine.h"
 #include "../guiBridge.h"
 #include "../files/Files.h"
 #include "../Strings.h"
 
 #include "../utils/ConfigFileParser.h"
 
+#include "dialogs/AboutDialog.h"
 #include "dialogs/BasicDialog.h"
+#include "dialogs/ConfirmCloseDialog.h"
 #include "dialogs/ConnectionDataDialog.h"
 #include "dialogs/PreferencesDialog.h"
+#include "dialogs/FileTransferDialog.h"
 #include "dialogs/FileSelector.h"
 #include "ConfigFile.h"
 
@@ -69,7 +72,7 @@ static LRESULT onConnect(HWND hWnd);
 static LRESULT onListen(HWND hWnd);
 static LRESULT onSend(HWND hWnd);
 static VOID stopNetworking();
-static DWORD WINAPI ReceiveThread(LPVOID lpParam);
+static DWORD WINAPI ReceiveThreadFn(LPVOID lpParam);
 static DWORD WINAPI ListenThread(LPVOID lpParam);
 
 static VOID parseCmdLine(LPSTR lpCmdLine);
@@ -86,7 +89,6 @@ static LRESULT sendFile(PCHAR msg, ULONG msg_len);
 static LRESULT CancelFileTransfer();
 
 DWORD WINAPI InfoStatusFade(LPVOID lpParam);
-void ShowInfoStatus(_In_ const char* msg);
 
 
 
@@ -99,11 +101,10 @@ static CONST CHAR* WindowTitle = NULL;                  // The title bar text
 static CHAR WindowClass[MAX_LOADSTRING];            // the main window class name
 
 static HWND MessageIpt, MessageOpt, ListenBtn, ConnectBtn, SendBtn;
-static HWND StatusOpt, InfoStatusOpt;
+static HWND ConnStatusOpt, InfoStatusOpt;
 //HWND NameIpt, IpIpt, IpVersionIpt, PortIpt, CertFileIpt;
 //HWND FileIpt, ShaOpt;
 static HWND SelFileBtn;
-static WNDPROC oldMessageIpt;
 HWND FilePBar;
 
 #define ERROR_MESSAGE_SIZE (0x200)
@@ -128,10 +129,8 @@ static CHAR err_msg[ERROR_MESSAGE_SIZE];
 static CONNECTION_STATUS ConnectionStatus = CONNECTION_STATUS::STOPPED;
 static FILE_TRANSFER_STATUS FileTransferStatus = FILE_TRANSFER_STATUS::STOPPED;
 std::mutex cstmtx;
-static ULONG ThreadId = 0;
-static HANDLE Thread = NULL;
-static ULONG InfoStatusThreadId = 0;
-static HANDLE InfoStatusThread = NULL;
+static ULONG ConnectionThreadId = 0;
+static HANDLE ConnectionThread = NULL;
 
 
 extern ADDRESS_FAMILY family;
@@ -157,8 +156,9 @@ PreferencesDialog PreferencesDlg;
 CONNECTION_DATA ConnectionData;
 ConnectionDataDialog ConnectionDataDlg;
 
-BasicDialog CloseDlg;
-BasicDialog AboutDlg;
+ConfirmCloseDialog CloseDlg;
+AboutDialog AboutDlg;
+FileTransferDialog FtDlg;
 
 FileSelector FileSel;
 
@@ -248,12 +248,12 @@ int APIENTRY WinMain(
     }
     
     ConnectionDataDlg.setConfigFile(&CfgFile);
-	ConnectionDataDlg.setMainWindow(MainWindow);
-	
-	PreferencesDlg.setMainWindow(MainWindow);
+    ConnectionDataDlg.setMainWindow(MainWindow);
+    
+    PreferencesDlg.setMainWindow(MainWindow);
     PreferencesDlg.setConfigFile(&CfgFile);
 
-	AboutDlg.setMainWindow(MainWindow);
+    AboutDlg.setMainWindow(MainWindow);
 
     CloseDlg.setMainWindow(MainWindow);
 
@@ -527,16 +527,16 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
     MainInstance = hInstance; // Store instance handle in our global variable
     
-	HWND Desktop = GetDesktopWindow();
-	RECT DesktopRect;
-	GetClientRect(Desktop, &DesktopRect);
+    HWND Desktop = GetDesktopWindow();
+    RECT DesktopRect;
+    GetClientRect(Desktop, &DesktopRect);
 
-	INT x = (DesktopRect.right - DEFAULT_WINDOW_WIDTH) / 2;
-	INT y = (DesktopRect.bottom - DEFAULT_WINDOW_HEIGHT) / 2;
-	if ( x < 0 )
-		x = 0;
-	if ( y < 0 )
-		y = 0;
+    INT x = (DesktopRect.right - DEFAULT_WINDOW_WIDTH) / 2;
+    INT y = (DesktopRect.bottom - DEFAULT_WINDOW_HEIGHT) / 2;
+    if ( x < 0 )
+        x = 0;
+    if ( y < 0 )
+        y = 0;
 
     MainRect = { x, y, DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT };
 
@@ -703,7 +703,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         EnumChildWindows(hWnd, EnumChildProc, (LPARAM)&MainRect);
         return 0;
 
-	case WM_CLOSE:
+    case WM_CLOSE:
         result = ConfirmClose(hWnd);
         if ( result == IDOK )
             return DefWindowProcA(hWnd, message, wParam, lParam);
@@ -794,12 +794,13 @@ LRESULT onSafeData()
     updateConfigFile(&ConnectionData, &PreferencesData);
     result = CfgFileParser->save(CfgFile.Path);
     
-	if ( result != 0 )
-		ShowInfoStatus("Saving failed");
-	else
+    if ( result != 0 )
+        showInfoStatus("Saving failed");
+    else
     {
-        ShowInfoStatus("Saved");
+        showInfoStatus("Saved");
         SetWindowText(MainWindow, WindowTitleD);
+        DataHasChanged = FALSE;
     }
 
     return result;
@@ -830,9 +831,19 @@ INT ConfirmClose(HWND hWnd)
     INT result = IDOK;
     if ( ConnectionStatus == CONNECTION_STATUS::CONNECTED )
     {
-        result = (INT)DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_CLOSE_DLG), hWnd, onCloseCB, 0L);
-        std::string r = "close result: "+std::to_string(result);
-        ShowInfoStatus(r.c_str());
+        COMFIRM_CLOSE_PARAMS p = {
+            "You are still connected.",
+            "Close connection and exit?"
+        };
+        result = (INT)DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_CLOSE_DLG), hWnd, onCloseCB, (LPARAM)&p);
+    }
+    else if ( DataHasChanged )
+    {
+        COMFIRM_CLOSE_PARAMS p = {
+            "Your settings have unsaved changes.",
+            "Exit anyway?"
+        };
+        result = (INT)DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_CLOSE_DLG), hWnd, onCloseCB, (LPARAM)&p);
     }
 
     return result;
@@ -843,33 +854,13 @@ INT_PTR CALLBACK onCloseCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
     return CloseDlg.openCb(hDlg, message, wParam, lParam);
 }
 
-//LRESULT onClose(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-//{
-//	LRESULT result = 0;
-//	UNREFERENCED_PARAMETER(hWnd);
-//	
-//    std::string m = "status: "+std::to_string((int)ConnectionStatus);
-//    showStatus(m.c_str());
-//    if ( ConnectionStatus == CONNECTION_STATUS::LISTENING )
-//    {
-//        result = MessageBoxA(NULL, "Alert",  "Message", MB_OKCANCEL | MB_ICONINFORMATION);
-//        
-//        if ( result != IDOK )
-//        {
-//            return result;
-//        }
-//    }
-//
-//	return DefWindowProcA(hWnd, message, wParam, lParam);
-//}
-
 LRESULT onDestroy(HWND hWnd)
 {
     LRESULT result = 0;
     UNREFERENCED_PARAMETER(hWnd);
 
-    if ( Thread != NULL )
-        CloseHandle(Thread);
+    if ( ConnectionThread != NULL )
+        CloseHandle(ConnectionThread);
     stopNetworking();
 
     PostQuitMessage(0);
@@ -879,8 +870,6 @@ LRESULT onDestroy(HWND hWnd)
     DestroyIcon(gui_icon_listen);
     FreeResource(notify_snd);
     
-    //onSafeData();
-
     if ( pmsg )
         delete[] pmsg;
 
@@ -892,28 +881,15 @@ LRESULT onDestroy(HWND hWnd)
 
 INT_PTR CALLBACK FTAcceptDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    char* base_name;
-
-    switch ( message )
-    {
-    case WM_INITDIALOG:
-        base_name = (char*)lParam;
-        SetDlgItemTextA(hDlg, IDC_ACCEPT_FILE_IPT, base_name);
-        return (INT_PTR)TRUE;
-
-    case WM_COMMAND:
-        if ( LOWORD(wParam) == IDYES || LOWORD(wParam) == IDNO || LOWORD(wParam) == IDCANCEL )
-        {
-            EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
-        }
-        break;
-    }
-    return (INT_PTR)FALSE;
+    return FtDlg.openCb(hDlg, message, wParam, lParam);
 }
 
-LRESULT CALLBACK subEditProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK MesageIptSC(HWND hWnd, UINT msg, WPARAM wParam,
+                               LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
+    LRESULT result = 0;
+    (uIdSubclass);(dwRefData);
+
     switch (msg)
     {
         case WM_CHAR :
@@ -922,10 +898,11 @@ LRESULT CALLBACK subEditProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     onSend(hWnd);
                     return 0;
             }
-        default:
-            break;
-    }
-    return CallWindowProcA(oldMessageIpt, hWnd, msg, wParam, lParam);
+
+       default:
+           result = DefSubclassProc(hWnd, msg, wParam, lParam);
+    } 
+    return result;
 }
 
 //#include "Richedit.h"
@@ -955,7 +932,7 @@ LRESULT onCreate(HWND hWnd)
         GetModuleHandle(NULL), 
         NULL
     );
-    oldMessageIpt = (WNDPROC)SetWindowLongPtrA(MessageIpt, GWLP_WNDPROC, (LONG_PTR)subEditProc);
+	SetWindowSubclass(MessageIpt, MesageIptSC, WND_MESSAGE_IPT_IDX, 0);
 
     SendBtn = CreateWindowA(
         WC_BUTTONA,
@@ -1028,7 +1005,7 @@ LRESULT onCreate(HWND hWnd)
     StatusOptRect.top = DEFAULT_WINDOW_HEIGHT - 20;
     StatusOptRect.right = STATUS_OPT_W;
     StatusOptRect.bottom = IPT_H;
-    StatusOpt = CreateWindowA(
+    ConnStatusOpt = CreateWindowA(
         WC_EDITA,
         "",
         WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_READONLY,
@@ -1053,7 +1030,8 @@ LRESULT onCreate(HWND hWnd)
 
 
     
-    setStatusOutput(InfoStatusOpt);
+    setConnStatusOutput(ConnStatusOpt);
+    setInfoStatusOutput(InfoStatusOpt);
     setMessageOutput(MessageOpt);
     setFilePBar(FilePBar);
 
@@ -1142,12 +1120,14 @@ VOID setupNetClient()
 void enableConnectedControls(HWND btn)
 {
     ConnectionDataDlg.enable();
+    PreferencesDlg.enable();
     EnableWindow(btn, TRUE);
 }
 
 void disableConnectedControls(HWND btn)
 {
     ConnectionDataDlg.disable();
+    PreferencesDlg.disable();
     EnableWindow(btn, FALSE);
 }
 
@@ -1163,20 +1143,20 @@ LRESULT onConnect(HWND hWnd)
 
     if ( ConnectionStatus == CONNECTION_STATUS::LISTENING )
     {
-        showStatus("Already in listening mode, can't connect at the same time!");
+        showInfoStatus("Already in listening mode, can't connect at the same time!");
 
         return 0;
     }
 
     if ( ConnectionStatus == CONNECTION_STATUS::STOPPED )
     {
-        if ( Thread != NULL )
+        if ( ConnectionThread != NULL )
         {
-            showStatus("ERROR: Thread not NULL");
+            showInfoStatus("ERROR: Connectino thread not NULL");
             return -1;
         }
-        Thread = NULL;
-        ThreadId = 0;
+        ConnectionThread = NULL;
+        ConnectionThreadId = 0;
 
         setupNetClient();
 
@@ -1184,29 +1164,29 @@ LRESULT onConnect(HWND hWnd)
         if ( result != 0 )
         {
             sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Connecting failed: 0x%X", (INT)result);
-            showStatus(err_msg);
+            showInfoStatus(err_msg);
             goto clean;
         }
 
-        Thread = CreateThread(
+        ConnectionThread = CreateThread(
             NULL,                   // default security attributes
             0,                      // use default stack size  
-            ReceiveThread,       // thread function name
+            ReceiveThreadFn,       // thread function name
             hWnd,        // argument to thread function 
             0,           // use default creation flags 
-            &ThreadId    // returns the thread identifier 
+            &ConnectionThreadId    // returns the thread identifier 
         );
-        if ( Thread == NULL )
+        if ( ConnectionThread == NULL )
         {
-            showStatus("Creating receive thread failed!");
+            showInfoStatus("Creating receive thread failed!");
             stopConnection(hWnd, "Disconnected", ConnectBtn, "Connect", ListenBtn);
             goto clean;
         }
-        CloseHandle(Thread);
-        Thread = NULL;
+        CloseHandle(ConnectionThread);
+        ConnectionThread = NULL;
         
         disableConnectedControls(ListenBtn);
-        showStatus("Connected");
+        showConnStatus("Connected");
         changeIcon(CONNECTION_STATUS::CONNECTED);
         SetWindowTextA(ConnectBtn, "Stop");
 
@@ -1238,20 +1218,20 @@ LRESULT onListen(HWND hWnd)
 
     if ( ConnectionStatus == CONNECTION_STATUS::CONNECTED )
     {
-        showStatus("Already in connected mode, can't listen at the same time!");
+        showInfoStatus("Already in connected mode, can't listen at the same time!");
 
         return 0;
     }
 
     if ( ConnectionStatus == CONNECTION_STATUS::STOPPED )
     {
-        if ( Thread != NULL )
+        if ( ConnectionThread != NULL )
         {
-            showStatus("ERROR: Thread not NULL");
+            showInfoStatus("ERROR: ConnectionThread not NULL");
             return -1;
         }
-        Thread = NULL;
-        ThreadId = 0;
+        ConnectionThread = NULL;
+        ConnectionThreadId = 0;
 
         setupNetClient();
 
@@ -1259,31 +1239,31 @@ LRESULT onListen(HWND hWnd)
         if ( result != 0 )
         {
             sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Listening failed: 0x%X", (INT)result);
-            showStatus(err_msg);
+            showInfoStatus(err_msg);
             goto clean;
         }
 
-        Thread = CreateThread(
+        ConnectionThread = CreateThread(
             NULL,         // default security attributes
             0,            // use default stack size  
             ListenThread, // thread function name
             hWnd,        // argument to thread function 
             0,           // use default creation flags 
-            &ThreadId    // returns the thread identifier 
+            &ConnectionThreadId    // returns the thread identifier 
         );
-        if ( Thread == NULL )
+        if ( ConnectionThread == NULL )
         {
-            showStatus("Creating listen thread failed!");
+            showInfoStatus("Creating listen thread failed!");
             stopConnection(hWnd, "Deaf", ListenBtn, "Listen", ConnectBtn);
             goto clean;
         }
-        CloseHandle(Thread);
-        Thread = NULL;
+        CloseHandle(ConnectionThread);
+        ConnectionThread = NULL;
         
         disableConnectedControls(ConnectBtn);
         SetWindowTextA(ListenBtn, "Stop");
         sprintf_s(buffer, 0x50, "Listening on %s", ConnectionData.port);
-        showStatus(buffer);
+        showConnStatus(buffer);
         changeIcon(CONNECTION_STATUS::LISTENING);
         
         cstmtx.lock();
@@ -1309,7 +1289,7 @@ LRESULT onSend(HWND hWnd)
     int msg_len = GetWindowTextLengthA(MessageIpt) + 1;
     if ( msg_len < 2 )
     {
-        showStatus("Type a message first!");
+        showInfoStatus("Type a message first!");
         return 0;
     }
 
@@ -1334,23 +1314,23 @@ LRESULT sendMessage(PCHAR msg, ULONG msg_len)
 {
     LRESULT r = 0;
 
-    showStatus("Sending...");
+    showInfoStatus("Sending...");
 
     r = client_sendMessage(msg, msg_len);
     if ( (ULONG)r == SCHAT_ERROR_INVALID_SOCKET )
     {
         sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Not connected yet!");
-        showStatus(err_msg);
+        showInfoStatus(err_msg);
     }
     else if ( (ULONG)r != 0 )
     {
         sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Send error: 0x%X", (ULONG)r);
-        showStatus(err_msg);
+        showInfoStatus(err_msg);
     }
     else
     {
         SetWindowTextA(MessageIpt, "");
-        showStatus("");
+        showInfoStatus("");
     }
 
     return r;
@@ -1360,11 +1340,11 @@ LRESULT sendFile(PCHAR msg, ULONG msg_len)
 {
     LRESULT r = 0;
 
-    showStatus("Sending...");
+    showInfoStatus("Sending...");
 
     if ( msg_len <= MSG_CMD_FILE_LN+1 )
     {
-        showStatus("Path too short!");
+        showInfoStatus("Path too short!");
         return -1;
     }
 
@@ -1373,7 +1353,7 @@ LRESULT sendFile(PCHAR msg, ULONG msg_len)
     
     if ( path_len < 2 )
     {
-        showStatus("Path too short!");
+        showInfoStatus("Path too short!");
         return -1;
     }
 
@@ -1381,17 +1361,17 @@ LRESULT sendFile(PCHAR msg, ULONG msg_len)
     if ( (ULONG)r == SCHAT_ERROR_INVALID_SOCKET )
     {
         sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Not connected yet!");
-        showStatus(err_msg);
+        showInfoStatus(err_msg);
     }
     else if ( (ULONG)r != 0 )
     {
         sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Send file error : 0x%X", (ULONG)r);
-        showStatus(err_msg);
+        showInfoStatus(err_msg);
     }
     else
     {
-        SetWindowTextA(MessageIpt, "");
-        showStatus("");
+        //SetWindowTextA(MessageIpt, "");
+        //showStatus("");
     }
 
     return r;
@@ -1426,7 +1406,7 @@ LRESULT CancelFileTransfer()
 /**
  * Start client receiving thread
  */
-DWORD WINAPI ReceiveThread(LPVOID lpParam)
+DWORD WINAPI ReceiveThreadFn(LPVOID lpParam)
 {
     int s = 0;
     HWND hWnd = (HWND)(lpParam);
@@ -1477,15 +1457,15 @@ VOID stopConnection(HWND hWnd, const char* msg, HWND btn, const char* btnText, H
     cstmtx.unlock();
 
     cleanClient();
-    showStatus(msg);
+    showConnStatus(msg);
     SetWindowTextA(btn, btnText);
 
     enableConnectedControls(otherBtn);
     //SendMessageA(NameIpt, EM_SETREADONLY, FALSE, NULL);
     //EnableWindow(otherBtn, TRUE);
 
-    Thread = NULL;
-    ThreadId = 0;
+    ConnectionThread = NULL;
+    ConnectionThreadId = 0;
 
     changeIcon(CONNECTION_STATUS::STOPPED);
     
@@ -1504,9 +1484,9 @@ VOID stopNetworking()
     ConnectionStatus = CONNECTION_STATUS::STOPPING;
     cstmtx.unlock();
 
-    showStatus("Stopping...");
+    showConnStatus("Stopping...");
     cleanClient();
-    showStatus("Stopped");
+    showConnStatus("Stopped");
     
     cstmtx.lock();
     ConnectionStatus = CONNECTION_STATUS::STOPPED;
@@ -1721,43 +1701,4 @@ VOID updateConfigFile(PCONNECTION_DATA ConnData, PPREFERENCES_DATA PrefsData)
     {
         CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_T_FILES], PrefsData->FileDir, strlen(PrefsData->FileDir));
     }
-}
-
-
-#define SHOW_STATUS_DURATION (2000)
-DWORD WINAPI InfoStatusFade(LPVOID lpParam)
-{
-	Sleep(SHOW_STATUS_DURATION);
-	SetWindowTextA(InfoStatusOpt, "");
-	return 0;
-}
-
-void ShowInfoStatus(
-	_In_ const char* msg
-)
-{
-	if ( InfoStatusOpt == NULL )
-		return;
-
-	//status_mtx.lock();
-	SetWindowTextA(InfoStatusOpt, msg);
-
-	if ( InfoStatusThread != NULL )
-	{
-		TerminateThread(InfoStatusThread, 0);
-		CloseHandle(InfoStatusThread);
-		InfoStatusThread = NULL;
-        InfoStatusThreadId = 0;
-	}
-
-	InfoStatusThread = CreateThread(
-			NULL,                   // default security attributes
-			0,                      // use default stack size  
-			InfoStatusFade,       // thread function name
-			NULL,          // argument to thread function 
-			0,                      // use default creation flags 
-			&InfoStatusThreadId    // returns the thread identifier 
-		);
-	//T = NULL;
-	//status_mtx.unlock();
 }

@@ -2,6 +2,7 @@
 
 #include "PreferencesDialog.h"
 #include "../../utils/ConfigFileParser.h"
+#include "../ToolTip.h"
 
 
 //Message handler for connection data
@@ -14,12 +15,13 @@ INT_PTR CALLBACK PreferencesDialog::openCb(HWND hDlg, UINT message, WPARAM wPara
     {
         case WM_INITDIALOG:
             has_changed = FALSE;
-            CreateToolTip(IDC_PD_LOG_IPT, hDlg, "Save log files in this dir.");
-            CreateToolTip(IDC_PD_CERT_IPT, hDlg, "Save remote certificates in this dir.");
-            CreateToolTip(IDC_PD_FILE_IPT, hDlg, "Save transfered files in this dir.");
+            ToolTip::forChildId(IDC_PD_LOG_IPT, hDlg, "Save log files in this dir.");
+            ToolTip::forChildId(IDC_PD_CERT_IPT, hDlg, "Save remote certificates in this dir.");
+            ToolTip::forChildId(IDC_PD_FILE_IPT, hDlg, "Save transfered files in this dir.");
             fillInputs(data);
             if ( disabled )
-                disableInputs(hDlg);
+                disableInputs(hDlg, iptIds.data(), (ULONG)iptIds.size());
+                disableButtons(hDlg, btnIds.data(), (ULONG)btnIds.size());
             break;
 
         case WM_COMMAND:
@@ -98,15 +100,6 @@ VOID PreferencesDialog::updateData(PPREFERENCES_DATA data)
     {
         strcpy_s(data->FileDir, MAX_PATH, tmpStr);
         has_changed = TRUE;
-    }
-}
-
-VOID PreferencesDialog::disableInputs(HWND hDlg)
-{
-    for ( size_t i = 0; i < iptIds.size(); i++ )
-    {
-        HWND ipt = GetDlgItem(hDlg, iptIds[i]);
-        SendMessageA(ipt, EM_SETREADONLY, TRUE, NULL);
     }
 }
         

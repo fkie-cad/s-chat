@@ -4,6 +4,7 @@
 #include <winsock2.h> // before windows.h !!!
 #include <windows.h>
 
+#include "../Resource.h"
 #include "../../values.h"
 #include "../ConfigFile.h"
 #include "../../utils/ConfigFileParser.h"
@@ -21,11 +22,13 @@ class ConnectionDataDialog : public BasicDialog
 
         BOOL has_changed = false;
 
+        std::vector<ULONG> iptIds = { IDC_CD_IP_IPT, IDC_CD_PORT_IPT, IDC_CD_VS_IPT, IDC_CD_NAME_IPT, IDC_CD_CT_IPT };
+
     public:
         ConnectionDataDialog() = default;
         ~ConnectionDataDialog() = default;
         
-        INT_PTR CALLBACK openCb(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+        INT_PTR CALLBACK openCb(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) override;
         
         VOID setConfigFile(PCONFIG_FILE CfgFile_);
         
@@ -43,8 +46,6 @@ class ConnectionDataDialog : public BasicDialog
         VOID fillInputs(PCONNECTION_DATA data);
 
         VOID updateData(PCONNECTION_DATA data);
-        
-        VOID disableInputs(HWND hDlg);
 };
 
 

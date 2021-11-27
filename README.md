@@ -4,11 +4,11 @@ Secure TLS/SSL Windows E2E Chat.
 Currently just supporting TLS 1.2 due to Windows SChannel restrictions.
 
 ## Version ##
-1.0.5  
-Last changed: 20.11.2021
+1.0.6  
+Last changed: 27.11.2021
 
 ## Descrtiption
-GUI chat application that connects two communication partners directly over TCP using TLS/SSL to secure the communication.
+GUI chat application that connects two communication partners directly over TCP using TLS 1.2.
 The GUI is very *basic* at the moment but is work in progress.
 
 ## Usage
@@ -19,6 +19,9 @@ The Length can be of 8192 bit or even 16384 bit.
 16384 RSA might trigger network anomaly detection. 
 The edward curve and/or TLS 1.3 is not available for usage on Windows 10 OS.
 
+The server side has to make it's ip and port reachable for the client.
+This may be done in the router settings or elsewhere.
+
 ## Requirements
 - msbuild tools
 
@@ -27,15 +30,15 @@ The edward curve and/or TLS 1.3 is not available for usage on Windows 10 OS.
 ### Windows msbuild in developer cmd
 **easy**
 ```bash
-$devcmd> build.bat [/g] [/d] [/r] [/dp] [/dphd] [/dpm] [/pdb]
+$devcmd> build.bat [/sc] [/d] [/r] [/dp] [/dphd] [/dpm] [/pdb]
 ```
 Targets:
-- /g: Build the complete gui program.
+- /sc: Build sChat.
 Build modes:
 - /d: Build in debug mode.
 - /r: Build in release mode.
 - /b: Bitness of exe. 32^|64. Default: 64.
-- /rtl: Build with runtime libs.
+- /rtl: Build with statically include runtime libs.
 - /pdb: Compile with pdbs.
 Flags:
 - /dp: Debug print output.
@@ -79,26 +82,26 @@ $ server SChat.exe -i 123.456.789.876 -p 5432 -n alice -c aliceCertThumbPrint
 ```
 
 Most options may be skipped, because there are input fields in the app for them too.
-Currently, the options `/l`, `/d` and `/f` are not possible to be set in the app.
 
-After starting, one partner has to play the server side.
+After starting, one partner has to play the **server** side.
 `User name`, `Port` and `Cert thumb` (thumbprint of the certificate) have to be filled with valid values.
 Ip may be filled to make the server listen to only that IP.
-If not filled, `Version` has to be set to `4` or `6`.
+If not filled, `IP Version` has to be set to `4` or `6`.
 Then the `Listen` button has to be pressed.
 
-The client side has to fill `User name`, `Ip`, `Port` and `Cert thumb` (thumbprint of the certificate) with valid values and then press the `Connect` button.
-`Version` may be left empty.
+The **client** side has to fill `User name`, `Ip`, `Port` and `Cert thumb` (thumbprint of the certificate) with valid values and then press the `Connect` button.
+`IP Version` may be left empty.
 
 After that, the communication partners may send messages to each other by typing into the `Message` input and pressing `Enter` or the `Send` button.
+
+Files can be sent by pressing the `File` button and browsing a file or by typing `/file path\to\the\file` and then pressing `Enter` or `Send`.
 
 There is a log file beeing created, named `<server|client>-<date>-<time>.log` in the current working directory, which will be filled with infos, depending on the debug print compiler flags.
 By passing the command line option `/l` the directory where the files are saved may be changed.
 
-The certificate of the other side is stored in `<sha256(cert)>.der` in the current working directory (default).
-The hash (sha256) of the certificate is also displayed with the connection info in the message output.
+The certificate of the other side is stored in `<sha1(cert)>.der` in the current working directory (default).
+The hash (sha1) of the certificate is also displayed with the connection info in the message output.
 This should by verified by calculating and comparing the hash with the comunication partner or sharing it in advance.
-By passing the command line option `/d` the directory where the certificates are saved may be changed.
 
 An example .config is located in [res/.config.example](res/.config.example).
 

@@ -164,6 +164,9 @@ typedef struct _PREFERENCES_DATA
     CHAR FileDir[MAX_PATH];
 } PREFERENCES_DATA, *PPREFERENCES_DATA;
 
-
+typedef struct _COMFIRM_CLOSE_PARAMS {
+    const char* Status;
+    const char* Suggestion;
+} COMFIRM_CLOSE_PARAMS, *PCOMFIRM_CLOSE_PARAMS;
 
 #endif 

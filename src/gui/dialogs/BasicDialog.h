@@ -26,9 +26,9 @@ class BasicDialog
         
         VOID centerDialog(HWND hDlg);
 
-        HWND CreateToolTip(int toolID, HWND Dlg, PCHAR Text);
-        void CreateToolTipForWindow(HWND Parent, PCHAR Text);
-        void CreateToolTipForRect(HWND Parent, PCHAR Text, PRECT Rect);
+        VOID disableInputs(HWND hDlg, ULONG* iptIds, ULONG nIpts);
+
+        VOID disableButtons(HWND hDlg, ULONG* iptIds, ULONG nIpts);
 
     private:
 };

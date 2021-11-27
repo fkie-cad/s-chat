@@ -25,12 +25,13 @@ class PreferencesDialog : public BasicDialog
         BOOL has_changed = false;
 
         std::vector<ULONG> iptIds = { IDC_PD_LOG_IPT, IDC_PD_CERT_IPT, IDC_PD_FILE_IPT };
+        std::vector<ULONG> btnIds = { IDC_PD_LOG_BTN, IDC_PD_CERT_BTN, IDC_PD_FILE_BTN };
 
     public:
         PreferencesDialog() = default;
         ~PreferencesDialog() = default;
         
-        INT_PTR CALLBACK openCb(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+        INT_PTR CALLBACK openCb(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) override;
         
         VOID setConfigFile(PCONFIG_FILE CfgFile_);
         
@@ -48,8 +49,6 @@ class PreferencesDialog : public BasicDialog
         VOID fillInputs(PPREFERENCES_DATA data);
 
         VOID updateData(PPREFERENCES_DATA data);
-        
-        VOID disableInputs(HWND hDlg);
 };
 
 

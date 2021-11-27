@@ -1,5 +1,3 @@
-//Microsoft Visual C++ generated resource script.
-//
 #include "../src/gui/resource.h"
 
 #define APSTUDIO_READONLY_SYMBOLS
@@ -7,9 +5,9 @@
 //
 // Generated from the TEXTINCLUDE resource.
 //
-#ifndef APSTUDIO_INVOKED
-#include "../src/gui/targetver.h"
-#endif
+// #ifndef APSTUDIO_INVOKED
+// #include "../src/gui/targetver.h"
+// #endif
 #define APSTUDIO_HIDDEN_SYMBOLS
 #include "windows.h"
 #undef APSTUDIO_HIDDEN_SYMBOLS
@@ -114,26 +112,28 @@ END
 #define DEF_BTN_STYLE (BS_DEFPUSHBUTTON | WS_TABSTOP | WS_GROUP)
 
 
-IDD_ABOUT_DLG DIALOGEX DIALOG_X, DIALOG_Y, DIALOG_W, 57
+IDD_ABOUT_DLG DIALOGEX DIALOG_X, DIALOG_Y, DIALOG_W, 90
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU 
 CAPTION "About SChat"
 FONT 8, "MS Shell Dlg"
 BEGIN
     ICON            IDR_MAINFRAME,IDC_STATIC,ICON_X,ICON_Y,0,0
-    LTEXT           "SChat, Version 1.0.5",IDC_STATIC,42,10,114,LBL_H,SS_NOPREFIX
-    LTEXT           "Copyright (c) 2021 FKIE CA&&D",IDC_STATIC,42,20,200,LBL_H
-    DEFPUSHBUTTON   "OK",IDOK, CANCEL_BTN_X,33,BTN_W,BTN_H, DEF_BTN_STYLE
+    LTEXT           "SChat, Version ",IDC_ABT_VS_IPT,42,10,114,LBL_H,SS_NOPREFIX
+    LTEXT           "Last changed:",IDC_ABT_LC_IPT,42,20,150,8,SS_NOPREFIX
+    LTEXT           "Compiled:",IDC_ABT_CP_IPT,42,30,150,8,SS_NOPREFIX
+    LTEXT           "Copyright (c) 2021 FKIE CA&&D",IDC_STATIC,42,46,200,LBL_H
+    DEFPUSHBUTTON   "OK",IDOK, CANCEL_BTN_X,65,BTN_W,BTN_H, DEF_BTN_STYLE
 END
 
 
 IDD_CLOSE_DLG DIALOGEX DIALOG_X, DIALOG_Y, DIALOG_W, 57
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU 
-CAPTION "Close Connection?"
+CAPTION "Close App?"
 FONT 8, "MS Shell Dlg"
 BEGIN
     ICON            IDR_MAINFRAME, IDC_STATIC, ICON_X,ICON_Y,0,0
-    LTEXT           "You are still connected.",IDC_STATIC,42,10,200,LBL_H,SS_NOPREFIX
-    LTEXT           "Close connection and exit?",IDC_STATIC,42,20,200,LBL_H,SS_NOPREFIX
+    LTEXT           "You are still connected.",IDC_CCL_ST_IPT,42,10,200,LBL_H,SS_NOPREFIX
+    LTEXT           "Close connection and exit?",IDC_CCL_SG_IPT,42,20,200,LBL_H,SS_NOPREFIX
     PUSHBUTTON      "Cancel", IDCANCEL, CANCEL_BTN_X,33,BTN_W,BTN_H, DLG_BTN_STYLE
     DEFPUSHBUTTON   "OK", IDOK, OK_BTN_X,33,BTN_W,BTN_H, DEF_BTN_STYLE
 END
@@ -213,8 +213,8 @@ END
 #define APP_NAME                    "SChat"
 #define BIN_TYPE                    ".exe"
 
-#define VER_FILEVERSION             1.0.5.0
-#define VER_FILEVERSION_STR         "1.0.5.0\0"
+#define VER_FILEVERSION             1.0.6.0
+#define VER_FILEVERSION_STR         "1.0.6.0\0"
 
 #define VER_PRODUCTVERSION          VER_FILEVERSION
 #define VER_PRODUCTVERSION_STR      VER_FILEVERSION_STR
@@ -255,47 +255,47 @@ END
 // DESIGNINFO
 //
 
-#ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO
-BEGIN
-    IDD_ABOUTBOX, DIALOG
-    BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 163
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 55
-    END
-END
-#endif    // APSTUDIO_INVOKED
+// #ifdef APSTUDIO_INVOKED
+// GUIDELINES DESIGNINFO
+// BEGIN
+    // IDD_ABOUTBOX, DIALOG
+    // BEGIN
+        // LEFTMARGIN, 7
+        // RIGHTMARGIN, 163
+        // TOPMARGIN, 7
+        // BOTTOMMARGIN, 55
+    // END
+// END
+// #endif    // APSTUDIO_INVOKED
 
-#ifdef APSTUDIO_INVOKED
-/////////////////////////////////////////////////////////////////////////////
+//#ifdef APSTUDIO_INVOKED
+///////////////////////////////////////////////////////////////////////////////
+////
+//// TEXTINCLUDE
+////
+//1 TEXTINCLUDE
+//BEGIN
+//    "resource.h\0"
+//END
 //
-// TEXTINCLUDE
+//2 TEXTINCLUDE
+//BEGIN
+//    "#ifndef APSTUDIO_INVOKED\r\n"
+//    "#include ""../src/targetver.h""\r\n"
+//    "#endif\r\n"
+//    "#define APSTUDIO_HIDDEN_SYMBOLS\r\n"
+//    "#include ""windows.h""\r\n"
+//    "#undef APSTUDIO_HIDDEN_SYMBOLS\r\n"
+//    "\0"
+//END
 //
-1 TEXTINCLUDE
-BEGIN
-    "resource.h\0"
-END
-
-2 TEXTINCLUDE
-BEGIN
-    "#ifndef APSTUDIO_INVOKED\r\n"
-    "#include ""../src/targetver.h""\r\n"
-    "#endif\r\n"
-    "#define APSTUDIO_HIDDEN_SYMBOLS\r\n"
-    "#include ""windows.h""\r\n"
-    "#undef APSTUDIO_HIDDEN_SYMBOLS\r\n"
-    "\0"
-END
-
-3 TEXTINCLUDE
-BEGIN
-    "\r\n"
-    "\0"
-END
-
-#endif    // APSTUDIO_INVOKED
+//3 TEXTINCLUDE
+//BEGIN
+//    "\r\n"
+//    "\0"
+//END
+//
+//#endif    // APSTUDIO_INVOKED
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -313,11 +313,11 @@ END
 
 
 
-#ifndef APSTUDIO_INVOKED
+// #ifndef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
 //
 // Generated from the TEXTINCLUDE resource.
 //
 
 /////////////////////////////////////////////////////////////////////////////
-#endif    // not APSTUDIO_INVOKED
+// #endif    // not APSTUDIO_INVOKED

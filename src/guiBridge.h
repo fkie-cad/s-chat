@@ -13,8 +13,12 @@
 #define MSG_TYPE_REMOTE (0x3)
 
 
-void setStatusOutput(
-    _In_ HWND StatusOutput_
+void setConnStatusOutput(
+    _In_ HWND Output_
+);
+
+void setInfoStatusOutput(
+    _In_ HWND Output_
 );
 
 void setMessageOutput(
@@ -29,7 +33,11 @@ void setFilePBar(
 //    _In_ HWND ThumbPrintOutput_
 //);
 
-void showStatus(
+void showConnStatus(
+    _In_ const char* msg
+);
+
+void showInfoStatus(
     _In_ const char* msg
 );
 

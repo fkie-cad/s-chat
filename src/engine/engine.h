@@ -4,9 +4,9 @@
 #include <windows.h>
 #include <stdint.h>
 
-#include "values.h"
-#include "net/sock.h"
-#include "schannel/connection.h"
+#include "../values.h"
+#include "../net/sock.h"
+#include "../schannel/connection.h"
 
 
 
