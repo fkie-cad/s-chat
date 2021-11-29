@@ -151,6 +151,7 @@ exit /B 0
         echo  - DebugPrint=%dp%
         echo  - DebugPrintHexDump=%dphd%
         echo  - RuntimeLib=%rtl%
+        echo  - pdb=%pdb%
         echo.
         
         msbuild %proj% /p:Platform=%platform% /p:Configuration=%conf% /p:DebugPrint=%dp% /p:RuntimeLib=%rtl% /p:PDB=%pdb%

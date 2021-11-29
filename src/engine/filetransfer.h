@@ -13,7 +13,7 @@
 
 #define FT_INFO_LABEL_SENDING "sending"
 #define FT_INFO_LABEL_RECEIVED "received"
-#define FT_INFO_LABEL_CANCELED "canceled"
+#define FT_INFO_LABEL_CANCELED "cancelled"
 
 typedef struct _FILE_TRANSFER_DATA {
     char name[MAX_NAME_LN];

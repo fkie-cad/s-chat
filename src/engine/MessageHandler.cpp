@@ -365,7 +365,7 @@ int handleFileDataMessage(
     if ( block_size == 0 )
     {
         s = SCHAT_ERROR_FT_CANCELED;
-        fprintf(out, "ERROR (0x%x): Data message canceled\n", s);
+        fprintf(out, "ERROR (0x%x): Data message cancelled\n", s);
 #ifdef GUI
     //const char* base_name = NULL;
     //size_t base_name_ln = getBaseName(ftd->path, ftd->path_ln, &base_name);
@@ -420,10 +420,10 @@ clean:
     return s;
 }
 
-// Disconneting is the only option to tell the sender, that it's canceled.
+// Disconneting is the only option to tell the sender, that it's cancelled.
 // In case we don't want to send a received reply after each packet arrived.
 // Sender will clean, if error occurs.
-// Sending a canceled msg would be nice, but the normal message socket would have to be used.
+// Sending a cancelled msg would be nice, but the normal message socket would have to be used.
 // This runs on a different thread and may be in use causing trouble.
 int cancelFileReceive()
 {
