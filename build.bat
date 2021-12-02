@@ -35,50 +35,52 @@ GOTO :ParseParams
     if [%1]==[/h] goto help
     if [%1]==[/help] goto help
 
-    IF "%~1"=="/e" (
+    IF /i "%~1"=="/e" (
         SET /a engine=1
         goto reParseParams
     )
-    IF "%~1"=="/sc" (
+    IF /i "%~1"=="/sc" (
         SET /a gui=1
         goto reParseParams
     )
 
-    IF "%~1"=="/d" (
+    IF /i "%~1"=="/d" (
         SET /a debug=1
         goto reParseParams
     )
-    IF "%~1"=="/r" (
+    IF /i "%~1"=="/r" (
         SET /a release=1
         goto reParseParams
     )
 
-    IF "%~1"=="/dp" (
+    IF /i "%~1"=="/dp" (
         set /a "debug_print=%debug_print|1"
         goto reParseParams
     )
-    IF "%~1"=="/dphd" (
+    IF /i "%~1"=="/dphd" (
         set /a "debug_print=%debug_print|2"
         goto reParseParams
     )
-    IF "%~1"=="/dpm" (
+    IF /i "%~1"=="/dpm" (
         set /a "debug_print=%debug_print|4"
         goto reParseParams
     )
 
-    IF "%~1"=="/b" (
-        SET bitness=%~2
-        SHIFT
-        goto reParseParams
-    )
-
-    IF "%~1"=="/rtl" (
+    IF /i "%~1"=="/rtl" (
         SET /a rtl=1
         goto reParseParams
     )
     IF /i "%~1"=="/pdb" (
         SET /a pdb=1
         goto reParseParams
+    ) 
+   
+    IF /i "%~1"=="/b" (
+        SET bitness=%~2
+        SHIFT
+        goto reParseParams
+    ) ELSE (
+        echo Unknown option : "%~1"
     )
     
     :reParseParams

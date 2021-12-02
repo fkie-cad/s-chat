@@ -14,10 +14,9 @@
 #define IDM_SAVE				114
 #define IDM_EXIT				115
 
-#define IDR_MAINFRAME			120
-#define IDI_GUI_ON		        121
-#define IDI_GUI_OFF		        122
-#define IDI_GUI_LISTEN		    123
+#define IDI_GUI_ON		        120
+#define IDI_GUI_OFF		        121
+#define IDI_GUI_LISTEN		    122
 
 #define IDC_GUI			        130
 #define IDC_ABT_VS_IPT          131

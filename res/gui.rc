@@ -28,7 +28,6 @@ LANGUAGE 9, 1
 IDI_GUI_ON          ICON   "icon-conn.ico"
 IDI_GUI_OFF         ICON   "icon-off.ico"
 IDI_GUI_LISTEN      ICON   "icon-listen.ico"
-IDR_MAINFRAME       ICON   "icon-conn.ico"
 
 // Sounds
 IDW_NOTIFY    WAVE   "sounds\\ding.wav"
@@ -117,7 +116,7 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSM
 CAPTION "About SChat"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON            IDR_MAINFRAME,IDC_STATIC,ICON_X,ICON_Y,0,0
+    ICON            IDI_GUI_ON,IDC_STATIC,ICON_X,ICON_Y,0,0
     LTEXT           "SChat, Version ",IDC_ABT_VS_IPT,42,10,114,LBL_H,SS_NOPREFIX
     LTEXT           "Last changed:",IDC_ABT_LC_IPT,42,20,150,8,SS_NOPREFIX
     LTEXT           "Compiled:",IDC_ABT_CP_IPT,42,30,150,8,SS_NOPREFIX
@@ -131,7 +130,7 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSM
 CAPTION "Close App?"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON            IDR_MAINFRAME, IDC_STATIC, ICON_X,ICON_Y,0,0
+    ICON            IDI_GUI_ON, IDC_STATIC, ICON_X,ICON_Y,0,0
     LTEXT           "You are still connected.",IDC_CCL_ST_IPT,42,10,200,LBL_H,SS_NOPREFIX
     LTEXT           "Close connection and exit?",IDC_CCL_SG_IPT,42,20,200,LBL_H,SS_NOPREFIX
     PUSHBUTTON      "Cancel", IDCANCEL, CANCEL_BTN_X,33,BTN_W,BTN_H, DLG_BTN_STYLE
@@ -183,7 +182,7 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSM
 CAPTION "New Filetransfer"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON            IDR_MAINFRAME,IDC_STATIC, 14,14,0,0
+    ICON            IDI_GUI_ON,IDC_STATIC, 14,14,0,0
     LTEXT           "Accept file transfer?",IDC_STATIC, 42,14,114,8, SS_NOPREFIX
     LTEXT           "File:",IDC_ACCEPT_FILE_IPT, 42,26,200,8
     PUSHBUTTON      "YES",IDYES,95,50,BTN_W,BTN_H,DLG_BTN_STYLE

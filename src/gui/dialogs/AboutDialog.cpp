@@ -34,6 +34,6 @@ VOID AboutDialog::fillInputs()
     sprintf_s(msg, 0x100, "Last changed: %s", REL_DATE);
     SetDlgItemTextA(BaseDlg, IDC_ABT_LC_IPT, msg);
 
-    sprintf_s(msg, 0x100, "Compiled: %s -- %s", __DATE__, __TIME__);
+    sprintf_s(msg, 0x100, "Compiled: %s -- %s", COMPILE_DATE, COMPILE_TIME);
     SetDlgItemTextA(BaseDlg, IDC_ABT_CP_IPT, msg);
 }

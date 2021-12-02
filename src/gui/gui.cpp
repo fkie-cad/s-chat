@@ -32,6 +32,7 @@
 #include "dialogs/PreferencesDialog.h"
 #include "dialogs/FileTransferDialog.h"
 #include "dialogs/FileSelector.h"
+#include "ToolTip.h"
 #include "ConfigFile.h"
 
 #define MAX_LOADSTRING (0x80)
@@ -158,7 +159,7 @@ ConnectionDataDialog ConnectionDataDlg;
 
 ConfirmCloseDialog CloseDlg;
 AboutDialog AboutDlg;
-FileTransferDialog FtDlg;
+FileTransferDialog FileTransferDlg;
 
 FileSelector FileSel;
 
@@ -256,6 +257,8 @@ int APIENTRY WinMain(
     AboutDlg.setMainWindow(MainWindow);
 
     CloseDlg.setMainWindow(MainWindow);
+
+    FileTransferDlg.setMainWindow(MainWindow);
 
 
     HACCEL hAccelTable = LoadAcceleratorsA(hInstance, MAKEINTRESOURCEA(IDC_GUI));
@@ -863,8 +866,6 @@ LRESULT onDestroy(HWND hWnd)
         CloseHandle(ConnectionThread);
     stopNetworking();
 
-    PostQuitMessage(0);
-    
     DestroyIcon(gui_icon_off);
     DestroyIcon(gui_icon_on);
     DestroyIcon(gui_icon_listen);
@@ -876,12 +877,13 @@ LRESULT onDestroy(HWND hWnd)
     if ( CfgFileParser )
         delete CfgFileParser;
 
+    PostQuitMessage(0);
     return result;
 }
 
 INT_PTR CALLBACK FTAcceptDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    return FtDlg.openCb(hDlg, message, wParam, lParam);
+    return FileTransferDlg.openCb(hDlg, message, wParam, lParam);
 }
 
 LRESULT CALLBACK MesageIptSC(HWND hWnd, UINT msg, WPARAM wParam,
@@ -941,6 +943,7 @@ LRESULT onCreate(HWND hWnd)
         MessageIptRect.left + MessageIptRect.right + IPT_MARGIN, rows_y[3], BTN_W, BTN_H,
         hWnd, (HMENU)WND_SEND_BTN_IDX, NULL, NULL
     );
+	ToolTip::forChild(SendBtn, hWnd, "Send message.");
 
     SelFileBtn = CreateWindowA(
         WC_BUTTONA,
@@ -949,6 +952,7 @@ LRESULT onCreate(HWND hWnd)
         file_btn_x, rows_y[3], BTN_W, BTN_H,
         hWnd, (HMENU)WND_FILE_BTN_IDX, NULL, NULL
     );
+	ToolTip::forChild(SelFileBtn, hWnd, "Select a file to send.");
      
     //LoadLibrary("Msftedit.dll");
     //    MessageOpt = CreateWindowExA(0, "RICHEDIT50W", "Type here",
@@ -975,6 +979,7 @@ LRESULT onCreate(HWND hWnd)
         PARENT_PADDING, rows_y[0], BTN_W, BTN_H,
         hWnd, (HMENU)WND_LISTEN_BTN_IDX, NULL, NULL
     );
+	//ToolTip::forChild(ListenBtn, hWnd, "Start listening.");
 
     ConnectBtn = CreateWindowExA(
         0,
@@ -984,6 +989,7 @@ LRESULT onCreate(HWND hWnd)
         PARENT_PADDING + IPT_MARGIN + BTN_W, rows_y[0], BTN_W, BTN_H,
         hWnd, (HMENU)WND_CONNECT_BTN_IDX, NULL, NULL
     );
+	//ToolTip::forChild(ConnectBtn, hWnd, "Connect to a listening server.");
 
     FilePBar = CreateWindowExA(
                 0, 
@@ -1370,7 +1376,7 @@ LRESULT sendFile(PCHAR msg, ULONG msg_len)
     }
     else
     {
-        //SetWindowTextA(MessageIpt, "");
+        SetWindowTextA(MessageIpt, "");
         //showStatus("");
     }
 
