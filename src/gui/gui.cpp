@@ -1523,7 +1523,7 @@ VOID sayHello()
     int o = 0;
     o += sprintf_s(hello, GUI_HELLO_MSG_LN, "%s\r\n", REL_NAME);
     o += sprintf_s(&hello[o], GUI_HELLO_MSG_LN - o, "Version: %s - %s\r\n", REL_VS, REL_DATE);
-    o += sprintf_s(&hello[o], GUI_HELLO_MSG_LN - o, "Compiled: %s -- %s\r\n\r\n", COMPILE_DATA, COMPILE_TIME);
+    o += sprintf_s(&hello[o], GUI_HELLO_MSG_LN - o, "Compiled: %s -- %s\r\n\r\n", COMPILE_DATE, COMPILE_TIME);
 
     SetWindowTextA(MessageOpt, hello);
 }
