@@ -25,7 +25,8 @@ static HWND MessageOutput = NULL;
 //static HWND ThumbPrintOutput = NULL;
 static HWND FilePBar = NULL;
 static std::mutex msg_mtx;
-static std::mutex status_mtx;
+static std::mutex conn_status_mtx;
+static std::mutex info_status_mtx;
 static std::mutex pg_mtx;
 
 extern HWND MainWindow;
@@ -109,21 +110,21 @@ void showConnStatus(
         return;
     //if ( status_mtx.try_lock() )
     {
-        status_mtx.lock();
+        conn_status_mtx.lock();
         SetWindowTextA(ConnStatusOpt, msg);
-        status_mtx.unlock();
+        conn_status_mtx.unlock();
     }
 }
 
+#define SHOW_STATUS_DURATION (4000)
 
-#define SHOW_STATUS_DURATION (2000)
-DWORD WINAPI InfoStatusFade(LPVOID lpParam)
-{
-    (lpParam);
-    Sleep(SHOW_STATUS_DURATION);
+VOID CALLBACK InfoStatusTimerProc(HWND hwnd, UINT message, UINT idTimer, DWORD dwTime)
+{ 
+    (hwnd);(message);(idTimer);(dwTime);
+    info_status_mtx.lock();
     SetWindowTextA(InfoStatusOpt, "");
-    return 0;
-}
+    info_status_mtx.unlock();
+} 
 
 void showInfoStatus(
     _In_ const char* msg
@@ -132,27 +133,12 @@ void showInfoStatus(
     if ( InfoStatusOpt == NULL )
         return;
 
-    //status_mtx.lock();
+    KillTimer(MainWindow, IDT_INFO_TIMER); 
+    SetTimer(MainWindow, IDT_INFO_TIMER, SHOW_STATUS_DURATION, (TIMERPROC) InfoStatusTimerProc);
+
+    info_status_mtx.lock();
     SetWindowTextA(InfoStatusOpt, msg);
-
-    if ( InfoStatusThread != NULL )
-    {
-        TerminateThread(InfoStatusThread, 0);
-        CloseHandle(InfoStatusThread);
-        InfoStatusThread = NULL;
-        InfoStatusThreadId = 0;
-    }
-
-    InfoStatusThread = CreateThread(
-            NULL,                   // default security attributes
-            0,                      // use default stack size  
-            InfoStatusFade,       // thread function name
-            NULL,          // argument to thread function 
-            0,                      // use default creation flags 
-            &InfoStatusThreadId    // returns the thread identifier 
-        );
-    //T = NULL;
-    //status_mtx.unlock();
+    info_status_mtx.unlock();
 }
 
 //#include <richedit.h>

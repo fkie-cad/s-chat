@@ -9,6 +9,15 @@
 
 
 
+typedef struct _ABOUT_DIALOG_PARAMS {
+    const char* BinaryName;
+    const char* ActVersion;
+    const char* LastChanged;
+    const char* CompileDate;
+    const char* CompileTime;
+} ABOUT_DIALOG_PARAMS, *PABOUT_DIALOG_PARAMS;
+
+
 class AboutDialog : public BasicDialog
 {
     private:
@@ -20,7 +29,7 @@ class AboutDialog : public BasicDialog
         INT_PTR CALLBACK openCb(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) override;
         
     private:
-        VOID fillInputs();
+        VOID fillInputs(LPARAM lParam);
 
         INT_PTR onCommand(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) override;
 };

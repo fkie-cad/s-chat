@@ -812,7 +812,16 @@ LRESULT onSafeData()
 // Message handler for about box.
 INT_PTR CALLBACK AboutDialogCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    return AboutDlg.openCb(hDlg, message, wParam, lParam);
+    (lParam);
+
+    ABOUT_DIALOG_PARAMS params;
+    params.BinaryName = REL_NAME;
+    params.ActVersion = REL_VS;
+    params.LastChanged = REL_DATE;
+    params.CompileDate = COMPILE_DATE;
+    params.CompileTime = COMPILE_TIME;
+
+    return AboutDlg.openCb(hDlg, message, wParam, (LPARAM)&params);
 }
 
  //Message handler for prefs box.
@@ -832,6 +841,7 @@ INT_PTR CALLBACK ConnectionDataDialogCB(HWND hDlg, UINT message, WPARAM wParam, 
 INT ConfirmClose(HWND hWnd)
 {
     INT result = IDOK;
+    
     if ( ConnectionStatus == CONNECTION_STATUS::CONNECTED )
     {
         COMFIRM_CLOSE_PARAMS p = {
@@ -840,7 +850,8 @@ INT ConfirmClose(HWND hWnd)
         };
         result = (INT)DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_CLOSE_DLG), hWnd, onCloseCB, (LPARAM)&p);
     }
-    else if ( DataHasChanged )
+    
+    if ( result == IDOK && DataHasChanged )
     {
         COMFIRM_CLOSE_PARAMS p = {
             "Your settings have unsaved changes.",
@@ -871,6 +882,8 @@ LRESULT onDestroy(HWND hWnd)
     DestroyIcon(gui_icon_listen);
     FreeResource(notify_snd);
     
+    KillTimer(MainWindow, IDT_INFO_TIMER); 
+
     if ( pmsg )
         delete[] pmsg;
 
@@ -934,7 +947,7 @@ LRESULT onCreate(HWND hWnd)
         GetModuleHandle(NULL), 
         NULL
     );
-	SetWindowSubclass(MessageIpt, MesageIptSC, WND_MESSAGE_IPT_IDX, 0);
+    SetWindowSubclass(MessageIpt, MesageIptSC, WND_MESSAGE_IPT_IDX, 0);
 
     SendBtn = CreateWindowA(
         WC_BUTTONA,
@@ -943,7 +956,7 @@ LRESULT onCreate(HWND hWnd)
         MessageIptRect.left + MessageIptRect.right + IPT_MARGIN, rows_y[3], BTN_W, BTN_H,
         hWnd, (HMENU)WND_SEND_BTN_IDX, NULL, NULL
     );
-	ToolTip::forChild(SendBtn, hWnd, "Send message.");
+    ToolTip::forChild(SendBtn, hWnd, "Send message.");
 
     SelFileBtn = CreateWindowA(
         WC_BUTTONA,
@@ -952,7 +965,7 @@ LRESULT onCreate(HWND hWnd)
         file_btn_x, rows_y[3], BTN_W, BTN_H,
         hWnd, (HMENU)WND_FILE_BTN_IDX, NULL, NULL
     );
-	ToolTip::forChild(SelFileBtn, hWnd, "Select a file to send.");
+    ToolTip::forChild(SelFileBtn, hWnd, "Select a file to send.");
      
     //LoadLibrary("Msftedit.dll");
     //    MessageOpt = CreateWindowExA(0, "RICHEDIT50W", "Type here",
@@ -979,7 +992,7 @@ LRESULT onCreate(HWND hWnd)
         PARENT_PADDING, rows_y[0], BTN_W, BTN_H,
         hWnd, (HMENU)WND_LISTEN_BTN_IDX, NULL, NULL
     );
-	//ToolTip::forChild(ListenBtn, hWnd, "Start listening.");
+    //ToolTip::forChild(ListenBtn, hWnd, "Start listening.");
 
     ConnectBtn = CreateWindowExA(
         0,
@@ -989,7 +1002,7 @@ LRESULT onCreate(HWND hWnd)
         PARENT_PADDING + IPT_MARGIN + BTN_W, rows_y[0], BTN_W, BTN_H,
         hWnd, (HMENU)WND_CONNECT_BTN_IDX, NULL, NULL
     );
-	//ToolTip::forChild(ConnectBtn, hWnd, "Connect to a listening server.");
+    //ToolTip::forChild(ConnectBtn, hWnd, "Connect to a listening server.");
 
     FilePBar = CreateWindowExA(
                 0, 
@@ -1032,7 +1045,6 @@ LRESULT onCreate(HWND hWnd)
         InfoStatusOptRect.left, InfoStatusOptRect.top, InfoStatusOptRect.right, InfoStatusOptRect.bottom,
         hWnd, (HMENU)WND_INFO_STATUS_OPT_IDX, NULL, NULL
     );
-
 
 
     

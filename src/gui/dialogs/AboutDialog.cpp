@@ -12,7 +12,7 @@ INT_PTR CALLBACK AboutDialog::openCb(HWND hDlg, UINT message, WPARAM wParam, LPA
     switch ( message )
     {
         case WM_INITDIALOG:
-            fillInputs();
+            fillInputs(lParam);
             break;
             
     }
@@ -24,16 +24,17 @@ INT_PTR AboutDialog::onCommand(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
     return BasicDialog::onCommand(hDlg, message, wParam, lParam);
 }
 
-VOID AboutDialog::fillInputs()
+VOID AboutDialog::fillInputs(LPARAM lParam)
 {
     char msg[0x100];
+    PABOUT_DIALOG_PARAMS params = (PABOUT_DIALOG_PARAMS) lParam;
 
-    sprintf_s(msg, 0x100, "%s, Version: %s", REL_NAME, REL_VS);
+    sprintf_s(msg, 0x100, "%s, Version: %s", params->BinaryName, params->ActVersion);
     SetDlgItemTextA(BaseDlg, IDC_ABT_VS_IPT, msg);
 
-    sprintf_s(msg, 0x100, "Last changed: %s", REL_DATE);
+    sprintf_s(msg, 0x100, "Last changed: %s", params->LastChanged);
     SetDlgItemTextA(BaseDlg, IDC_ABT_LC_IPT, msg);
 
-    sprintf_s(msg, 0x100, "Compiled: %s -- %s", COMPILE_DATE, COMPILE_TIME);
+    sprintf_s(msg, 0x100, "Compiled: %s -- %s", params->CompileDate, params->CompileTime);
     SetDlgItemTextA(BaseDlg, IDC_ABT_CP_IPT, msg);
 }

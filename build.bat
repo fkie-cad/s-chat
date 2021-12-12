@@ -16,7 +16,7 @@ set configuration=Debug
 set /a pdb=0
 
 set engine_proj=engine.vcxproj
-set gui_proj=gui.vcxproj
+set gui_proj=schat.vcxproj
 
 
 set msb=msbuild

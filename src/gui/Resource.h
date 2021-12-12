@@ -37,6 +37,8 @@
 #define IDC_CCL_ST_IPT		    146
 #define IDC_CCL_SG_IPT		    147
 
+#define IDT_INFO_TIMER          148
+
 #define IDW_NOTIFY  	        150
 
 // #define IDC_MYICON				2
