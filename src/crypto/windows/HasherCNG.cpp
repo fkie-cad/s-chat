@@ -11,12 +11,12 @@
 
 
 
-static int createHash(
+static NTSTATUS createHash(
     PHashCtxt ctxt
 );
 
 __forceinline
-int hashData(
+NTSTATUS hashData(
     UCHAR* buffer,
     size_t to_read,
     size_t offset,
@@ -26,7 +26,7 @@ int hashData(
 {
     size_t bytes_read;
     int errsv;
-    int status = 0;
+    NTSTATUS status = 0;
 
     (offset);
     //fseek(fp, SEEK_SET, offset);
@@ -58,28 +58,26 @@ clean:
     return status;
 }
 
-int hashFileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PHashCtxt ctxt)
+NTSTATUS hashFileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PHashCtxt ctxt)
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     FILE* fp = NULL;
     size_t file_size = 0;
     UCHAR buffer[BUFFER_SIZE];
     size_t offset = 0;
-    int s = 0;
     size_t parts;
     size_t rest;
     size_t i;
 
     if ( hash_bytes_size < ctxt->hash_size )
     {
-        s = 9;
+        status = STATUS_BUFFER_TOO_SMALL;
         goto clean;
     }
 
-    s = createHash(ctxt);
-    if ( s != 0 )
+    status = createHash(ctxt);
+    if ( status != 0 )
     {
-        s = 8;
         goto clean;
     }
 
@@ -89,17 +87,16 @@ int hashFileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_s
 #ifdef ERROR_PRINT
         printf("ERROR: Could not open file \"%s\"!\n", path);
 #endif
-        s = 7;
+        status = STATUS_UNSUCCESSFUL;
         goto clean;
     }
 
-    s = getFileSize(path, &file_size);
-    if ( s != 0 )
+    status = getFileSize(path, &file_size);
+    if ( !NT_SUCCESS(status) )
     {
 #ifdef ERROR_PRINT
-        printf("ERROR (0x%x): getFileSize \"%s\"!\n", s, path);
+        printf("ERROR (0x%x): getFileSize \"%s\"!\n", status, path);
 #endif
-        s = 10;
         goto clean;
     }
 
@@ -108,13 +105,12 @@ int hashFileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_s
     i;
     for ( i = 0; i < parts; i++ )
     {
-        s = hashData(buffer, BUFFER_SIZE, offset, fp, ctxt);
-        if ( !NT_SUCCESS(s) )
+        status = hashData(buffer, BUFFER_SIZE, offset, fp, ctxt);
+        if ( !NT_SUCCESS(status) )
         {
 #ifdef ERROR_PRINT
             printf("Error 0x%x returned by BCryptHashData\n", status);
 #endif
-            s = 8;
             goto clean;
         }
 
@@ -122,13 +118,12 @@ int hashFileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_s
     }
     if ( rest != 0 )
     {
-        s = hashData(buffer, rest, offset, fp, ctxt);
-        if ( !NT_SUCCESS(s) )
+        status = hashData(buffer, rest, offset, fp, ctxt);
+        if ( !NT_SUCCESS(status) )
         {
 #ifdef ERROR_PRINT
             printf("Error 0x%x returned by BCryptHashData\n", status);
 #endif
-            s = 8;
             goto clean;
         }
     }
@@ -140,7 +135,6 @@ int hashFileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_s
 #ifdef ERROR_PRINT
         printf("Error (0x%x): BCryptFinishHash\n", status);
 #endif
-        s = 9;
         goto clean;
     }
 
@@ -150,10 +144,10 @@ clean:
         fclose(fp);
     }
 
-    return s;
+    return status;
 }
 
-int hashBufferC(
+NTSTATUS hashBufferC(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
     unsigned char* hash_bytes, 
@@ -162,18 +156,16 @@ int hashBufferC(
 )
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
-    int s = 0;
 
     if ( hash_bytes_size < ctxt->hash_size )
     {
-        s = 9;
+        status = STATUS_BUFFER_TOO_SMALL;
         goto clean;
     }
 
-    s = createHash(ctxt);
-    if ( s != 0 )
+    status = createHash(ctxt);
+    if ( !NT_SUCCESS(status) )
     {
-        s = 8;
         goto clean;
     }
 
@@ -183,7 +175,6 @@ int hashBufferC(
 #ifdef ERROR_PRINT
         printf("Error 0x%x returned by BCryptHashData\n", status);
 #endif
-        s = 8;
         goto clean;
     }
 
@@ -194,42 +185,41 @@ int hashBufferC(
 #ifdef ERROR_PRINT
         printf("Error (0x%x): BCryptFinishHash\n", status);
 #endif
-        s = 9;
         goto clean;
     }
 
 clean:
     ;
 
-    return s;
+    return status;
 }
 
 
-int sha256File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
+NTSTATUS sha256File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
 {
     Sha256Ctxt ctxt;
-    int s = 0;
+    NTSTATUS status = 0;
 
-    s = initSha256(&ctxt);
-    if ( s != 0 )
+    status = initSha256(&ctxt);
+    if ( !NT_SUCCESS(status) )
     {
         goto clean;
     }
 
-    s = sha256FileC(path, hash_bytes, hash_bytes_size, &ctxt);
+    status = sha256FileC(path, hash_bytes, hash_bytes_size, &ctxt);
 
 clean:
     cleanSha256(&ctxt);
 
-    return s;
+    return status;
 }
 
-int sha256FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PSha256Ctxt ctxt)
+NTSTATUS sha256FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PSha256Ctxt ctxt)
 {
     return hashFileC(path, hash_bytes, hash_bytes_size, ctxt);
 }
 
-int sha256Buffer(
+NTSTATUS sha256Buffer(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
     unsigned char* hash_bytes, 
@@ -237,23 +227,23 @@ int sha256Buffer(
 )
 {
     Sha256Ctxt ctxt;
-    int s = 0;
+    NTSTATUS status = 0;
 
-    s = initSha256(&ctxt);
-    if ( s != 0 )
+    status = initSha256(&ctxt);
+    if ( !NT_SUCCESS(status) )
     {
         goto clean;
     }
 
-    s = sha256BufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, &ctxt);
+    status = sha256BufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, &ctxt);
 
 clean:
     cleanSha256(&ctxt);
 
-    return s;
+    return status;
 }
 
-int sha256BufferC(
+NTSTATUS sha256BufferC(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
     unsigned char* hash_bytes, 
@@ -264,31 +254,31 @@ int sha256BufferC(
     return hashBufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, ctxt);
 }
 
-int sha1File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
+NTSTATUS sha1File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
 {
     Sha1Ctxt ctxt;
-    int s = 0;
+    NTSTATUS status = 0;
 
-    s = initSha1(&ctxt);
-    if ( s != 0 )
+    status = initSha1(&ctxt);
+    if ( !NT_SUCCESS(status) )
     {
         goto clean;
     }
 
-    s = sha1FileC(path, hash_bytes, hash_bytes_size, &ctxt);
+    status = sha1FileC(path, hash_bytes, hash_bytes_size, &ctxt);
 
 clean:
     cleanSha1(&ctxt);
 
-    return s;
+    return status;
 }
 
-int sha1FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PSha1Ctxt ctxt)
+NTSTATUS sha1FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PSha1Ctxt ctxt)
 {
     return hashFileC(path, hash_bytes, hash_bytes_size, ctxt);
 }
 
-int sha1Buffer(
+NTSTATUS sha1Buffer(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
     unsigned char* hash_bytes, 
@@ -296,23 +286,23 @@ int sha1Buffer(
 )
 {
     Sha1Ctxt ctxt;
-    int s = 0;
+    NTSTATUS status = 0;
 
-    s = initSha1(&ctxt);
-    if ( s != 0 )
+    status = initSha1(&ctxt);
+    if ( !NT_SUCCESS(status) )
     {
         goto clean;
     }
 
-    s = sha1BufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, &ctxt);
+    status = sha1BufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, &ctxt);
 
 clean:
     cleanSha1(&ctxt);
 
-    return s;
+    return status;
 }
 
-int sha1BufferC(
+NTSTATUS sha1BufferC(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
     unsigned char* hash_bytes, 
@@ -323,31 +313,31 @@ int sha1BufferC(
     return hashBufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, ctxt);
 }
 
-int md5File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
+NTSTATUS md5File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
 {
     Md5Ctxt ctxt;
-    int s = 0;
+    NTSTATUS status = 0;
 
-    s = initMd5(&ctxt);
-    if ( s != 0 )
+    status = initMd5(&ctxt);
+    if ( !NT_SUCCESS(status) )
     {
         goto clean;
     }
 
-    s = md5FileC(path, hash_bytes, hash_bytes_size, &ctxt);
+    status = md5FileC(path, hash_bytes, hash_bytes_size, &ctxt);
 
 clean:
     cleanMd5(&ctxt);
 
-    return s;
+    return status;
 }
 
-int md5FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PMd5Ctxt ctxt)
+NTSTATUS md5FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PMd5Ctxt ctxt)
 {
     return hashFileC(path, hash_bytes, hash_bytes_size, ctxt);
 }
 
-int md5Buffer(
+NTSTATUS md5Buffer(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
     unsigned char* hash_bytes, 
@@ -355,23 +345,23 @@ int md5Buffer(
 )
 {
     Md5Ctxt ctxt;
-    int s = 0;
+    NTSTATUS status = 0;
 
-    s = initMd5(&ctxt);
-    if ( s != 0 )
+    status = initMd5(&ctxt);
+    if ( !NT_SUCCESS(status) )
     {
         goto clean;
     }
 
-    s = md5BufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, &ctxt);
+    status = md5BufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, &ctxt);
 
 clean:
     cleanMd5(&ctxt);
 
-    return s;
+    return status;
 }
 
-int md5BufferC(
+NTSTATUS md5BufferC(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
     unsigned char* hash_bytes, 
@@ -406,24 +396,23 @@ void printHash(const unsigned char* hash, uint16_t hash_size, const char* prefix
     printf("%s", postfix);
 }
 
-int initSha1(PSha1Ctxt ctxt)
+NTSTATUS initSha1(PSha1Ctxt ctxt)
 {
     return initHashCtxt(ctxt, BCRYPT_SHA1_ALGORITHM);
 }
 
-int initSha256(PSha256Ctxt ctxt)
+NTSTATUS initSha256(PSha256Ctxt ctxt)
 {
     return initHashCtxt(ctxt, BCRYPT_SHA256_ALGORITHM);
 }
 
-int initMd5(PMd5Ctxt ctxt)
+NTSTATUS initMd5(PMd5Ctxt ctxt)
 {
     return initHashCtxt(ctxt, BCRYPT_MD5_ALGORITHM);
 }
 
-int initHashCtxt(PHashCtxt ctxt, LPCWSTR AlgId)
+NTSTATUS initHashCtxt(PHashCtxt ctxt, LPCWSTR AlgId)
 {
-    int s = 0;
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     HANDLE heap = GetProcessHeap();
 
@@ -489,10 +478,10 @@ int initHashCtxt(PHashCtxt ctxt, LPCWSTR AlgId)
         return -4;
     }
 
-    return s;
+    return status;
 }
 
-int createHash(PHashCtxt ctxt)
+NTSTATUS createHash(PHashCtxt ctxt)
 {
     if (ctxt->hash)
     {
@@ -520,22 +509,22 @@ int createHash(PHashCtxt ctxt)
     return status;
 }
 
-int cleanSha1(PSha1Ctxt ctxt)
+NTSTATUS cleanSha1(PSha1Ctxt ctxt)
 {
     return cleanHashCtxt(ctxt);
 }
 
-int cleanSha256(PSha256Ctxt ctxt)
+NTSTATUS cleanSha256(PSha256Ctxt ctxt)
 {
     return cleanHashCtxt(ctxt);
 }
 
-int cleanMd5(PMd5Ctxt ctxt)
+NTSTATUS cleanMd5(PMd5Ctxt ctxt)
 {
     return cleanHashCtxt(ctxt);
 }
 
-int cleanHashCtxt(PHashCtxt ctxt)
+NTSTATUS cleanHashCtxt(PHashCtxt ctxt)
 {
     HANDLE heap = GetProcessHeap();
 

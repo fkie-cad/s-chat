@@ -20,16 +20,19 @@ int acceptTLSSocket(
     _Out_ socklen_t* addr_ln
 )
 {
-#ifdef DEBUG_PRINT
-    fprintf(out, "acceptTLSSocket()\n");
-#endif
-    if ( Listener == INVALID_SOCKET )
-    {
-        fprintf(out, "Listener is invalid\n");
-        return SCHAT_ERROR_INVALID_SOCKET;
-    }
     int s = 0;
     SYSTEMTIME sts;
+
+#ifdef DEBUG_PRINT
+    logger.logInfo(loggerId, 0, "acceptTLSSocket()\n");
+#endif
+
+    if ( Listener == INVALID_SOCKET )
+    {
+        s = SCHAT_ERROR_INVALID_SOCKET;
+        logger.logError(loggerId, s, "Listener is invalid\n");
+        return s;
+    }
 
     //SOCKADDR_STORAGE addr;
     //socklen_t addr_ln = sizeof(SOCKADDR_STORAGE);
@@ -38,22 +41,22 @@ int acceptTLSSocket(
     PCCERT_CONTEXT pRemoteCertContext = NULL;
 
     // Accept a client socket
-    fprintf(out, "waiting for connection...\n");
+    logger.logInfo(loggerId, 0, "waiting for connection...\n");
     *CSocket = accept(Listener, (PSOCKADDR)addr, addr_ln);
     if ( *CSocket == INVALID_SOCKET )
     {
         s = getLastSError();
-        fprintf(out, " - accept failed with error: 0x%x\n", s);
+        logger.logError(loggerId, s, " - accept failed with error: 0x%x\n");
         return SCHAT_ERROR_INVALID_SOCKET;
     }
     GetLocalTime(&sts);
-    fprintf(out, "connection accepted %02d.%02d.%04d %02d:%02d:%02d\n------------------------------------------------------------------\n",
+    logger.logInfo(loggerId, 0, "connection accepted %02d.%02d.%04d %02d:%02d:%02d\n------------------------------------------------------------------\n",
         sts.wDay, sts.wMonth, sts.wYear, 
         sts.wHour, sts.wMinute, sts.wSecond);
     if ( *addr_ln > 0)
     {
-        fprintf(out, "Connected Client Info:\n");
-        printSockAddr(addr, (int)*addr_ln, out);
+        logger.logInfo(loggerId, 0, "Connected Client Info:\n");
+        printSockAddr(addr, (int)*addr_ln);
     }
     
     // Perform handshake
@@ -68,7 +71,7 @@ int acceptTLSSocket(
         );
     if ( !s )
     {
-        fprintf(out, "ERROR (0x%x): SSPINegotiateLoop\n", s);
+        logger.logError(loggerId, s, "SSPINegotiateLoop\n");
         s = SCHAT_ERROR_SERVER_HANDSHAKE;
         goto clean;
     }
@@ -81,55 +84,55 @@ int acceptTLSSocket(
                                         (PVOID)&pRemoteCertContext);
         if ( s != SEC_E_OK )
         {
-            fprintf(out, "ERROR (0x%x): querying client certificate\n", s);
+            logger.logError(loggerId, s, "querying client certificate\n");
             s = SCHAT_ERROR_QUERY_REMOTE_CERT;
             goto clean;
         }
 
 #ifdef DEBUG_PRINT_HEX_DUMP
-        printCert(pRemoteCertContext, out);
+        printCert(pRemoteCertContext);
 #endif
 
         hashCert(pRemoteCertContext, CertHash);
         char hash[SHA1_STRING_BUFFER_LN];
         hashToString(CertHash, SHA1_BYTES_LN, hash, SHA1_STRING_BUFFER_LN);
-        fprintf(out, "sha1 of certificate: %s\n", hash);
+        logger.logInfo(loggerId, 0, "sha1 of certificate: %s\n", hash);
 
-        s = saveCert(pRemoteCertContext, hash, cert_dir, out);
+        s = saveCert(pRemoteCertContext, hash, cert_dir);
         if ( s != 0 )
         {
-            fprintf(out, "ERROR (0x%x): Saving client cert failed.\n", s);
+            logger.logError(loggerId, s, "Saving client cert failed.\n");
             s = SCHAT_ERROR_SAVE_CERT;
             goto clean;
         }
 
-        DisplayCertChain(pRemoteCertContext, TRUE, out);
+        DisplayCertChain(pRemoteCertContext, TRUE);
 
         // Attempt to validate client certificate.
         // may be skipped due to manual verification
         s = VerifyClientCertificate(pRemoteCertContext, 0);
         if ( s )
         {
-            fprintf(out, "ERROR (0x%lx): authenticating client credentials\n", s);
+            logger.logError(loggerId, s, "authenticating client credentials\n");
             //s = SCHAT_ERROR_VERIFY_CERTIFICATE;
             goto clean;
         }
 #ifdef DEBUG_PRINT
         else
-            fprintf(out, "\nAuth succeeded, ready for command\n");
+            logger.logInfo(loggerId, 0, "\nAuth succeeded, ready for command\n");
 #endif
     }
 
     s = CheckConnectionInfo(Context, g_pSSPI);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): CheckConnectionInfo failed!\n", s);
+        logger.logError(loggerId, s, "CheckConnectionInfo failed!\n");
         s = SCHAT_ERROR_TLS_VERSION;
         goto clean;
     }
 
-    DisplayConnectionInfo(Context, g_pSSPI, out);
-    fprintf(out, "\n");
+    DisplayConnectionInfo(Context, g_pSSPI);
+    logger.logInfo(loggerId, 0, "\n");
 
 clean:
     if ( pRemoteCertContext )
@@ -158,13 +161,13 @@ int connectTLSSocket(
     PCCERT_CONTEXT remoteCertContext = NULL; //
     
 #ifdef DEBUG_PRINT
-    fprintf(out, "connectTLSSocket()\n");
+    logger.logInfo(loggerId, 0, "connectTLSSocket()\n");
 #endif
 
-    s = initConnection(&addr_info, family, ip, port, Socket, AI_NUMERICHOST, out);
+    s = initConnection(&addr_info, family, ip, port, Socket, AI_NUMERICHOST);
     if ( s != 0 )
     {
-        fprintf(out, "initConnection failed with error: 0x%x\n", s);
+        logger.logError(loggerId, s, "initConnection failed with error: 0x%x\n");
         s = SCHAT_ERROR_INIT_CONNECTION;
         goto clean;
     }
@@ -173,7 +176,7 @@ int connectTLSSocket(
     if ( s != 0 )
     {
         s = getLastSError();
-        fprintf(out, "connectSock failed with error: 0x%x\n", s);
+        logger.logError(loggerId, s, "connectSock failed with error: 0x%x\n");
         s = SCHAT_ERROR_CONNECT;
         goto clean;
     }
@@ -189,13 +192,13 @@ int connectTLSSocket(
         );
     if ( s != 0  )
     {
-        fprintf(out, "ERROR (0x%x): performing handshake (%s)\n", s, getSecErrorString(s));
+        logger.logError(loggerId, s, "performing handshake (%s)\n", getSecErrorString(s));
         s = SCHAT_ERROR_CLIENT_HANDSHAKE;
         goto clean;
     }
     if ( ExtraData.cbBuffer != 0 )
     {
-        fprintf(out, "INFO: 0x%x bytes of unhandled extra data received in handshake.\n", ExtraData.cbBuffer);
+        logger.logInfo(loggerId, 0, "INFO: 0x%x bytes of unhandled extra data received in handshake.\n", ExtraData.cbBuffer);
     }
 
     // Get server's certificate.
@@ -204,32 +207,32 @@ int connectTLSSocket(
                                         (PVOID)&remoteCertContext);
     if ( s != SEC_E_OK )
     {
-        fprintf(out, "ERROR (0x%x): Querying remote certificate\n", s);
+        logger.logError(loggerId, s, "Querying remote certificate\n");
         s = SCHAT_ERROR_QUERY_REMOTE_CERT;
         goto clean;
     }
 
 #ifdef DEBUG_PRINT_HEX_DUMP
-    fprintf(out, "CertStore: %p", hMyCertStore);
-    printCert(remoteCertContext, out);
+    logger.logInfo(loggerId, 0, "CertStore: %p", hMyCertStore);
+    printCert(remoteCertContext);
 #endif
     
     hashCert(remoteCertContext, CertHash);
 
     char hash[SHA1_STRING_BUFFER_LN];
     hashToString(CertHash, SHA1_BYTES_LN, hash, SHA1_STRING_BUFFER_LN);
-    fprintf(out, "sha1 of certificate: %s\n", hash);
+    logger.logInfo(loggerId, 0, "sha1 of certificate: %s\n", hash);
 
-    s = saveCert(remoteCertContext, hash, cert_dir, out);
+    s = saveCert(remoteCertContext, hash, cert_dir);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): saving certificate\n", s);
+        logger.logError(loggerId, s, "saving certificate\n");
         s = SCHAT_ERROR_SAVE_CERT;
         goto clean;
     }
     
     // Display server certificate chain.
-    DisplayCertChain(remoteCertContext, FALSE, out);
+    DisplayCertChain(remoteCertContext, FALSE);
 
     // Attempt to validate server certificate.
     // may be skipped because of manual verification
@@ -240,8 +243,8 @@ int connectTLSSocket(
     );
     if ( s != 0 )
     {
-        fprintf(out, "skipping!\n");
-        fprintf(out, "ERROR (0x%x): authenticating server credentials!\n", s);
+        logger.logInfo(loggerId, 0, "skipping!\n");
+        logger.logError(loggerId, s, "authenticating server credentials!\n");
 //        goto cleanup;
     }
     
@@ -252,13 +255,13 @@ int connectTLSSocket(
     s = CheckConnectionInfo(Context, g_pSSPI);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): CheckConnectionInfo failed!\n", s);
+        logger.logError(loggerId, s, "CheckConnectionInfo failed!\n");
         s = SCHAT_ERROR_TLS_VERSION;
         goto clean;
     }
 
-    DisplayConnectionInfo(Context, g_pSSPI, out);
-    fprintf(out, "\n");
+    DisplayConnectionInfo(Context, g_pSSPI);
+    logger.logInfo(loggerId, 0, "\n");
 
 clean:
     if ( addr_info != NULL )
@@ -277,7 +280,7 @@ int hashCert(
     s = sha1Buffer(cert->pbCertEncoded, cert->cbCertEncoded, bytes, SHA1_BYTES_LN);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): Calculating hash failed!\n", s);
+        logger.logError(loggerId, s, "Calculating hash failed!\n");
         return SCHAT_ERROR_CALCULATE_HASH;
     }
 

@@ -4,8 +4,8 @@ Secure TLS/SSL Windows E2E Chat.
 Currently just supporting TLS 1.2 due to Windows SChannel restrictions.
 
 ## Version ##
-1.0.6  
-Last changed: 27.11.2021
+1.0.9  
+Last changed: 13.01.2022
 
 ## Descrtiption
 GUI chat application that connects two communication partners directly over TCP using TLS 1.2.
@@ -81,7 +81,7 @@ $ SChat.exe [/i ip] [/v vs] [/p port] [/n name] [/c certThumb] [/l logDir] [/d c
 $ server SChat.exe -i 123.456.789.876 -p 5432 -n alice -c aliceCertThumbPrint
 ```
 
-Most options may be skipped, because there are input fields in the app for them too.
+The cmd options may be skipped, because there are input fields in the app for them too.
 
 After starting, one partner has to play the **server** side.
 `User name`, `Port` and `Cert thumb` (thumbprint of the certificate) have to be filled with valid values.
@@ -92,20 +92,22 @@ Then the `Listen` button has to be pressed.
 The **client** side has to fill `User name`, `Ip`, `Port` and `Cert thumb` (thumbprint of the certificate) with valid values and then press the `Connect` button.
 `IP Version` may be left empty.
 
-After that, the communication partners may send messages to each other by typing into the `Message` input and pressing `Enter` or the `Send` button.
+After that, the communication partners can start sending messages to each other by typing into the `Message` input and pressing `Enter` or the `Send` button.
 
 Files can be sent by pressing the `File` button and browsing a file or by typing `/file path\to\the\file` and then pressing `Enter` or `Send`.
+On the receiving side, they are stored in the current directory (default).
 
-There is a log file beeing created, named `<server|client>-<date>-<time>.log` in the current working directory, which will be filled with infos, depending on the debug print compiler flags.
-By passing the command line option `/l` the directory where the files are saved may be changed.
+There is a log file beeing created, named `<server|client>-<date>-<time>.log` in the current working directory (default), which will be filled with infos, depending on the debug print compiler flags.
 
 The certificate of the other side is stored in `<sha1(cert)>.der` in the current working directory (default).
 The hash (sha1) of the certificate is also displayed with the connection info in the message output.
 This should by verified by calculating and comparing the hash with the comunication partner or sharing it in advance.
 
+The directory where the log files, transfered file and certificate files are saved may be changed by using the gui, .config or cmd line options.
+
 An example .config is located in [res/.config.example](res/.config.example).
 
-The logs are not readable while the app is running. 
+The logs currently are not readable while the app is running. 
 This may be fixed in the future.
 
 

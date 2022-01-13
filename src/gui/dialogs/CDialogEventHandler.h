@@ -69,10 +69,10 @@ class CDialogEventHandler : public IFileDialogEvents,
         IFACEMETHODIMP OnCheckButtonToggled(IFileDialogCustomize *, DWORD, BOOL) { return S_OK; };
         IFACEMETHODIMP OnControlActivating(IFileDialogCustomize *, DWORD) { return S_OK; };
 
-        CDialogEventHandler() : _cRef(1) { };
+        CDialogEventHandler();
         
     private:
-        ~CDialogEventHandler() { };
+        ~CDialogEventHandler();
         long _cRef;
 };
 

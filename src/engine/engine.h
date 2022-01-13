@@ -9,6 +9,10 @@
 #include "../schannel/connection.h"
 
 
+#include "../utils/Logger.h"
+extern Logger logger;
+extern size_t loggerId;
+
 
 int initClient(
     char* ip, 
@@ -73,8 +77,9 @@ void initLog(
     const char* label
 );
 
-#ifdef GUI
-void showMessages(PSCHAT_MESSAGE_HEADER message, BOOL self);
-#endif
+void showMessages(
+    _In_ PSCHAT_MESSAGE_HEADER message, 
+    _In_ BOOL self
+);
 
 #endif

@@ -61,7 +61,7 @@ HWND ToolTip::forChild(HWND Child, HWND Parent, const char* Text)
     toolInfo.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
     toolInfo.uId = (UINT_PTR)Child;
     toolInfo.lpszText = (LPSTR)Text;
-    SendMessage(hwndTip, TTM_ADDTOOL, 0, (LPARAM)&toolInfo);
+    SendMessageA(hwndTip, TTM_ADDTOOL, 0, (LPARAM)&toolInfo);
 
     return hwndTip;
 }
@@ -116,5 +116,5 @@ void ToolTip::forRect(HWND Parent, PRECT Rect, const char* Text)
     ti.rect.top = Rect->top;
 
     // Associate the tooltip with the "tool" window.
-    SendMessage(hwndTT, TTM_ADDTOOL, 0, (LPARAM) (LPTOOLINFO) &ti); 
+    SendMessageA(hwndTT, TTM_ADDTOOL, 0, (LPARAM) (LPTOOLINFO) &ti); 
 } 

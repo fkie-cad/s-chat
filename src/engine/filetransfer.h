@@ -56,7 +56,9 @@ FT_SEND_OBJECTS, *PFT_SEND_OBJECTS,
 FT_RECV_OBJECTS, *PFT_RECV_OBJECTS;
 
 
-extern FILE* out;
+#include "../utils/Logger.h"
+extern Logger logger;
+extern size_t loggerId;
 
 extern char* target_ip;
 extern char* target_port;
@@ -75,8 +77,8 @@ void initFTObject(
 );
 
 void showSentFileInfo(
-    const char* label,
-    _In_ uint8_t* sha256,
+    _In_ const char* label,
+    _In_opt_ uint8_t* sha256,
     _In_ size_t size,
     _In_ const char* base_name,
     _In_ size_t base_name_ln,
@@ -94,8 +96,7 @@ void sendReceivedFileInfo(
     _In_ PCtxtHandle phContext,
     _In_ SecPkgContext_StreamSizes* pSizes,
     _In_ PBYTE pbIoBuffer,
-    _In_ ULONG cbIoBuffer,
-    _In_ FILE* log
+    _In_ ULONG cbIoBuffer
 );
 
 int sendAcceptedFileInfo(
@@ -107,22 +108,20 @@ int sendAcceptedFileInfo(
     _In_ PCtxtHandle phContext,
     _In_ SecPkgContext_StreamSizes* pSizes,
     _In_ PBYTE pbIoBuffer,
-    _In_ ULONG cbIoBuffer,
-    _In_ FILE* log
+    _In_ ULONG cbIoBuffer
 );
 
 int saveFile(
     _In_ PFILE_TRANSFER_DATA ftd, 
     _In_ uint8_t* buffer, 
-    _In_ size_t buffer_ln,
-    _In_ FILE* log
+    _In_ size_t buffer_ln
 );
 
 /**
  * FT receive data thread
  * Accept or connect socket and receive the data.
  */
-ULONG recvFTDataThread(
+ULONG WINAPI recvFTDataThread(
     LPVOID lpParam
 );
 

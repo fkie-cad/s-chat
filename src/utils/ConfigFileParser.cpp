@@ -89,14 +89,13 @@ string ConfigFileParser::getStringValue(const string& key, size_t max, const str
         return StringUtil::trim(&raw[0]);
 }
 
-int ConfigFileParser::setStringValue(const string& key, const string& value, size_t size)
+int ConfigFileParser::setStringValue(const string& key, const string& value)
 {
     ValuesMap::iterator it = values.find(key);
     if ( it == values.end() )
-        return 1;
-
-    it->second = value;
-    (size);
+        values.emplace(key, value);
+    else
+        it->second = value;
 
     return 0;
 }
@@ -151,9 +150,9 @@ int ConfigFileParser::setUInt16Value(const string& key, uint16_t value)
 {
     ValuesMap::iterator it = values.find(key);
     if ( it == values.end() )
-        return 1;
-
-    it->second = to_string(value);
+        values.emplace(key, std::to_string(value));
+    else
+        it->second = to_string(value);
 
     return 0;
 }
@@ -176,13 +175,13 @@ int ConfigFileParser::save(const string& path)
         return -1;
 
     ValuesMap::const_iterator it = values.begin();
-    sprintf(buffer, "# %s\n", it->first.c_str());
+    sprintf(buffer, "%c %s\n", marker, it->first.c_str());
     fwrite(buffer, 1, it->first.size()+3, file);
     fwrite(&it->second[0], 1, it->second.size(), file);
 
     for ( ++it; it != values.end(); ++it )
     {
-        sprintf(buffer, "\n# %s\n", it->first.c_str());
+        sprintf(buffer, "\n%c %s\n", marker, it->first.c_str());
         fwrite(buffer, 1, it->first.size()+4, file);
         fwrite(&it->second[0], 1, it->second.size(), file);
     }

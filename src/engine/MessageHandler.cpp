@@ -53,46 +53,45 @@ int handleMessage(
 )
 {
     int s = 0;
-    PSCHAT_BASE_HEADER base = (PSCHAT_BASE_HEADER)data;
+    PSCHAT_BASE_HEADER bh = (PSCHAT_BASE_HEADER)data;
     bool ft_finished = false;
 
 #ifdef DEBUG_PRINT_MESSAGE
-    fprintf(out, "handleMessage %.*s:\n", 8, (CHAR*)&base->type);
+    logger.logInfo(loggerId, 0, "handleMessage %.*s:\n", 8, (CHAR*)&bh->type);
 #endif
 
-    if ( dataSize < sizeof(SCHAT_BASE_HEADER) || dataSize < base->size )
+    if ( dataSize < sizeof(SCHAT_BASE_HEADER) || dataSize < bh->size )
     {
-        fprintf(out, "received corrupted message:\n");
-        PrintHexDump(dataSize, data, out);
-#ifdef GUI
-        showInfoStatus("corrupted data");
-#endif
+        logger.logInfo(loggerId, 0, "received corrupted message:\n");
+        PrintHexDump(dataSize, data);
+        showInfoStatus("Corrupted data");
+
         *running = FALSE;
         s = SCHAT_ERROR_CORRUPTED_DATA;
         goto clean;
     }
 
     // stop the receiving loop
-    if ( base->flags & MSG_FLAG_STOP )
+    if ( bh->flags & MSG_FLAG_STOP )
     {
         *running = FALSE;
     }
     
-    if ( base->type == MSG_TYPE_TEXT )
+    if ( bh->type == MSG_TYPE_TEXT )
     {
         s = handleTextMessage(
                 data, 
                 dataSize
             );
     }
-    else if ( base->type == MSG_TYPE_FT_STATUS )
+    else if ( bh->type == MSG_TYPE_FT_STATUS )
     {
         s = handleFTStatusMessage(
                 data, 
                 dataSize
             );
     }
-    else if ( base->type == MSG_TYPE_FILE_INFO )
+    else if ( bh->type == MSG_TYPE_FILE_INFO )
     {
         s = handleFileInfoMessage(
                 data, 
@@ -101,7 +100,7 @@ int handleMessage(
                 type
             );
     }
-    else if ( base->type == MSG_TYPE_FILE_DATA )
+    else if ( bh->type == MSG_TYPE_FILE_DATA )
     {
         s = handleFileDataMessage(
                 data, 
@@ -112,11 +111,9 @@ int handleMessage(
     }
     else 
     {
-        fprintf(out, "received unknown msg type:\n");
-        PrintHexDump(dataSize, data, out);
-#ifdef GUI
-        showInfoStatus("unknown data");
-#endif
+        logger.logInfo(loggerId, 0, "Received unknown msg type:\n");
+        PrintHexDump(dataSize, data);
+        showInfoStatus("Unknown data");
         *running = FALSE;
         s = SCHAT_ERROR_UNKNOWN_DATA;
         goto clean;
@@ -142,17 +139,16 @@ int handleTextMessage(
     int s = 0;
 
 #ifdef DEBUG_PRINT_MESSAGE
-    fprintf(out, "MSG_TYPE_TEXT:\n");
+    logger.logInfo(loggerId, 0, "MSG_TYPE_TEXT:\n");
 #endif
     PSCHAT_MESSAGE_HEADER message = (PSCHAT_MESSAGE_HEADER)data;
     message->name[MAX_NAME_LN-1] = 0;
+    //message->data_ln = strlen(message->data)+1;
     ((CHAR*)data)[dataSize-1] = 0;
 #ifdef DEBUG_PRINT_MESSAGE
-    fprintf(out, "%s : %s\n", message->name, message->data);
+    logger.logInfo(loggerId, 0, "%s : %s\n", message->name, message->data);
 #endif
-#ifdef GUI
     showMessages(message, FALSE);
-#endif
 
     return s;
 }
@@ -167,7 +163,7 @@ int handleFTStatusMessage(
     UNREFERENCED_PARAMETER(dataSize);
 
 #ifdef DEBUG_PRINT_MESSAGE
-    fprintf(out, "MSG_TYPE_FT_STATUS:\n");
+    logger.logInfo(loggerId, 0, "MSG_TYPE_FT_STATUS:\n");
 #endif
     PSCHAT_FILE_STATUS_HEADER message = (PSCHAT_FILE_STATUS_HEADER)data;
     
@@ -213,7 +209,7 @@ int handleFileInfoMessage(
 
     int s = 0;
 #ifdef DEBUG_PRINT_MESSAGE
-    fprintf(out, "MSG_TYPE_FILE_INFO:\n");
+    logger.logInfo(loggerId, 0, "MSG_TYPE_FILE_INFO:\n");
 #endif
     PSCHAT_FILE_INFO_HEADER info = (PSCHAT_FILE_INFO_HEADER)data;
     info->name[MAX_NAME_LN-1] = 0;
@@ -221,14 +217,14 @@ int handleFileInfoMessage(
     ((CHAR*)data)[dataSize-1] = 0;
        
 #ifdef DEBUG_PRINT_MESSAGE
-    fprintf(out, "file_size: 0x%zx\nbase_name: %s (0x%x)\n", info->file_size, info->base_name, info->base_name_ln);
-    fprintf(out, "hash: ");
-    printBytes(info->sha256, SHA256_BYTES_LN, 0, "", out);
+    logger.logInfo(loggerId, 0, "file_size: 0x%zx\nbase_name: %s (0x%x)\n", info->file_size, info->base_name, info->base_name_ln);
+    logger.logInfo(loggerId, 0, "hash: ");
+    printBytes(info->sha256, SHA256_BYTES_LN, 0, "");
 #endif
 
     if ( info->file_size == 0 )
     {
-        fprintf(out, "ERROR (0x%x): File size is 0.\n", SCHAT_ERROR_FILE_SIZE);
+        logger.logError(loggerId, s, "File size is 0.\n", SCHAT_ERROR_FILE_SIZE);
         return SCHAT_ERROR_FILE_SIZE;
     }
 
@@ -239,7 +235,7 @@ int handleFileInfoMessage(
     mtx.unlock();
     if ( ftd == NULL )
     {
-        fprintf(out, "ERROR (0x%x): malloc FILE_TRANSFER_DATA failed\n", GetLastError());
+        logger.logError(loggerId, s, "malloc FILE_TRANSFER_DATA failed\n", GetLastError());
         return SCHAT_ERROR_NO_MEMORY;
     }
 
@@ -247,7 +243,7 @@ int handleFileInfoMessage(
     char* path = ftd->path;
     if ( path == NULL )
     {
-        fprintf(out, "ERROR (0x%x): malloc path failed\n", GetLastError());
+        logger.logError(loggerId, s, "malloc path failed\n", GetLastError());
         return SCHAT_ERROR_NO_MEMORY;
     }
     sprintf_s(path, path_ln, "%s\\%s", ((file_dir==NULL)?".":file_dir), info->base_name);
@@ -257,7 +253,7 @@ int handleFileInfoMessage(
     ftd->name[MAX_NAME_LN-1] = 0;
 
 #ifdef DEBUG_PRINT_MESSAGE
-    fprintf(out, "file path: %s\n", path);
+    logger.logInfo(loggerId, 0, "file path: %s\n", path);
 #endif
 
     // open FILE*
@@ -265,7 +261,7 @@ int handleFileInfoMessage(
     s = fopen_s(&file, path, "wb");
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): open transfer file failed\n", GetLastError());
+        logger.logError(loggerId, s, "open transfer file failed\n", GetLastError());
         return SCHAT_ERROR_OPEN_FILE;
     }
 
@@ -279,7 +275,7 @@ int handleFileInfoMessage(
     other_name[MAX_NAME_LN-1] = 0;
 
 #ifdef DEBUG_PRINT_MESSAGE
-    fprintf(out, "%s : base_name: %s, size: 0x%zx\n", info->name, info->base_name, info->file_size);
+    logger.logInfo(loggerId, 0, "%s : base_name: %s, size: 0x%zx\n", info->name, info->base_name, info->file_size);
 #endif
 #ifdef GUI
 
@@ -300,7 +296,7 @@ int handleFileInfoMessage(
     mtx.unlock();
     if ( rtd == NULL )
     {
-        fprintf(out, "ERROR (0x%x): malloc PFT_RECEIVE_THREAD_DATA failed\n", GetLastError());
+        logger.logError(loggerId, s, "malloc PFT_RECEIVE_THREAD_DATA failed\n", GetLastError());
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
@@ -327,7 +323,7 @@ int handleFileInfoMessage(
         if ( ft_recv_obj.thread == NULL )
         {
             s = GetLastError();
-            fprintf(out, "ERROR (0x%x): CreateThread ft receive failed\n", s);
+            logger.logError(loggerId, s, "CreateThread ft receive failed\n", s);
             mtx.unlock();
             goto clean;
         }
@@ -350,12 +346,13 @@ int handleFileDataMessage(
     int s = 0;
 
 #ifdef DEBUG_PRINT_MESSAGE
-    fprintf(out, "MSG_TYPE_FILE_DATA:\n");
+    logger.logInfo(loggerId, 0, "MSG_TYPE_FILE_DATA:\n");
 #endif
-    
+    *ft_finished = false;
+
     if ( ftd == NULL )
     {
-        fprintf(out, "ERROR (0x%x): FILE_TRANSFER_DATA not initialized\n", SCHAT_ERROR_OUT_OF_ORDER);
+        logger.logError(loggerId, s, "FILE_TRANSFER_DATA not initialized\n", SCHAT_ERROR_OUT_OF_ORDER);
         return SCHAT_ERROR_OUT_OF_ORDER;
     }
 
@@ -365,7 +362,7 @@ int handleFileDataMessage(
     if ( block_size == 0 )
     {
         s = SCHAT_ERROR_FT_CANCELED;
-        fprintf(out, "ERROR (0x%x): Data message cancelled\n", s);
+        logger.logError(loggerId, s, "Data message cancelled\n", s);
 #ifdef GUI
     //const char* base_name = NULL;
     //size_t base_name_ln = getBaseName(ftd->path, ftd->path_ln, &base_name);
@@ -383,10 +380,10 @@ int handleFileDataMessage(
     }
 
 #ifdef DEBUG_PRINT_HEX_DUMP
-    PrintHexDump((ULONG)block_size, blob->data, out);
+    PrintHexDump((ULONG)block_size, blob->data);
 #endif
 
-    s = saveFile(ftd, blob->data, block_size, out);
+    s = saveFile(ftd, blob->data, block_size);
 #ifdef GUI
     showProgress(ftd->written, ftd->size);
 #endif
@@ -410,8 +407,7 @@ clean:
                 &rtd->Context,
                 pSizes,
                 rtd->pbIoBuffer,
-                rtd->cbIoBuffer,
-                out
+                rtd->cbIoBuffer
             );
         }
         *ft_finished = (ftd->file == NULL);

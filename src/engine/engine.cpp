@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <WINIOCTL.H>
 #include <Ws2tcpip.h>
+#include <strsafe.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,13 +16,9 @@
 #include <mutex>
 #include <string>
 
-FILE* out = NULL;
-FILE* log_out = NULL;
-
 #include "../dbg.h"
 #include "../version.h"
 #include "../crypto/windows/HasherCNG.h"
-#include "../net/sock.h"
 #include "engine.h"
 #include "../schannel/common.h"
 #include "../schannel/TlsSock.h"
@@ -58,7 +55,7 @@ std::mutex ft_send_mtx; // initialization problem, when in FT_SOBJECTS
 
 PSecurityFunctionTable g_pSSPI;
 
-// certs will contain a handle to it
+// certs will contain a handle to their cert store
 HCERTSTORE hMyCertStore = NULL; 
 //BOOL fContextInitialized = false; //
 CredHandle hClientCreds; //
@@ -80,9 +77,7 @@ static BOOL logInitialized = false;
 static BOOL receiving = false;
 static BOOL listening = false;
 
-#ifdef GUI
 #include "../guiBridge.h"
-#endif
 
 
 
@@ -90,7 +85,7 @@ void closeLog();
 int handleConnection(char* msg, uint32_t msg_len);
 int sendMessages(char* buffer, uint32_t size);
 
-ULONG sendDataThread(LPVOID lpParam);
+ULONG WINAPI sendDataThread(LPVOID lpParam);
 int cleanFtSendConnection(
     SOCKET* Socket,
     PCtxtHandle Context,
@@ -98,98 +93,11 @@ int cleanFtSendConnection(
 );
 
 void initObjects();
-void initFTObject(PFT_OBJECTS obj);
+void initFTObject(
+    _Out_ PFT_OBJECTS obj
+);
 
-#ifndef GUI
-/**
- * For standanlone test builds without gui.
- */
-int main(int argc, char** argv)
-{
-    out = stdout;
-    fprintf(out, "%s\n", REL_NAME);
-    fprintf(out, "Version: %s - %s\n", REL_VS, REL_DATE);
-    fprintf(out, "Compiled: %s -- %s\n\n", COMPILE_DATA, COMPILE_TIME);
 
-    if ( argc < 6 )
-    {
-        fprintf(out, "usage: %s ip port type certName [nickname]\n\n", argv[0]);
-        fprintf(out, "ip: server/client ip\n");
-        fprintf(out, "port: server port\n");
-        fprintf(out, "ipv: ip version 4 or 6\n");
-        fprintf(out, "type: 1: sending client, 2: receiving client, 3: sending server, 4: receiving server\n");
-        fprintf(out, "certName: Name of cert in cert store\n");
-        fprintf(out, "nickname: Nickname\n");
-        return EXIT_FAILURE;
-    }
-    
-    target_ip = argv[1];
-    target_port = argv[2];
-    char* ipv = (int)strtoul(argv[3], NULL, 0);
-    if ( ipv == 4 )
-        family = AF_INET;
-    else if ( ipv == 6 )
-        family = AF_INET6;
-    else 
-        family = AF_INET;
-    int type = strtol(argv[4], NULL, 0);
-    char* cert_name = argv[5];
-    if ( argc > 6 )
-        nick = argv[6];
-    else
-        nick = "Nick";
-
-    if ( strlen(nick) > MAX_NAME_LN )
-    {
-        fprintf(out, "Nick to long!\n");
-        return -1;
-    }
-    
-    int s = -1;
-
-    if ( type == 1 || type == 2 )
-    {
-        s = initClient(target_ip, target_port, family, cert_name);
-    }
-    else if ( type == 3 || type == 4 )
-    {
-        s = initServer(target_ip, target_port, family, cert_name);
-
-        CHAR msg[MESSAGE_SIZE];
-        ULONG msg_len = MESSAGE_SIZE;
-        client_handleConnections(msg, msg_len);
-    }
-    
-    if ( s != 0 )
-    {
-        fprintf(out, "Init failed!\n");
-        return -1;
-    }
-
-    fprintf(out, "ip: %s\n", ip);
-    fprintf(out, "port: %s\n", port);
-    fprintf(out, "nick: %s\n", nick);
-
-    char buffer[MESSAGE_SIZE];
-
-    if ( type == 1 )
-    {
-        sendMessages(buffer, MESSAGE_SIZE);
-    }
-    else if ( type == 2 )
-    {
-        ZeroMemory(buffer, MESSAGE_SIZE);
-        receiveMessages(buffer, MESSAGE_SIZE);
-    }
-    //else if ( type == 3 )
-    //{
-    //    ZeroMemory(buffer, MESSAGE_SIZE);
-    //    receiveMessages(buffer, MESSAGE_SIZE);
-    //}
-
-    return 0;
-}
-#endif
 
 void initObjects()
 {
@@ -216,39 +124,39 @@ int initClient(
 
     initLog("client");
 #ifdef DEBUG_PRINT
-    fprintf(out, "initClient\n");
-    fprintf(out, " - ip: %s\n", ip);
-    fprintf(out, " - port: %s\n", port);
-    fprintf(out, " - family: %u\n", family);
-    fprintf(out, " - cert: %s\n", cert_name);
-    //fprintf(out, " - dp level: %u\n", DEBUG_PRINT);
+    logger.logInfo(loggerId, 0, "initClient\n");
+    logger.logInfo(loggerId, 0, " - ip: %s\n", ip);
+    logger.logInfo(loggerId, 0, " - port: %s\n", port);
+    logger.logInfo(loggerId, 0, " - family: %u\n", family);
+    logger.logInfo(loggerId, 0, " - cert: %s\n", cert_name);
+    //logger.logInfo(loggerId, 0, " - dp level: %u\n", DEBUG_PRINT);
 #endif
 
     if ( ip == NULL || strlen(ip) == 0 )
     {
         s = SCHAT_ERROR_NO_IP;
-        fprintf(out, "ERROR (0x%x): No ip!\n", s);
+        logger.logError(loggerId, s, "No ip!\n");
         return s;
     }
 
     if ( family != AF_INET && family != AF_INET6 )
     {
         s = SCHAT_ERROR_WRONG_IPV;
-        fprintf(out, "ERROR (0x%x): Wrong ip version!\n", s);
+        logger.logError(loggerId, s, "Wrong ip version!\n");
         return s;
     }
 
     if ( port == NULL || strlen(port) == 0 )
     {
         s = SCHAT_ERROR_NO_PORT;
-        fprintf(out, "ERROR (0x%x): No port!\n", s);
+        logger.logError(loggerId, s, "No port!\n");
         return s;
     }
 
     if ( cert_name == NULL || strlen(cert_name) == 0 )
     {
         s = SCHAT_ERROR_NO_CERT;
-        fprintf(out, "ERROR (0x%x): No cert name!\n", s);
+        logger.logError(loggerId, s, "No cert name!\n");
         return s;
     }
 
@@ -256,8 +164,8 @@ int initClient(
     
     if ( !initSecurityInterface() )
     {
-        fprintf(out, "ERROR initializing the security library\n");
         s = SCHAT_ERROR_INIT_SEC_INTERFACE;
+        logger.logError(loggerId, s, "initializing the security library failed\n");
         goto clean;
     }
 
@@ -271,7 +179,7 @@ int initClient(
     );
     if ( s != 0 )
     {
-        fprintf(out, "ERROR creating credentials\n");
+        logger.logError(loggerId, s, "creating credentials failed\n");
         s = SCHAT_ERROR_CREATE_CREDENTIALS;
         goto clean;
     }
@@ -298,7 +206,7 @@ int initClient(
     s = readStreamEncryptionProperties(&Sizes, &hContext);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): readStreamEncryptionProperties failed!\n", s);
+        logger.logError(loggerId, s, "readStreamEncryptionProperties failed!\n");
         s = SCHAT_ERROR_GET_SIZES;
         goto clean;
     }
@@ -306,14 +214,14 @@ int initClient(
     s = allocateBuffer(&Sizes, &SendBuffer, &SendBufferSize);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): allocate SendBuffer failed!\n", s);
+        logger.logError(loggerId, s, "allocate SendBuffer failed!\n");
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
     s = allocateBuffer(&Sizes, &ReceiveBuffer, &ReceiveBufferSize);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): allocate ReceiveBuffer failed!\n", s);
+        logger.logError(loggerId, s, "allocate ReceiveBuffer failed!\n");
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
@@ -322,7 +230,7 @@ int initClient(
     s = ioctlsocket(ConnectSocket, FIONBIO, &iMode);
     if ( s != 0 )
     {
-        fprintf(out, "ioctlsocket failed with error: 0x%x\n", getLastSError());
+        logger.logError(loggerId, getLastSError(), "ioctlsocket failed!\n");
         s = SCHAT_ERROR_IOCTL_SOCKET;
         goto clean;
     }
@@ -358,11 +266,11 @@ int initServer(
     
     initLog("server");
 #ifdef DEBUG_PRINT
-    fprintf(out, "initServer\n");
-    fprintf(out, " - ip: %s\n", ip);
-    fprintf(out, " - port: %s\n", port);
-    fprintf(out, " - family: %u\n", family);
-    fprintf(out, " - cert: %s\n", cert_name);
+    logger.logInfo(loggerId, 0, "initServer\n");
+    logger.logInfo(loggerId, 0, " - ip: %s\n", ip);
+    logger.logInfo(loggerId, 0, " - port: %s\n", port);
+    logger.logInfo(loggerId, 0, " - family: %u\n", family);
+    logger.logInfo(loggerId, 0, " - cert: %s\n", cert_name);
 #endif
 
     // may be empty for servers
@@ -374,21 +282,21 @@ int initServer(
     if ( family != AF_INET && family != AF_INET6 )
     {
         s = SCHAT_ERROR_WRONG_IPV;
-        fprintf(out, "ERROR (0x%x): Wrong ip version!\n", s);
+        logger.logError(loggerId, s, "Wrong ip version!\n");
         return s;
     }
 
     if ( port == NULL || strlen(port) == 0 )
     {
         s = SCHAT_ERROR_NO_PORT;
-        fprintf(out, "ERROR (0x%x): No port!\n", s);
+        logger.logError(loggerId, s, "No port!\n");
         return s;
     }
 
     if ( cert_name == NULL || strlen(cert_name) == 0 )
     {
         s = SCHAT_ERROR_NO_CERT;
-        fprintf(out, "ERROR (0x%x): No cert name!\n", s);
+        logger.logError(loggerId, s, "No cert name!\n");
         return s;
     }
     
@@ -396,8 +304,8 @@ int initServer(
     
     if ( !initSecurityInterface() )
     {
-        fprintf(out, "ERROR initializing the security library\n");
         s = SCHAT_ERROR_INIT_SEC_INTERFACE;
+        logger.logError(loggerId, s, "initializing the security library failed!\n");
         goto clean;
     }
 
@@ -410,26 +318,26 @@ int initServer(
     );
     if ( s != 0 )
     {
-        fprintf(out, "ERROR creating credentials\n");
         s = SCHAT_ERROR_CREATE_CREDENTIALS;
+        logger.logError(loggerId, s, "creating credentials failed\n");
         goto clean;
     }
     //sCredsInitialized = true;
 
 #ifdef DEBUG_PRINT
-    fprintf(out, "initConnection\n");
+    logger.logInfo(loggerId, 0, "initConnection\n");
 #endif
-    s = initConnection(&addr_info, family, ip, port, &ListenSocket, AI_PASSIVE, out);
+    s = initConnection(&addr_info, family, ip, port, &ListenSocket, AI_PASSIVE);
     if ( s != 0 )
     {
-        fprintf(out, "initConnection failed with error: 0x%x\n", s);
         s = SCHAT_ERROR_INIT_CONNECTION;
+        logger.logError(loggerId, s, "initConnection failed\n");
         goto clean;
     }
     wsaStarted = true;
     
 #ifdef DEBUG_PRINT
-    fprintf(out, "connection initialized\n");
+    logger.logInfo(loggerId, 0, "connection initialized\n");
 #endif
     
     s = setsockopt(ListenSocket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (char*)&iOptval, sizeof(iOptval));
@@ -440,19 +348,19 @@ int initServer(
     }
 
 #ifdef DEBUG_PRINT
-    fprintf(out, "bind\n");
+    logger.logInfo(loggerId, 0, "bind\n");
 #endif
     // Setup the TCP listening socket
     errno = 0;
     s = bind(ListenSocket, addr_info->ai_addr, (int)addr_info->ai_addrlen);
     if ( s == SOCKET_ERROR )
     {
-        fprintf(out, "bind failed with error: 0x%x\n", getLastSError());
+        logger.logError(loggerId, getLastSError(), "bind failed\n");
         s = SCHAT_ERROR_BIND;
         goto clean;
     }
 #ifdef DEBUG_PRINT
-    fprintf(out, "socket bound\n");
+    logger.logInfo(loggerId, 0, "socket bound\n");
 #endif
 
     freeaddrinfo(addr_info);
@@ -462,12 +370,12 @@ int initServer(
     s = listen(ListenSocket, MAX_CONN);
     if ( s == SOCKET_ERROR )
     {
-        fprintf(out, "listen failed with error: %d\n", getLastSError());
+        logger.logError(loggerId, getLastSError(), "listen failed\n");
         s = SCHAT_ERROR_LISTEN;
         goto clean;
     }
 #ifdef DEBUG_PRINT
-    fprintf(out, "listening\n");
+    logger.logInfo(loggerId, 0, "listening\n");
 #endif
 
     engine_type = ENGINE_TYPE_SERVER;
@@ -491,7 +399,7 @@ int client_handleConnections(char* msg, uint32_t msg_len)
     while ( listening )
     {
         s = handleConnection(msg, msg_len);
-        fprintf(out, "\n\n");
+        logger.logInfo(loggerId, 0, "\n\n");
     }
 
     return s;
@@ -530,7 +438,7 @@ int handleConnection(
     s = readStreamEncryptionProperties(&Sizes, &hContext);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): readStreamEncryptionProperties failed!\n", s);
+        logger.logError(loggerId, s, "readStreamEncryptionProperties failed!\n");
         s = SCHAT_ERROR_GET_SIZES;
         goto clean;
     }
@@ -538,14 +446,14 @@ int handleConnection(
     s = allocateBuffer(&Sizes, &SendBuffer, &SendBufferSize);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): allocate SendBuffer failed!\n", s);
+        logger.logError(loggerId, s, "allocate SendBuffer failed!\n");
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
     s = allocateBuffer(&Sizes, &ReceiveBuffer, &ReceiveBufferSize);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): allocate ReceiveBuffer failed!\n", s);
+        logger.logError(loggerId, s, "allocate ReceiveBuffer failed!\n");
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
@@ -554,7 +462,7 @@ int handleConnection(
     s = ioctlsocket(ConnectSocket, FIONBIO, &iMode);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): ioctlsocket failed\n", getLastSError());
+        logger.logError(loggerId, s, "ioctlsocket failed\n", getLastSError());
         s = SCHAT_ERROR_IOCTL_SOCKET;
         goto clean;
     }
@@ -578,7 +486,7 @@ int handleConnection(
 #endif
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): receiveMessages failed\n", getLastSError());
+        logger.logError(loggerId, getLastSError(), "receiveMessages failed\n");
         s = SCHAT_ERROR_RECEIVE_MESSAGES;
         goto clean;
     }
@@ -590,7 +498,7 @@ clean:
 
     if ( s != SEC_E_OK )
     {
-        fprintf(out, "ERROR (0x%x): Disconnecting from client\n", s);
+        logger.logError(loggerId, s, "Disconnecting from client\n");
     }
     
     // closed by Disconect for sure
@@ -613,6 +521,7 @@ clean:
     return s;
 }
 
+#define LOG_HEADER_SIZE (0x100)
 int receiveMessages(
     char* msg, 
     uint32_t len,
@@ -625,14 +534,14 @@ int receiveMessages(
     int s = 0;
     SYSTEMTIME sts;
     GetLocalTime(&sts);
-    fprintf(
-        out, 
-        "receive started: %02d.%02d.%04d %02d:%02d:%02d\n---------------------------------------\n",
+    logger.logInfo(
+        loggerId, 0,
+        "\n\nreceive started: %02d.%02d.%04d %02d:%02d:%02d\n---------------------------------------\n",
         sts.wDay, sts.wMonth, sts.wYear, 
         sts.wHour, sts.wMinute, sts.wSecond
     );
     
-    char header[0x100];
+    char header[LOG_HEADER_SIZE];
     int offset = 0;
 #ifdef GUI
     if ( raddr_ln > 0)
@@ -644,32 +553,33 @@ int receiveMessages(
         {
             addr4 = (PSOCKADDR)raddr;
             port = ntohs( MAKE_UINT16(&addr4->sa_data[0]) );
-            offset += sprintf_s(&header[offset], 0x100-offset, "ip: %u.%u.%u.%u\r\n", (uint8_t)addr4->sa_data[2], (uint8_t)addr4->sa_data[3], (uint8_t)addr4->sa_data[4], (uint8_t)addr4->sa_data[5]);
-            offset += sprintf_s(&header[offset], 0x100-offset, "port: 0x%x (%u)\r\n", port, port);
+            offset += sprintf_s(&header[offset], LOG_HEADER_SIZE-offset, "ip: %u.%u.%u.%u\r\n", (uint8_t)addr4->sa_data[2], (uint8_t)addr4->sa_data[3], (uint8_t)addr4->sa_data[4], (uint8_t)addr4->sa_data[5]);
+            offset += sprintf_s(&header[offset], LOG_HEADER_SIZE-offset, "port: 0x%x (%u)\r\n", port, port);
         }
         else if ( raddr_ln >= sizeof(SOCKADDR_IN6) )
         {
             addr6 = (PSOCKADDR_IN6)raddr;
 #ifdef _WIN32
-            offset += sprintf_s(&header[offset], 0x100-offset, "ip: %x:%x:%x:%x:%x:%x:%x:%x\r\n", 
+            offset += sprintf_s(&header[offset], LOG_HEADER_SIZE-offset, "ip: %x:%x:%x:%x:%x:%x:%x:%x\r\n", 
             ntohs(addr6->sin6_addr.u.Word[0]), ntohs(addr6->sin6_addr.u.Word[1]), ntohs(addr6->sin6_addr.u.Word[2]), ntohs(addr6->sin6_addr.u.Word[3]), ntohs(addr6->sin6_addr.u.Word[4]), ntohs(addr6->sin6_addr.u.Word[5]), ntohs(addr6->sin6_addr.u.Word[6]), ntohs(addr6->sin6_addr.u.Word[7]));
 #else
-            offset += sprintf_s(&header[offset], 0x100-offset, "ip: %x:%x:%x:%x:%x:%x:%x:%x\r\n", 
+            offset += sprintf_s(&header[offset], LOG_HEADER_SIZE-offset, "ip: %x:%x:%x:%x:%x:%x:%x:%x\r\n", 
             ntohs(addr6->ssin6_addr.s6_addr16[0]), ntohs(addr6->ssin6_addr.s6_addr16[1]), ntohs(addr6->ssin6_addr.s6_addr16[2]), ntohs(addr6->ssin6_addr.s6_addr16[3]), ntohs(addr6->ssin6_addr.s6_addr16[4]), ntohs(addr6->ssin6_addr.s6_addr16[5]), ntohs(addr6->ssin6_addr.s6_addr16[6]), ntohs(addr6->ssin6_addr.s6_addr16[7]));
 #endif
-            offset += sprintf_s(&header[offset], 0x100-offset, "port: 0x%x (%u)\r\n", ntohs(addr6->sin6_port), ntohs(addr6->sin6_port));
+            offset += sprintf_s(&header[offset], LOG_HEADER_SIZE-offset, "port: 0x%x (%u)\r\n", ntohs(addr6->sin6_port), ntohs(addr6->sin6_port));
         }
     }
-    sprintf_s(&header[offset], 0x100-offset, "connected\r\n--------------------- %02d.%02d.%04d %02d:%02d:%02d --------------------------\r\n\r\n", 
+    sprintf_s(&header[offset], LOG_HEADER_SIZE-offset, "connected\r\n--------------------- %02d.%02d.%04d %02d:%02d:%02d --------------------------\r\n\r\n", 
         sts.wDay, sts.wMonth, sts.wYear, sts.wHour, sts.wMinute, sts.wSecond);
-    header[0x100-1] = 0;
+    header[LOG_HEADER_SIZE-1] = 0;
     showMessages(header, MSG_TYPE_INFO);
 #endif
 
     if ( engine_type == ENGINE_TYPE_NONE )
     {
-        fprintf(out, "Not initialized yet.");
-        return SCHAT_ERROR_NOT_INITIALIZED;
+        s = SCHAT_ERROR_NOT_INITIALIZED;
+        logger.logError(loggerId, s, "Not initialized yet.");
+        return s;
     }
 
     PCredHandle creds = (engine_type == ENGINE_TYPE_CLIENT)
@@ -687,24 +597,23 @@ int receiveMessages(
         &receiving
     );
 
-    fprintf(out, "Receiving stopped: 0x%x\n", s);
+    logger.logInfo(loggerId, 0, "Receiving stopped: 0x%x\n");
 
     GetLocalTime(&sts);
-    fprintf(
-        out, 
-        "---------------------------------------\nconnection stopped: %02d.%02d.%04d %02d:%02d:%02d\n",
+    logger.logInfo(
+        loggerId, 0,
+        "---------------------------------------\nconnection stopped: %02d.%02d.%04d %02d:%02d:%02d\n\n",
         sts.wDay, sts.wMonth, sts.wYear, 
         sts.wHour, sts.wMinute, sts.wSecond
     );
-#ifdef GUI
     sprintf_s(header, 0x80, "\r\n--------------------- %02d.%02d.%04d %02d:%02d:%02d --------------------------\r\ndisconnected\r\n\r\n", sts.wDay, sts.wMonth, sts.wYear, sts.wHour, sts.wMinute, sts.wSecond);
     header[0x7f] = 0;
     showMessages(header, MSG_TYPE_INFO);
-#endif
     
 
     return s;
 }
+#undef LOG_HEADER_SIZE
 
 #ifndef GUI
 int sendMessages(
@@ -717,7 +626,7 @@ int sendMessages(
     {
         ZeroMemory(buffer, size);
         
-        fprintf(out, "Type a message:\n");
+        printf("Type a message:\n");
         fgets((char*)buffer, size, stdin);
         ULONG to_write = (ULONG)strlen((char*)buffer);
         if ( to_write >= size )
@@ -730,7 +639,7 @@ int sendMessages(
         }
         if ( buffer[0] == 'q' )
         {
-            fprintf(out, "Quitting!\n");
+            printf("Quitting!\n");
             break;
         }
         buffer[to_write] = 0;
@@ -749,20 +658,24 @@ int client_sendMessage(
     uint32_t len
 )
 {
+    int s = 0;
+
     if ( !logInitialized )
-        initLog("undecided");
+        initLog(REL_NAME);
 
     if ( ConnectSocket == INVALID_SOCKET )
     {
-        fprintf(out, "ConnectSocket invalid\n");
-        return SCHAT_ERROR_INVALID_SOCKET;
+        s = SCHAT_ERROR_INVALID_SOCKET;
+        logger.logError(loggerId, s, "ConnectSocket invalid\n");
+        return s;
     }
     //uint32_t max_data_size = Sizes.cbMaximumMessage - sizeof(MESSAGE_HEADER);
     uint32_t cbMessage = sizeof(SCHAT_MESSAGE_HEADER) + len;
     if ( cbMessage >= Sizes.cbMaximumMessage )
     {
-        fprintf(out, "msg too big\n");
-        return SCHAT_ERROR_MESSAGE_TOO_BIG;
+        s = SCHAT_ERROR_MESSAGE_TOO_BIG;
+        logger.logError(loggerId, s, "msg too big\n");
+        return s;
     }
     
     PSCHAT_MESSAGE_HEADER message = (PSCHAT_MESSAGE_HEADER)(SendBuffer + Sizes.cbHeader);
@@ -773,13 +686,15 @@ int client_sendMessage(
     message->name[MAX_NAME_LN-1] = 0;
     memcpy(message->data, msg, len);
     message->data[len] = 0;
+    message->data_ln = len;
 
-#ifdef GUI
-    showMessages(message, true);
-#endif
+    // show message to myself
+    showMessages(message, TRUE);
 #ifdef DEBUG_PRINT_MESSAGE
-    fprintf(out, "you: %s\n", message->data);
+    logger.logInfo(loggerId, 0, "you: %s\n", message->data);
 #endif
+
+    // send to recipient
     int n = sendSChannelData(
         (PUCHAR)message, 
         (ULONG)message->bh.size, 
@@ -791,7 +706,7 @@ int client_sendMessage(
     );
     if ( n != 0 )
     {
-        fprintf(out, "error sending data\n");
+        logger.logError(loggerId, n, "error sending data\n");
     }
     return n;
 }
@@ -822,15 +737,16 @@ int client_sendFile(
     int s = 0;
 
     if ( !logInitialized )
-        initLog("undecided");
+        initLog(REL_NAME);
     
     //
     // check status
 
     if ( ConnectSocket == INVALID_SOCKET )
     {
-        fprintf(out, "ERROR (0x%x): ConnectSocket invalid\n", SCHAT_ERROR_INVALID_SOCKET);
-        return SCHAT_ERROR_INVALID_SOCKET;
+        s = SCHAT_ERROR_INVALID_SOCKET;
+        logger.logError(loggerId, s, "ConnectSocket invalid\n");
+        return s;
     }
     
     //
@@ -839,21 +755,21 @@ int client_sendFile(
     if ( ip == NULL || strlen(ip) == 0 )
     {
         s = SCHAT_ERROR_NO_IP;
-        fprintf(out, "ERROR (0x%x): No ip!\n", s);
+        logger.logError(loggerId, s, "No ip!\n");
         return s;
     }
 
     if ( family != AF_INET && family != AF_INET6 )
     {
         s = SCHAT_ERROR_WRONG_IPV;
-        fprintf(out, "ERROR (0x%x): Wrong ip version!\n", s);
+        logger.logError(loggerId, s, "Wrong ip version!\n");
         return s;
     }
 
     if ( port == NULL || strlen(port) == 0 )
     {
         s = SCHAT_ERROR_NO_PORT;
-        fprintf(out, "ERROR (0x%x): No port!\n", s);
+        logger.logError(loggerId, s, "No port!\n");
         return s;
     }
     
@@ -862,22 +778,25 @@ int client_sendFile(
 
     if ( sizeof(SCHAT_FILE_INFO_HEADER) + len >= Sizes.cbMaximumMessage )
     {
-        fprintf(out, "ERROR (0x%x): File path too long\n", SCHAT_ERROR_PATH_TOO_LONG);
-        return SCHAT_ERROR_PATH_TOO_LONG;
+        s = SCHAT_ERROR_PATH_TOO_LONG;
+        logger.logError(loggerId, s, "File path too long\n");
+        return s;
     }
 
     if ( !fileExists(path) )
     {
-        fprintf(out, "ERROR (0x%x): file not found!\n", SCHAT_ERROR_FILE_NOT_FOUND);
-        return SCHAT_ERROR_FILE_NOT_FOUND;
+        s = SCHAT_ERROR_FILE_NOT_FOUND;
+        logger.logError(loggerId, s, "file not found!\n");
+        return s;
     }
 
     size_t file_size = 0;
     s = getFileSize(path, &file_size);
     if ( s != 0 || file_size == 0 )
     {
-        fprintf(out, "ERROR (0x%x): getFileSize failed or returned 0\n", SCHAT_ERROR_FILE_SIZE);
-        return SCHAT_ERROR_FILE_SIZE;
+        s = SCHAT_ERROR_FILE_SIZE;
+        logger.logError(loggerId, s, "getFileSize failed or returned 0\n");
+        return s;
     }
     
     CHAR full_path[MAX_PATH];
@@ -885,13 +804,14 @@ int client_sendFile(
     ULONG full_path_ln = GetFullPathNameA(path, MAX_PATH, full_path, &base_name);
     if ( full_path_ln == 0 || full_path_ln >= MAX_PATH )
     {
-        fprintf(out, "ERROR (0x%x): GetFullPathName failed!\n", GetLastError());
+        logger.logError(loggerId, GetLastError(), "GetFullPathName failed!\n");
         return SCHAT_ERROR_FILE_NOT_FOUND;
     }
     if ( base_name == NULL || base_name[0] == 0 )
     {
-        fprintf(out, "ERROR (0x%x): file_name too short!\n", SCHAT_ERROR_FILE_NOT_FOUND);
-        return SCHAT_ERROR_FILE_NOT_FOUND;
+        s = SCHAT_ERROR_FILE_NOT_FOUND;
+        logger.logError(loggerId, s, "file_name too short!\n");
+        return s;
     }
     ULONG base_name_ln = (ULONG)strlen(base_name);
     
@@ -899,7 +819,7 @@ int client_sendFile(
     s = sha256File(full_path, hash, SHA256_BYTES_LN);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): Calculating hash failed!\n", s);
+        logger.logError(loggerId, s, "Calculating hash failed!\n");
         return SCHAT_ERROR_CALCULATE_HASH;
     }
     
@@ -926,9 +846,9 @@ int client_sendFile(
     message->base_name[base_name_ln] = 0;
 
 #ifdef DEBUG_PRINT
-    fprintf(out, "sending\nfile_size: 0x%zx\nbase_name: %s (0x%x)\n", message->file_size, message->base_name, message->base_name_ln);
-    fprintf(out, "hash: ");
-    printBytes(message->sha256, SHA256_BYTES_LN, 0, "", out);
+    logger.logInfo(loggerId, 0, "sending\nfile_size: 0x%zx\nbase_name: %s (0x%x)\n", message->file_size, message->base_name, message->base_name_ln);
+    logger.logInfo(loggerId, 0, "hash: ");
+    printBytes(message->sha256, SHA256_BYTES_LN, 0, "");
 #endif
 
     s = sendSChannelData(
@@ -942,7 +862,7 @@ int client_sendFile(
     );
     if ( s != 0 )
     {
-        fprintf(out, "error sending data\n");
+        logger.logError(loggerId, s, "error sending data\n");
         goto clean;
     }
     
@@ -968,8 +888,9 @@ int client_sendFile(
         PFT_SEND_THREAD_DATA tp = (PFT_SEND_THREAD_DATA)malloc(tp_s);
         if ( tp == NULL )
         {
-            fprintf(out, "ERROR: malloc DATA_THREAD_PARAMS failed!\n");
-            return SCHAT_ERROR_NO_MEMORY;
+            s = SCHAT_ERROR_NO_MEMORY;
+            logger.logError(loggerId, s, "malloc DATA_THREAD_PARAMS failed!\n");
+            return s;
         }
         tp->file_size = file_size;
         //strcpy_s(tp->path, len, path);
@@ -991,7 +912,7 @@ int client_sendFile(
         if ( ft_send_obj.thread == NULL )
         {
             s = GetLastError();
-            fprintf(out, "ERROR (0x%x): CreateThread ft receive failed\n", s);
+            logger.logError(loggerId, s, "CreateThread ft receive failed\n");
             if ( tp != NULL )
                 free(tp);
             goto clean;
@@ -1006,7 +927,7 @@ clean:
 }
 
 // TODO: move to filetransfer.cpp
-ULONG sendDataThread(LPVOID lpParam)
+ULONG WINAPI sendDataThread(LPVOID lpParam)
 {
     PFT_SEND_THREAD_DATA tp = (PFT_SEND_THREAD_DATA)(lpParam);
     int s = 0;
@@ -1041,10 +962,12 @@ ULONG sendDataThread(LPVOID lpParam)
     s = allocateBuffer(&Sizes, &buffer, &buffer_size);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): allocate send file buffer failed!\n", s);
+        logger.logError(loggerId, s, "allocate send file buffer failed!\n");
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
+
+    ZeroMemory(other_ft_cert_hash, SHA256_BYTES_LN);
 
     // A client sending a file will connect a new socket to the accepting server.
     // The accept is triggerd by the receiving FILE_INFO_HEADER.
@@ -1065,7 +988,7 @@ ULONG sendDataThread(LPVOID lpParam)
             goto clean;
         }
 #ifdef DEBUG_PRINT
-        fprintf(out, "FT Connected\n");
+        logger.logInfo(loggerId, 0, "FT Connected\n");
 #endif
     }
     // A server will (blocking) accept a new connection by the client.
@@ -1086,15 +1009,15 @@ ULONG sendDataThread(LPVOID lpParam)
         if ( s != 0 )
             goto clean;
 #ifdef DEBUG_PRINT
-        fprintf(out, "FT accepted\n");
+        logger.logInfo(loggerId, 0, "FT accepted\n");
 #endif
     }
 
     // compare ft certificate hash to main connection certificate
     if ( memcmp(other_cert_hash, other_ft_cert_hash, SHA256_BYTES_LN) != 0 )
     {
-        fprintf(out, "ERROR (0x%x): SCHAT_ERROR_FT_CERT_MISSMATCH\n", SCHAT_ERROR_FT_CERT_MISSMATCH);
         s = SCHAT_ERROR_FT_CERT_MISSMATCH;
+        logger.logError(loggerId, s, "SCHAT_ERROR_FT_CERT_MISSMATCH\n");
         goto clean;
     }
     
@@ -1115,7 +1038,7 @@ ULONG sendDataThread(LPVOID lpParam)
         );
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): receving ft accept answer\n", s);
+        logger.logError(loggerId, s, "receving ft accept answer\n");
         //s = SCHAT_ERROR_FT_NOT_ACCEPTED;
         goto clean;
     }
@@ -1133,8 +1056,8 @@ ULONG sendDataThread(LPVOID lpParam)
     s = fopen_s(&file, tp->path, "rb");
     if ( s != 0 )
     {
-        fprintf(out, "ERROR: file open failed!\n");
         s = SCHAT_ERROR_OPEN_FILE;
+        logger.logError(loggerId, s, "file open failed!\n");
         goto clean;
     }
 
@@ -1144,9 +1067,9 @@ ULONG sendDataThread(LPVOID lpParam)
     cbMessage = Sizes.cbMaximumMessage;
     offset = 0;
 #ifdef DEBUG_PRINT
-    fprintf(out, "nParts: 0x%zx\n", nParts);
-    fprintf(out, "block_size: 0x%x\n", block_size);
-    fprintf(out, "rest: 0x%zx\n", rest);
+    logger.logInfo(loggerId, 0, "nParts: 0x%zx\n", nParts);
+    logger.logInfo(loggerId, 0, "block_size: 0x%x\n", block_size);
+    logger.logInfo(loggerId, 0, "rest: 0x%zx\n", rest);
 #endif
     for ( i = 0; i < nParts; i++ )
     {
@@ -1166,7 +1089,7 @@ ULONG sendDataThread(LPVOID lpParam)
             bRead = fread(message->data, 1, block_size, file);
             if ( bRead != block_size )
             {
-                fprintf(out, "ERROR (0x%x): reading data\n", GetLastError());
+                logger.logError(loggerId, GetLastError(), "reading data\n");
                 s = SCHAT_ERROR_READ_FILE;
                 goto clean;
             }
@@ -1188,7 +1111,7 @@ ULONG sendDataThread(LPVOID lpParam)
             );
         if ( s != 0 )
         {
-            fprintf(out, "ERROR (0x%x): sending data\n", s);
+            logger.logError(loggerId, s, "sending data\n");
             s = SCHAT_ERROR_SENDING_DATA;
             goto clean;
         }
@@ -1214,7 +1137,7 @@ ULONG sendDataThread(LPVOID lpParam)
             bRead = fread(message->data, 1, rest, file);
             if ( bRead != rest )
             {
-                fprintf(out, "ERROR (0x%x): reading data\n", GetLastError());
+                logger.logError(loggerId, GetLastError(), "reading data\n");
                 s = SCHAT_ERROR_READ_FILE;
                 goto clean;
             }
@@ -1238,7 +1161,7 @@ ULONG sendDataThread(LPVOID lpParam)
             );
         if ( s != 0 )
         {
-            fprintf(out, "ERROR (0x%x): sending data\n", s);
+            logger.logError(loggerId, s, "sending data\n");
             s = SCHAT_ERROR_SENDING_DATA;
             goto clean;
         }
@@ -1254,7 +1177,7 @@ sending_finished:
     if ( cancel_loop )
     {
 #ifdef DEBUG_PRINT
-        fprintf(out, "FT Data canceled\n");
+        logger.logInfo(loggerId, 0, "FT Data canceled\n");
 #endif
 #ifdef GUI
     //const char* base_name = NULL;
@@ -1275,7 +1198,7 @@ sending_finished:
     //else
     {
 #ifdef DEBUG_PRINT
-        fprintf(out, "FT Data sent, waiting for reply\n");
+        logger.logInfo(loggerId, 0, "FT Data sent, waiting for reply\n");
 #endif
         ft_send_mtx.lock();
         ft_send_obj.running = true;
@@ -1294,13 +1217,13 @@ sending_finished:
         {
             if ( s != SEC_I_CONTEXT_EXPIRED )
             {
-                fprintf(out, "ERROR (0x%x): receving ft finished answer\n", s);
+                logger.logError(loggerId, s, "receving ft finished answer\n");
                 s = SCHAT_ERROR_RECEIVE_MESSAGES;
                 goto clean;
             }
         }
 #ifdef DEBUG_PRINT
-    fprintf(out, "FT Data received reply\n");
+    logger.logInfo(loggerId, 0, "FT Data received reply\n");
 #endif
     }
 
@@ -1319,7 +1242,7 @@ clean:
             other_name,
             false
         );
-        s = sprintf_s((char*)buffer, buffer_size, "Filetransfer Error: 0x%x", s);
+        s = StringCchPrintfA((char*)buffer, buffer_size, "Filetransfer Error: 0x%x", s);
         buffer[s] = 0;
         showInfoStatus((char*)buffer);
     }
@@ -1348,13 +1271,13 @@ int cleanFtSendConnection(
 {
     int s = 0;
 #ifdef DEBUG_PRINT
-    fprintf(out, "cleanFtSendConnection()\n");
+    logger.logInfo(loggerId, 0, "cleanFtSendConnection()\n");
 #endif
     s = Disconnect(Socket, &hClientCreds, Context, Type);
     if ( s != 0 )
-        fprintf(out, "ERROR (0x%x): disconnecting ft from server\n", s);
+        logger.logError(loggerId, s, "disconnecting ft from server\n");
     else
-        fprintf(out, "Disconnecting ft connection successfully\n");
+        logger.logInfo(loggerId, 0, "Disconnecting ft connection successfully\n");
 
     initFTObject(&ft_send_obj);
 
@@ -1380,7 +1303,7 @@ int cleanClient()
     int s = 0;
     
     if ( !logInitialized )
-        initLog("undecided");
+        initLog(REL_NAME);
     
     if ( wsaStarted  )
     {
@@ -1392,7 +1315,7 @@ int cleanClient()
         s = Disconnect(&ConnectSocket, &hClientCreds, &hContext, engine_type);
         if ( s != 0 )
         {
-            fprintf(out, "ERROR disconnecting from server\n");
+            logger.logError(loggerId, s, "disconnecting from server failed\n");
         }
     
         // closed in Disconnect for sure
@@ -1404,9 +1327,7 @@ int cleanClient()
     }
     wsaStarted = false;
 #ifdef DEBUG_PRINT
-    fprintf(out, "cleanClient()\n");
-    //fprintf(out, "ConnectSocket: 0x%zx\n", (SIZE_T)ConnectSocket);
-    //fprintf(out, "ListenSocket: 0x%zx\n", (SIZE_T)ListenSocket);
+    logger.logInfo(loggerId, 0, "cleanClient()\n");
 #endif
     SChannel_clean(&hContext, &hClientCreds, &hServerCreds, &hMyCertStore);
 
@@ -1423,59 +1344,48 @@ int cleanClient()
     
     last_type = 0;
 
-#ifdef GUI
-    closeLog();
-#endif
+//#ifdef GUI
+//    closeLog();
+//#endif
 
     return EXIT_SUCCESS;
 }
 
 void initLog(const char* label)
 {
+    int s = 0;
+
     if ( logInitialized )
         return;
 
-    out = stdout;
-#ifdef GUI
+
     SYSTEMTIME sts;
     GetLocalTime(&sts);
-    if ( log_out != NULL )
-        return;
     
     const char* d = (log_dir==NULL) ? "." : log_dir;
     char out_path[MAX_PATH];
     RtlZeroMemory(out_path, MAX_PATH);
-    sprintf_s(
+    StringCchPrintfA(
         out_path, MAX_PATH, 
         "%s\\%s-%02d.%02d.%04d-%02d.%02d.%02d.log", 
         d,
         label,
         sts.wDay, sts.wMonth, sts.wYear, sts.wHour, sts.wMinute, sts.wSecond);
-    int err = fopen_s(&log_out, out_path, "a");
-
-    if ( !log_out || err != 0 )
+    
+    s = logger.openFile(out_path, loggerId);
+    if ( s != 0 )
     {
-        fprintf(out, "Redirecting out to \"%s\" failed!\n", out_path);
-        log_out = NULL;
+        SetLastError(s);
+        return;
     }
-    else
-    {
-        out = log_out;
-        setvbuf(out, NULL, _IONBF, 0);
-    }
-#else
-    UNREFERENCED_PARAMETER(label);
-#endif
 
     logInitialized = true;
 }
 
 void closeLog()
 {
-    if ( log_out != NULL )
-        fclose(log_out);
-    log_out = NULL;
-    logInitialized = false;
+   logger.closeFile(loggerId);
+   logInitialized = false;
 }
 
 void client_setNick(const char* nick_)

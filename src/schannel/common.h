@@ -5,6 +5,10 @@
 #include "sec.h"
 #include <stdio.h>
 
+#include "../utils/Logger.h"
+extern size_t loggerId;
+extern Logger logger;
+
 /**
  * Print bytes array
  * 
@@ -12,15 +16,13 @@
  * @param n ULONG length of aary
  * @param bs INT block size to format in lines of block size bytes. 0 for no block breaking.
  * @param prefix char* Prefix to insert before each bock
- * @param out FILE* out FILE stream
  */
 void
 printBytes(
     PVOID buffer, 
     ULONG n, 
     INT bs,
-    const char* prefix,
-    FILE* out
+    const char* prefix
 );
 
 /**
@@ -30,51 +32,42 @@ printBytes(
  * @param n ULONG length of aary
  * @param bs INT block size to format in lines of block size bytes. 0 for no block breaking.
  * @param prefix char* Prefix to insert before each bock
- * @param out FILE* out FILE stream
  */
 void
 printReverseBytes(
     PVOID buffer, 
     ULONG n, 
     INT bs,
-    const char* prefix,
-    FILE* out
+    const char* prefix
 );
 
-void printSecPackages(
-    FILE* out
-);
+void printSecPackages();
 
 void printSecPkgInfo(
-    PSecPkgInfo info, 
-    FILE* out
+    PSecPkgInfo info
 );
 
 void
 printCert(
-    PCCERT_CONTEXT cert,
-    FILE* out
+    PCCERT_CONTEXT cert
 );
 
 int
 saveCert(
     PCCERT_CONTEXT cert,
     const char* label,
-    const char* dir,
-    FILE* out
+    const char* dir
 );
 
 void
 PrintHexDump(
     DWORD length, 
-    PVOID buffer,
-    FILE* out
+    PVOID buffer
 );
 
-void
-DisplayWinVerifyTrustError(
-    DWORD Status,
-    FILE* out
+const char*
+GetWinVerifyTrustError(
+    DWORD Status
 );
 
 const char*
@@ -90,15 +83,13 @@ getWSAErrorString(
 void
 DisplayCertChain(
     PCCERT_CONTEXT  pServerCert,
-    BOOL            fLocal,
-    FILE* out
+    BOOL            fLocal
 );
 
 void
 DisplayConnectionInfo(
     CtxtHandle *phContext,
-    PSecurityFunctionTable SSPI,
-    FILE* out
+    PSecurityFunctionTable SSPI
 );
 
 #endif 

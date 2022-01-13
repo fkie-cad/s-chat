@@ -36,36 +36,36 @@ static ULONG InfoStatusThreadId = 0;
 static HANDLE InfoStatusThread = NULL;
 
 
-void initFormats()
-{
-    if ( !InfoFmtInitialized )
-    {
-        ZeroMemory(&InfoFmt, sizeof(InfoFmt));
-        InfoFmt.cbSize = sizeof(InfoFmt);
-        InfoFmt.dwMask = PFM_ALIGNMENT;
-        InfoFmt.wAlignment = PFA_CENTER;
-
-        InfoFmtInitialized = true;
-    }
-    if ( !LocalFmtInitialized )
-    {
-        ZeroMemory(&LocalFmt, sizeof(LocalFmt));
-        LocalFmt.cbSize = sizeof(LocalFmt);
-        LocalFmt.dwMask = PFM_ALIGNMENT;
-        LocalFmt.wAlignment = PFA_RIGHT;
-
-        LocalFmtInitialized = true;
-    }
-    if ( !RemoteFmtInitialized )
-    {
-        ZeroMemory(&RemoteFmt, sizeof(RemoteFmt));
-        RemoteFmt.cbSize = sizeof(RemoteFmt);
-        RemoteFmt.dwMask = PFM_ALIGNMENT;
-        RemoteFmt.wAlignment = PFA_LEFT;
-
-        RemoteFmtInitialized = true;
-    }
-}
+//void initFormats()
+//{
+//    if ( !InfoFmtInitialized )
+//    {
+//        ZeroMemory(&InfoFmt, sizeof(InfoFmt));
+//        InfoFmt.cbSize = sizeof(InfoFmt);
+//        InfoFmt.dwMask = PFM_ALIGNMENT;
+//        InfoFmt.wAlignment = PFA_CENTER;
+//
+//        InfoFmtInitialized = true;
+//    }
+//    if ( !LocalFmtInitialized )
+//    {
+//        ZeroMemory(&LocalFmt, sizeof(LocalFmt));
+//        LocalFmt.cbSize = sizeof(LocalFmt);
+//        LocalFmt.dwMask = PFM_ALIGNMENT;
+//        LocalFmt.wAlignment = PFA_RIGHT;
+//
+//        LocalFmtInitialized = true;
+//    }
+//    if ( !RemoteFmtInitialized )
+//    {
+//        ZeroMemory(&RemoteFmt, sizeof(RemoteFmt));
+//        RemoteFmt.cbSize = sizeof(RemoteFmt);
+//        RemoteFmt.dwMask = PFM_ALIGNMENT;
+//        RemoteFmt.wAlignment = PFA_LEFT;
+//
+//        RemoteFmtInitialized = true;
+//    }
+//}
 
 void setConnStatusOutput(
     _In_ HWND Output_
@@ -95,25 +95,16 @@ void setFilePBar(
     FilePBar = hwdn;
 }
 
-//void setThumbPrintOutput(
-//    _In_ HWND ThumbPrintOutput_
-//)
-//{
-//    ThumbPrintOutput = ThumbPrintOutput_;
-//}
-
 void showConnStatus(
     _In_ const char* msg
 )
 {
     if ( ConnStatusOpt == NULL )
         return;
-    //if ( status_mtx.try_lock() )
-    {
-        conn_status_mtx.lock();
-        SetWindowTextA(ConnStatusOpt, msg);
-        conn_status_mtx.unlock();
-    }
+
+    conn_status_mtx.lock();
+    SetWindowTextA(ConnStatusOpt, msg);
+    conn_status_mtx.unlock();
 }
 
 #define SHOW_STATUS_DURATION (4000)
@@ -145,7 +136,7 @@ void showInfoStatus(
 void AppendWindowTextA(
     _In_ HWND ctrl, 
     _In_ PCHAR Text, 
-    _In_ PARAFORMAT* fmt
+    _In_opt_ PARAFORMAT* fmt
 )
 {
     // get the current selection
@@ -155,6 +146,7 @@ void AppendWindowTextA(
     // move the caret to the end of the text
     int outLength = GetWindowTextLength(ctrl);
     SendMessage(ctrl, EM_SETSEL, outLength, outLength);
+    //int oldLength = outLength;
     
     // insert the text at the new caret position
     SendMessage(ctrl, EM_REPLACESEL, TRUE, (LPARAM)(Text));
@@ -165,7 +157,7 @@ void AppendWindowTextA(
     
     if ( fmt != NULL )
     {
-        //SendMessage(ctrl, EM_SETSEL, outLength, outLength+t.size());
+        //SendMessage(ctrl, EM_SETSEL, outLength, outLength+oldLength);
         //SendMessage(ctrl, EM_SETPARAFORMAT, 0, (LPARAM)fmt);
 
         //CHARFORMATA cfmt;
@@ -209,11 +201,12 @@ BOOL playSound(
 ULONG sound_thread_id;
 HANDLE sound_thread;
 
-ULONG notify(
+ULONG WINAPI notify(
     _In_ LPVOID lpParam
 )
 {
-    UNREFERENCED_PARAMETER(lpParam);
+    (lpParam);
+
     if ( notify_snd == NULL )
         return (ULONG)-1;
     playSound(notify_snd);
@@ -232,23 +225,32 @@ void showMessages(
     _In_ BOOL self
 )
 {
-    //showStatus("showMessages");
     if ( MessageOutput == NULL )
         return;
 
     int type = (self) ? 1 : 2;
 
-    initFormats();
+    //initFormats();
     PARAFORMAT* fmt = NULL;
-    std::string msg;
-    if ( self )
-    {
-        fmt = &LocalFmt;
-    }
-    else 
-    {
-        fmt = &RemoteFmt;
-    }
+    //std::string msg;
+    PCHAR msg = NULL;
+    SIZE_T msgSize = 0;
+    //if ( self )
+    //{
+    //    fmt = &LocalFmt;
+    //}
+    //else 
+    //{
+    //    fmt = &RemoteFmt;
+    //}
+
+    msgSize = strlen(message->name) + message->data_ln + 19;
+    msg = new CHAR[msgSize];
+    int w = 0;
+    if ( !msg )
+        return;
+    
+    msg_mtx.lock();
 
     if ( last_type != type )
     {
@@ -260,14 +262,17 @@ void showMessages(
         UINT8_TO_CHAR2(sts.wHour, hours);
         UINT8_TO_CHAR2(sts.wMinute, minutes);
 
-        msg = "\r\n== "+std::string(message->name) + " (" + std::string(hours) + ":" + std::string(minutes) + ") ==\r\n";
+        w = sprintf_s(msg, msgSize, "\r\n== %s (%s:%s) ==\r\n", 
+            message->name, hours, minutes);
     }
-    msg += std::string((char*)message->data);
+    w = sprintf_s(&msg[w], msgSize-w, "%s", (char*)message->data);
 
-    msg_mtx.lock();
     last_type = type;
     AppendWindowTextA(MessageOutput, &msg[0], fmt);
+
     msg_mtx.unlock();
+
+    delete[] msg;
 
     if ( !self )
     {
@@ -282,7 +287,8 @@ void showMessages(
                     0,        // use default creation flags 
                     &sound_thread_id    // returns the thread identifier 
                 );
-            CloseHandle(sound_thread);
+            if ( sound_thread )
+                CloseHandle(sound_thread);
             sound_thread = NULL;
         }
     }
@@ -297,14 +303,15 @@ void showMessages(
     if ( MessageOutput == NULL )
         return;
 
-    initFormats();
+    (type);
+    //initFormats();
     PARAFORMAT* fmt = NULL;
-    if ( type == MSG_TYPE_INFO   )
-        fmt = &InfoFmt;
-    else if ( type == MSG_TYPE_LOCAL   )
-        fmt = &LocalFmt;
-    else if ( type == MSG_TYPE_LOCAL   )
-        fmt = &RemoteFmt;
+    //if ( type == MSG_TYPE_INFO   )
+    //    fmt = &InfoFmt;
+    //else if ( type == MSG_TYPE_LOCAL   )
+    //    fmt = &LocalFmt;
+    //else if ( type == MSG_TYPE_LOCAL   )
+    //    fmt = &RemoteFmt;
 
     msg_mtx.lock();
     AppendWindowTextA(MessageOutput, message, fmt);
@@ -339,6 +346,7 @@ void showProgress(
     SendMessage(FilePBar, PBM_SETPOS, percent, 0);
     //pg_mtx.unlock();
 }
+#undef PG_STRING_SIZE
 
 void togglePBar(
     _In_ BOOL state

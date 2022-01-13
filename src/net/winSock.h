@@ -29,6 +29,9 @@ typedef int sendlen_t;
 #define sendlen_t_def
 #endif
 
+#include "../utils/Logger.h"
+extern Logger logger;
+extern size_t loggerId;
 
 
 int initS();

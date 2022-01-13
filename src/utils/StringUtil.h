@@ -38,7 +38,15 @@ class StringUtil
          */
         static
         const char* trim(char* s);
-
+        
+        /**
+         * Count lines in text buffer.
+         *
+         * @param	Buffer uint8_t* text bufffer with lines
+         * @param	BufferSize size_t size of Buffer in bytes
+         * @param	NrLines uint32_t* resulting counted number of lines
+         * @return	int status/error code
+         */
         static
         int CountLines(
             uint8_t* Buffer,
@@ -46,6 +54,16 @@ class StringUtil
             uint32_t* NrLines
         );	
         
+        /**
+         * Check if string starts with
+         *
+         * @param	pre char* searched prefix
+         * @param	char* str string to search in
+         * @return	bool
+         */
+        static
+        bool startsWith(const char *pre, const char *str);
+
         /**
         * Split string into parts by delimiter.
         *
@@ -74,6 +92,13 @@ class StringUtil
             */
         static
         bool toBool(std::string value);
+
+        /**
+         * Write formated local time into buffer:
+         * "dd.mm.yyyy hh:mm:ss"
+         */
+        static
+        bool getFormatedTime(char* buffer, size_t n, bool lineBreak=false, const char* prefix="", const char* postfix="");
 
 };
 

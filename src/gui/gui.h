@@ -9,6 +9,12 @@ enum class FILE_TRANSFER_STATUS { STOPPED, ACTIVE };
 #define FILE_BTN_SELECT_STR "File"
 #define FILE_BTN_CANCEL_STR "Cancel"
 
+#ifndef FORMATED_TIME_STAMP_SIZE
+#define FORMATED_TIME_STAMP_SIZE (0x20)
+#endif
+
+
+
 
 VOID changeIcon(CONNECTION_STATUS state);
 

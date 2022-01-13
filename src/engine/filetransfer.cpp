@@ -27,8 +27,8 @@ void initFTObject(
 }
 
 void showSentFileInfo(
-    const char* label,
-    _In_ uint8_t* sha256,
+    _In_ const char* label,
+    _In_opt_ uint8_t* sha256,
     _In_ size_t size,
     _In_ const char* base_name,
     _In_ size_t base_name_ln,
@@ -41,13 +41,14 @@ void showSentFileInfo(
         hashToString(sha256, SHA256_BYTES_LN, sHash, SHA256_STRING_BUFFER_LN);
     
     size_t msgd_ln = 52 + SHA256_STRING_LN + base_name_ln + (2*strlen(label));
-    size_t data_ln = sizeof(SCHAT_MESSAGE_HEADER) + msgd_ln;
+    size_t smsg_size = sizeof(SCHAT_MESSAGE_HEADER) + msgd_ln;
     
-    uint8_t* msgb = new uint8_t[data_ln];
+    uint8_t* msgb = new uint8_t[smsg_size];
     PSCHAT_MESSAGE_HEADER smsg = (PSCHAT_MESSAGE_HEADER)msgb;
 
     strcpy_s(smsg->name, MAX_NAME_LN, name);
     smsg->name[MAX_NAME_LN-1] = 0;
+    smsg->data_ln = (uint32_t)msgd_ln;
     char* msgd = smsg->data;
     if ( sha256 != NULL )
         sprintf_s(msgd, msgd_ln, "[%s]\r\nfile: %s\r\nsize: 0x%zx\r\nhash: %s\r\n[\\%s]\r\n", label, base_name, size, sHash, label); 
@@ -68,8 +69,7 @@ void sendReceivedFileInfo(
     _In_ PCtxtHandle phContext,
     _In_ SecPkgContext_StreamSizes* pSizes,
     _In_ PBYTE pbIoBuffer,
-    _In_ ULONG cbIoBuffer,
-    _In_ FILE* log
+    _In_ ULONG cbIoBuffer
 )
 {
     uint8_t hash[SHA256_BYTES_LN];
@@ -79,7 +79,7 @@ void sendReceivedFileInfo(
         int s = sha256File(path, hash, SHA256_BYTES_LN);
         if ( s != 0 )
         {
-            fprintf(log, "ERROR (0x%x): Calculating hash failed!\n", s);
+            logger.logError(loggerId, s, "Calculating hash failed!\n");
     #ifdef GUI
             showInfoStatus("ERROR: Calculating hash failed!\n");
     #endif
@@ -101,15 +101,14 @@ void sendReceivedFileInfo(
     message->bh.flags = MSG_FLAG_STOP;
     strcpy_s(message->name, MAX_NAME_LN, name);
     message->name[MAX_NAME_LN-1] = 0;
+    message->data_ln = (uint32_t)msgd_ln;
     char* msgd = message->data;
     if ( success )
         sprintf_s(msgd, msgd_ln, "[%s]\r\nfile: %s\r\nhash: %s\r\n[\\%s]", label, base_name, sHash, label); 
     else
         sprintf_s(msgd, msgd_ln, "[%s]\r\nfile: %s\r\n[\\%s]", label, base_name, label); 
 
-#ifdef GUI
     showMessages(message, self);
-#endif
 
     // showMessages(msg, TRUE);
     int n = sendSChannelData(
@@ -123,7 +122,7 @@ void sendReceivedFileInfo(
     );
     if ( n != 0 )
     {
-        fprintf(log, "error sending data\n");
+        logger.logError(loggerId, n, "error sending data\n");
         //showInfoStatus("error sending data");
     }
 }
@@ -137,8 +136,7 @@ int sendAcceptedFileInfo(
     _In_ PCtxtHandle phContext,
     _In_ SecPkgContext_StreamSizes* pSizes,
     _In_ PBYTE pbIoBuffer,
-    _In_ ULONG cbIoBuffer,
-    _In_ FILE* log
+    _In_ ULONG cbIoBuffer
 )
 {
     int s = 0;
@@ -186,7 +184,7 @@ int sendAcceptedFileInfo(
         );
     if ( s != 0 )
     {
-        fprintf(log, "error sending data\n");
+        logger.logError(loggerId, s, "error sending data\n");
         //showInfoStatus("error sending data");
     }
 
@@ -196,8 +194,7 @@ int sendAcceptedFileInfo(
 int saveFile(
     _In_ PFILE_TRANSFER_DATA ftd, 
     _In_ uint8_t* buffer, 
-    _In_ size_t buffer_ln,
-    _In_ FILE* log
+    _In_ size_t buffer_ln
 )
 {
     int s = 0;
@@ -205,8 +202,9 @@ int saveFile(
     size_t bWritten = fwrite(buffer, 1, buffer_ln, ftd->file);
     if ( bWritten != buffer_ln )
     {
-        fprintf(log, "ERROR (0x%x): writing file failed\n", SCHAT_ERROR_WRITE_FILE);
-        return SCHAT_ERROR_WRITE_FILE;
+        s = SCHAT_ERROR_WRITE_FILE;
+        logger.logError(loggerId, s, "writing file failed\n");
+        return s;
     }
     ftd->written += bWritten;
     
@@ -219,7 +217,7 @@ int saveFile(
     return s;
 }
 
-ULONG recvFTDataThread(
+ULONG WINAPI recvFTDataThread(
     LPVOID lpParam
 )
 {
@@ -241,10 +239,12 @@ ULONG recvFTDataThread(
     s = allocateBuffer(rtd->Sizes, &rtd->pbIoBuffer, &rtd->cbIoBuffer);
     if ( s != 0 )
     {
-        fprintf(out, "ERROR (0x%x): allocate send file buffer failed!\n", s);
+        logger.logError(loggerId, s, "allocate send file buffer failed!\n");
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
+
+    ZeroMemory(other_ft_cert_hash, SHA256_BYTES_LN);
 
     // accept new ft socket connection
     if ( rtd->type == ENGINE_TYPE_SERVER )
@@ -264,7 +264,7 @@ ULONG recvFTDataThread(
         if ( s != 0 )
             goto clean;
 #ifdef DEBUG_PRINT
-        fprintf(out, "FT accepted\n");
+        logger.logInfo(loggerId, 0, "FT accepted\n");
 #endif
     }
     // or connect to an accepting socket
@@ -284,15 +284,15 @@ ULONG recvFTDataThread(
             goto clean;
         }
 #ifdef DEBUG_PRINT
-        fprintf(out, "FT Connected\n");
+        logger.logInfo(loggerId, 0, "FT Connected\n");
 #endif
     }
 
     // compare ft certificate hash to main connection certificate
     if ( memcmp(other_cert_hash, other_ft_cert_hash, SHA256_BYTES_LN) != 0 )
     {
-        fprintf(out, "ERROR (0x%x): SCHAT_ERROR_FT_CERT_MISSMATCH\n", SCHAT_ERROR_FT_CERT_MISSMATCH);
         s = SCHAT_ERROR_FT_CERT_MISSMATCH;
+        logger.logError(loggerId, s, "SCHAT_ERROR_FT_CERT_MISSMATCH\n");
         goto clean;
     }
 
@@ -341,8 +341,7 @@ ULONG recvFTDataThread(
         &rtd->Context,
         rtd->Sizes,
         rtd->pbIoBuffer,
-        rtd->cbIoBuffer,
-        out
+        rtd->cbIoBuffer
     );
     
     if ( answer != IDYES || s != 0 )
@@ -395,7 +394,7 @@ int disconnectFTRecvSocket(
 {
     int s = 0;
 #ifdef DEBUG_PRINT
-        fprintf(out, "disconnectFTRecvSocket\n");
+        logger.logInfo(loggerId, 0, "disconnectFTRecvSocket\n");
 #endif
         
     //(Creds);(type);(Socket);
@@ -403,11 +402,11 @@ int disconnectFTRecvSocket(
     
     if ( s == SEC_E_OK )
     {
-        fprintf(out, "SUCCESS: FT Socket terminated\n");
+        logger.logInfo(loggerId, 0, "SUCCESS: FT Socket terminated\n");
     }
     else
     {
-        fprintf(out, "ERROR (0x%x): Disconnecting from server\n", s);
+        logger.logError(loggerId, s, "Disconnecting from server\n");
     }
     
     // Free SSPI context handle.

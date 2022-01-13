@@ -32,7 +32,7 @@ initSecurityInterface()
 
     if ( g_pSSPI == NULL )
     {
-        fprintf(out, "ERROR (0x%x): reading security interface.\n", GetLastError());
+        logger.logError(loggerId, GetLastError(), "reading security interface.\n");
         return FALSE;
     }
 
@@ -51,11 +51,12 @@ CreateCredentials(
     SECURITY_STATUS Status = SEC_E_OK;
     PCCERT_CONTEXT pCertContext = NULL;
     SCH_CREDENTIALS SchCreds;
-    
+
     if ( certId == NULL )
     {
-        fprintf(out, "ERROR: Missing certificate identifier\n");
-        return SEC_E_NO_CREDENTIALS;
+        Status = SEC_E_NO_CREDENTIALS;
+        logger.logError(loggerId, Status, "Missing certificate identifier\n");
+        return Status;
     }
 
     if ( hMyCertStore == NULL )
@@ -65,7 +66,7 @@ CreateCredentials(
         if ( !hMyCertStore )
         {
             Status = GetLastError();
-            fprintf(out, "ERROR (0x%x): CertOpenSystemStore\n", Status);
+            logger.logError(loggerId, Status, "CertOpenSystemStore\n");
             return Status;
         }
     }
@@ -75,7 +76,7 @@ CreateCredentials(
     Status = parsePlainBytes(certId, &hash_ptr, SHA1_BYTES_LN);
     if ( Status != 0 )
     {
-        fprintf(out, "ERROR (0x%x): parsePlainBytes\n", Status);
+        logger.logError(loggerId, Status, "parsePlainBytes\n");
         goto cleanup;
     }
 
@@ -94,7 +95,7 @@ CreateCredentials(
                     );
     if ( pCertContext == NULL )
     {
-        fprintf(out, "ERROR (0x%x): CertFindCertificateInStore\n", GetLastError());
+        logger.logError(loggerId, GetLastError(), "CertFindCertificateInStore\n");
         return SEC_E_NO_CREDENTIALS;
     }
 
@@ -130,7 +131,7 @@ CreateCredentials(
                         &tsExpiry);             // (out) Lifetime (optional)
     if ( Status != SEC_E_OK )
     {
-        fprintf(out, "ERROR (0x%x): %s returned by AcquireCredentialsHandle\n", Status, getSecErrorString(Status));
+        logger.logError(loggerId, Status, "%s returned by AcquireCredentialsHandle\n", getSecErrorString(Status));
         goto cleanup;
     }
 
@@ -139,10 +140,10 @@ CreateCredentials(
         (FILETIME*)&tsExpiry,
         &sts
     );
-    fprintf(out, "cred expire: %02d.%02d.%04d %02d:%02d:%02d\n\n", 
+    logger.logInfo(loggerId, 0, "cred expire: %02d.%02d.%04d %02d:%02d:%02d\n\n", 
         sts.wDay, sts.wMonth, sts.wYear, sts.wHour, sts.wMinute, sts.wSecond);
 
-    //printCert(pCertContext, out);
+    //printCert(pCertContext);
 
 cleanup:
     // Free the certificate context. Schannel has already made its own copy.
@@ -216,7 +217,7 @@ PerformClientHandshake(
 
     if ( scRet != SEC_I_CONTINUE_NEEDED )
     {
-        fprintf(out, "ERROR (0x%x): InitializeSecurityContext (1)\n", scRet);
+        logger.logError(loggerId, scRet, "InitializeSecurityContext (1)\n");
         return scRet;
     }
 
@@ -229,18 +230,18 @@ PerformClientHandshake(
                       0);
         if ( cbData == SOCKET_ERROR || cbData == 0 )
         {
-            fprintf(out, "ERROR (0x%x): Sending hello data to server (1)\n", WSAGetLastError());
+            logger.logError(loggerId, WSAGetLastError(), "Sending hello data to server (1)\n");
             g_pSSPI->FreeContextBuffer(OutBuffers[0].pvBuffer);
             deleteSecurityContext(phContext);
             return SEC_E_INTERNAL_ERROR;
         }
 
 #ifdef DEBUG_PRINT
-        fprintf(out, "0x%x bytes of handshake data sent\n", cbData);
+        logger.logInfo(loggerId, 0, "0x%x bytes of handshake data sent\n", cbData);
 #endif
 #ifdef DEBUG_PRINT_HEX_DUMP
-        PrintHexDump(cbData, OutBuffers[0].pvBuffer, out);
-        fprintf(out, "\n");
+        PrintHexDump(cbData, OutBuffers[0].pvBuffer);
+        logger.logInfo(loggerId, 0, "\n");
 #endif
 
         // Free output buffer.
@@ -291,8 +292,9 @@ ClientHandshakeLoop(
     IoBuffer = (PUCHAR) LocalAlloc(LMEM_FIXED, IoBufferSize);
     if ( IoBuffer == NULL )
     {
-        fprintf(out, "ERROR: Out of memory (1)\n");
-        return SEC_E_INTERNAL_ERROR;
+        scRet = SEC_E_INTERNAL_ERROR;
+        logger.logError(loggerId, scRet, "Out of memory (1)\n");
+        return scRet;
     }
     cbIoBuffer = 0;
 
@@ -319,23 +321,23 @@ ClientHandshakeLoop(
                               0);
                 if ( cbData == SOCKET_ERROR )
                 {
-                    fprintf(out, "ERROR (0x%x): reading data from server\n", WSAGetLastError());
+                    logger.logError(loggerId, WSAGetLastError(), "reading data from server\n");
                     scRet = WSAGetLastError();
                     break;
                 }
                 else if ( cbData == 0 )
                 {
-                    fprintf(out, "Server unexpectedly disconnected\n");
                     scRet = WSAECONNRESET;
+                    logger.logError(loggerId, scRet, "Server unexpectedly disconnected\n");
                     break;
                 }
 
 #ifdef DEBUG_PRINT
-                fprintf(out, "0x%x bytes of handshake data received\n", cbData);
+                logger.logInfo(loggerId, 0, "0x%x bytes of handshake data received\n", cbData);
 #endif
 #ifdef DEBUG_PRINT_HEX_DUMP
-                PrintHexDump(cbData, IoBuffer + cbIoBuffer, out);
-                fprintf(out, "\n");
+                PrintHexDump(cbData, IoBuffer + cbIoBuffer);
+                logger.logInfo(loggerId, 0, "\n");
 #endif
 
                 cbIoBuffer += cbData;
@@ -418,18 +420,19 @@ ClientHandshakeLoop(
                               0);
                 if ( cbData == SOCKET_ERROR || cbData == 0 )
                 {
-                    fprintf(out, "ERROR (0x%x): sending data to server (2)\n", WSAGetLastError());
+                    scRet = SEC_E_INTERNAL_ERROR;
+                    logger.logError(loggerId, WSAGetLastError(), "sending data to server (2)\n");
                     g_pSSPI->FreeContextBuffer(OutBuffers[0].pvBuffer);
                     deleteSecurityContext(phContext);
-                    return SEC_E_INTERNAL_ERROR;
+                    return scRet;
                 }
 
 #ifdef DEBUG_PRINT
-                fprintf(out, "0x%x bytes of handshake data sent\n", cbData);
+                logger.logInfo(loggerId, 0, "0x%x bytes of handshake data sent\n", cbData);
 #endif
 #ifdef DEBUG_PRINT_HEX_DUMP
-                PrintHexDump(cbData, OutBuffers[0].pvBuffer, out);
-                fprintf(out, "\n");
+                PrintHexDump(cbData, OutBuffers[0].pvBuffer);
+                logger.logInfo(loggerId, 0, "\n");
 #endif
 
                 // Free output buffer.
@@ -463,7 +466,7 @@ ClientHandshakeLoop(
             // will later decrypt it with DecryptMessage.
             //
 
-            fprintf(out, "Handshake was successful\n");
+            logger.logInfo(loggerId, 0, "Handshake was successful\n");
 
             if ( InBuffers[1].BufferType == SECBUFFER_EXTRA )
             {
@@ -471,8 +474,9 @@ ClientHandshakeLoop(
                                                   InBuffers[1].cbBuffer);
                 if ( pExtraData->pvBuffer == NULL )
                 {
-                    fprintf(out, "ERROR: Out of memory (2)\n");
-                    return SEC_E_INTERNAL_ERROR;
+                    scRet = SEC_E_INTERNAL_ERROR;
+                    logger.logError(loggerId, scRet, "Out of memory (2)\n");
+                    return scRet;
                 }
 
                 MoveMemory(pExtraData->pvBuffer,
@@ -482,7 +486,7 @@ ClientHandshakeLoop(
                 pExtraData->cbBuffer = InBuffers[1].cbBuffer;
                 pExtraData->BufferType = SECBUFFER_TOKEN;
 
-                fprintf(out, "INFO: 0x%x bytes of app data was bundled with handshake data\n",
+                logger.logInfo(loggerId, 0, "INFO: 0x%x bytes of app data was bundled with handshake data\n",
                     pExtraData->cbBuffer);
             }
             else
@@ -499,7 +503,7 @@ ClientHandshakeLoop(
         // Check for fatal error.
         if ( FAILED(scRet) )
         {
-            fprintf(out, "ERROR (0x%x): returned by InitializeSecurityContext (2)\n", scRet);
+            logger.logError(loggerId, scRet, "returned by InitializeSecurityContext (2)\n");
             break;
         }
 
@@ -515,9 +519,7 @@ ClientHandshakeLoop(
             // the credential we supplied didn't contain a client certificate.
             
             // We break
-            fprintf(out, 
-                "ERROR (0x%x): The server has requested client authentication and the credential we supplied didn't contain a client certificate.\n", 
-                SEC_I_INCOMPLETE_CREDENTIALS);
+            logger.logError(loggerId, scRet, "The server has requested client authentication and the credential we supplied didn't contain a client certificate.\n");
             break;
 
             // 
@@ -561,7 +563,7 @@ ClientHandshakeLoop(
     // Delete the security context in the case of a fatal error.
     if ( FAILED(scRet) )
     {
-        fprintf(out, "ERROR (0x%x): client handshake loop (%s)\n", scRet, getSecErrorString(scRet));
+        logger.logError(loggerId, scRet, "client handshake loop (%s)\n", getSecErrorString(scRet));
         deleteSecurityContext(phContext);
     }
 
@@ -644,7 +646,7 @@ VerifyServerCertificate(
                             &pChainContext) )
     {
         Status = GetLastError();
-        fprintf(out, "ERROR (0x%x) CertGetCertificateChain!\n", Status);
+        logger.logError(loggerId, Status, "CertGetCertificateChain!\n");
         goto cleanup;
     }
 
@@ -673,16 +675,16 @@ VerifyServerCertificate(
                             &PolicyStatus) )
     {
         Status = GetLastError();
-        fprintf(out, "ERROR (0x%x): CertVerifyCertificateChainPolicy!\n", Status);
+        logger.logError(loggerId, Status, "CertVerifyCertificateChainPolicy!\n");
         goto cleanup;
     }
 
     if ( PolicyStatus.dwError )
     {
         Status = PolicyStatus.dwError;
-        DisplayWinVerifyTrustError(Status, out); 
+        logger.logError(loggerId, Status, "%s!\n", GetWinVerifyTrustError(Status));
         if ( PolicyStatus.dwError == CERT_E_UNTRUSTEDROOT )
-            fprintf(out, "skipping\n");
+            logger.logInfo(loggerId, 0, "skipping\n");
         else
             goto cleanup;
     }
@@ -769,14 +771,14 @@ SSPINegotiateLoop(
 
                 if ( cbData == SOCKET_ERROR || cbData == 0 )
                 {
-                    fprintf(out, "ERROR (0x%x): recv failed\n", GetLastError());
+                    logger.logError(loggerId, GetLastError(), "recv failed\n");
                     return FALSE;
                 }
 
-                fprintf(out, "\nReceived 0x%x (handshake) bytes from client\n", cbData);
+                logger.logInfo(loggerId, 0, "\nReceived 0x%x (handshake) bytes from client\n", cbData);
 
 #ifdef DEBUG_PRINT_HEX_DUMP
-                PrintHexDump(cbData, pbIoBuffer+cbIoBuffer, out);
+                PrintHexDump(cbData, pbIoBuffer+cbIoBuffer);
 #endif
                 cbIoBuffer += cbData;
             }
@@ -842,10 +844,10 @@ SSPINegotiateLoop(
                               OutBuffers[0].cbBuffer,
                               0);
 
-                fprintf(out, "\nSend 0x%x handshake bytes to client\n", OutBuffers[0].cbBuffer);
+                logger.logInfo(loggerId, 0, "\nSend 0x%x handshake bytes to client\n", OutBuffers[0].cbBuffer);
 
 #ifdef DEBUG_PRINT_HEX_DUMP
-                PrintHexDump(OutBuffers[0].cbBuffer, OutBuffers[0].pvBuffer, out);
+                PrintHexDump(OutBuffers[0].cbBuffer, OutBuffers[0].pvBuffer);
 #endif
 
                 g_pSSPI->FreeContextBuffer(OutBuffers[0].pvBuffer);
@@ -877,7 +879,7 @@ SSPINegotiateLoop(
         }
         else if (FAILED(scRet) && (scRet != SEC_E_INCOMPLETE_MESSAGE))
         {
-            fprintf(out, "ERROR (0x%x): Accept Security Context Failed : %s\n", scRet, getSecErrorString(scRet));
+            logger.logError(loggerId, scRet, "Accept Security Context Failed : %s\n", getSecErrorString(scRet));
             return FALSE;
         }
 
@@ -918,7 +920,7 @@ CheckConnectionInfo(
     );
     if ( Status != SEC_E_OK )
     {
-        fprintf(out, "ERROR (0x%x): querying connection info\n", Status);
+        logger.logError(loggerId, Status, "querying connection info\n");
         return -1;
     }
 
@@ -942,11 +944,11 @@ readStreamEncryptionProperties(
                                    pSizes);
     if ( scRet != SEC_E_OK )
     {
-        fprintf(out, "ERROR (0x%x): reading SECPKG_ATTR_STREAM_SIZES\n", scRet);
+        logger.logError(loggerId, scRet, "reading SECPKG_ATTR_STREAM_SIZES\n");
         return scRet;
     }
 #ifdef DEBUG_PRINT
-    fprintf(out, "Sizes:\n - Header: 0x%x\n - Trailer: 0x%x\n - MaxMessage: 0x%x\n - Buffers: 0x%x\n - BlockSize: 0x%x\n",
+    logger.logInfo(loggerId, 0, "Sizes:\n - Header: 0x%x\n - Trailer: 0x%x\n - MaxMessage: 0x%x\n - Buffers: 0x%x\n - BlockSize: 0x%x\n",
         pSizes->cbHeader,
         pSizes->cbTrailer,
         pSizes->cbMaximumMessage,
@@ -976,7 +978,7 @@ allocateBuffer(
     *pbBuffer = (PBYTE)HeapAlloc(GetProcessHeap(), 0, *cbBuffer);
     if ( *pbBuffer == NULL )
     {
-        fprintf(out, "ERROR: Out of memory (2)\n");
+        logger.logError(loggerId, (ULONG)SEC_E_INTERNAL_ERROR, "Out of memory (2)\n");
         *cbBuffer = 0;
         return SEC_E_INTERNAL_ERROR;
     }
@@ -1007,9 +1009,9 @@ SECURITY_STATUS sendSChannelData(
 
       
 #if defined(DEBUG_PRINT_HEX_DUMP) && defined(DEBUG_PRINT_MESSAGE)
-    fprintf(out, "pbMessage (0x%x):\n", cbMessage);
-    PrintHexDump(cbMessage, pbMessage, out);
-    fprintf(out, "\n");
+    logger.logInfo(loggerId, 0, "pbMessage (0x%x):\n", cbMessage);
+    PrintHexDump(cbMessage, pbMessage);
+    logger.logInfo(loggerId, 0, "\n");
 #endif
 
     //
@@ -1043,7 +1045,7 @@ SECURITY_STATUS sendSChannelData(
 
     if ( FAILED(scRet) )
     {
-        fprintf(out, "ERROR (0x%x): %s returned by EncryptMessage\n", scRet, getSecErrorString(scRet));
+        logger.logError(loggerId, scRet, "EncryptMessage failed (%s)\n", getSecErrorString(scRet));
         return scRet;
     }
 
@@ -1061,10 +1063,10 @@ SECURITY_STATUS sendSChannelData(
         //deleteSecurityContext(phContext);
 
         scRet = WSAGetLastError();
-        fprintf(out, "ERROR (0x%x): sending data to server (3)\n", scRet);
+        logger.logError(loggerId, scRet, "Sending data to server (3)\n");
         if ( scRet == WSAEWOULDBLOCK || scRet == 0 )
         {
-            fprintf(out, " retry\n");
+            logger.logInfo(loggerId, 0, " retry\n");
             Sleep(SEND_LOOP_SLEEP);
             return sendSChannelData(
                         pbMessage,
@@ -1078,17 +1080,17 @@ SECURITY_STATUS sendSChannelData(
         }
         else
         {
-            fprintf(out, " break\n");
+            logger.logInfo(loggerId, 0, " break\n");
             return scRet;
         }
     }
 
 #ifdef DEBUG_PRINT
-    fprintf(out, "0x%x bytes of application data sent\n", cbData);
+    logger.logInfo(loggerId, 0, "0x%x bytes of application data sent\n", cbData);
 #endif
 #ifdef DEBUG_PRINT_HEX_DUMP
-    PrintHexDump(cbData, pbIoBuffer, out);
-    fprintf(out, "\n");
+    PrintHexDump(cbData, pbIoBuffer);
+    logger.logInfo(loggerId, 0, "\n");
 #endif
     
     return SEC_E_OK;
@@ -1122,7 +1124,7 @@ receiveSChannelData(
     UNREFERENCED_PARAMETER(pSizes);
     
 #ifdef DEBUG_PRINT
-    fprintf(out, "receiveSChannelData\n");
+    logger.logInfo(loggerId, 0, "receiveSChannelData\n");
 #endif
 
     cbIoBuffer = 0;
@@ -1151,7 +1153,7 @@ receiveSChannelData(
                 }
                 else
                 {
-                    fprintf(out, "ERROR (0x%x): recv data error\n", cbData);
+                    logger.logError(loggerId, cbData, "recv data error\n");
                     scRet = SEC_E_INTERNAL_ERROR;
                     break;
                 }
@@ -1161,24 +1163,24 @@ receiveSChannelData(
                 // Server disconnected.
                 if ( cbIoBuffer )
                 {
-                    fprintf(out, "Unexpected Disconnection while receiving\n");
                     scRet = SEC_E_INTERNAL_ERROR;
+                    logger.logError(loggerId, scRet, "Unexpected Disconnection while receiving\n");
                     break;
                 }
                 else
                 {
-                    fprintf(out, "Received 0 bytes\n");
+                    logger.logInfo(loggerId, 0, "Received 0 bytes\n");
                     break;
                 }
             }
             else
             {
 #ifdef DEBUG_PRINT
-                fprintf(out, "0x%x bytes of (encrypted) application data received\n", cbData);
+                logger.logInfo(loggerId, 0, "0x%x bytes of (encrypted) application data received\n", cbData);
 #endif
 #ifdef DEBUG_PRINT_HEX_DUMP
-                PrintHexDump(cbData, pbIoBuffer + cbIoBuffer, out);
-                fprintf(out, "\n");
+                PrintHexDump(cbData, pbIoBuffer + cbIoBuffer);
+                logger.logInfo(loggerId, 0, "\n");
 #endif
 
                 cbIoBuffer += cbData;
@@ -1210,13 +1212,13 @@ receiveSChannelData(
         // remote signalled end of session
         if ( scRet == SEC_I_CONTEXT_EXPIRED )
         {
-            fprintf(out, "SEC_I_CONTEXT_EXPIRED\n");
+            logger.logInfo(loggerId, 0, "SEC_I_CONTEXT_EXPIRED\n");
             break;
         }
         if ( scRet != SEC_E_OK && 
              scRet != SEC_I_RENEGOTIATE )
         {
-            fprintf(out, "ERROR (0x%x): DecryptMessage %s\n", scRet, getSecErrorString(scRet));
+            logger.logError(loggerId, scRet, "DecryptMessage failed (%s)\n", getSecErrorString(scRet));
             break;
         }
 
@@ -1251,11 +1253,11 @@ receiveSChannelData(
         if ( pDataBuffer )
         {
 #ifdef DEBUG_PRINT_MESSAGE
-            fprintf(out, "Decrypted data: 0x%x bytes\n", pDataBuffer->cbBuffer);
+            logger.logInfo(loggerId, 0, "Decrypted data: 0x%x bytes\n", pDataBuffer->cbBuffer);
 #endif
 #if defined(DEBUG_PRINT_MESSAGE) && defined(DEBUG_PRINT_HEX_DUMP)
-            PrintHexDump(pDataBuffer->cbBuffer, pDataBuffer->pvBuffer, out);
-            fprintf(out, "\n");
+            PrintHexDump(pDataBuffer->cbBuffer, pDataBuffer->pvBuffer);
+            logger.logInfo(loggerId, 0, "\n");
 #endif
             
             msgRet = handleMessage(
@@ -1280,7 +1282,7 @@ receiveSChannelData(
                 // The server wants to perform another handshake
                 // sequence.
 
-                fprintf(out, "Server requested renegotiate!\n");
+                logger.logInfo(loggerId, 0, "Server requested renegotiate!\n");
 
                 scRet = ClientHandshakeLoop(Socket, 
                                             phClientCreds, 
@@ -1301,7 +1303,7 @@ receiveSChannelData(
             }
             else
             {
-                fprintf(out, "Client requested renegotiate : unhandled!\n");
+                logger.logInfo(loggerId, 0, "Client requested renegotiate : unhandled!\n");
             }
         }
 
@@ -1334,7 +1336,7 @@ Disconnect(
     TimeStamp tsExpiry;
     DWORD Status = 0;
     
-    fprintf(out, "Disconnect()\n");
+    logger.logInfo(loggerId, 0, "Disconnect()\n");
 
     //
     // Notify schannel that we are about to close the connection.
@@ -1361,7 +1363,7 @@ Disconnect(
 
     if ( FAILED(Status) ) 
     {
-        fprintf(out, "ERROR (0x%x): ApplyControlToken\n", Status);
+        logger.logError(loggerId, Status, "ApplyControlToken\n");
         goto cleanup;
     }
 
@@ -1399,7 +1401,7 @@ Disconnect(
 
         if ( FAILED(Status) ) 
         {
-            fprintf(out, "ERROR (0x%x): AcceptSecurityContext\n", Status);
+            logger.logError(loggerId, Status, "AcceptSecurityContext\n");
             goto cleanup;
         }
     }
@@ -1421,7 +1423,7 @@ Disconnect(
     
         if ( FAILED(Status) ) 
         {
-            fprintf(out, "ERROR (0x%x): InitializeSecurityContext\n", Status);
+            logger.logError(loggerId, Status, "InitializeSecurityContext\n");
             goto cleanup;
         }
     }
@@ -1440,17 +1442,17 @@ Disconnect(
         if ( cbData == SOCKET_ERROR || cbData == 0 )
         {
             Status = WSAGetLastError();
-            fprintf(out, "ERROR (0x%x): Sending close notify : %s\n", Status, getWSAErrorString(Status));
+            logger.logError(loggerId, Status, "Sending close notify : %s\n", getWSAErrorString(Status));
             goto cleanup;
         }
         
-        fprintf(out, "Sending Close Notify\n");
+        logger.logInfo(loggerId, 0, "Sending Close Notify\n");
 #ifdef DEBUG_PRINT
-        fprintf(out, "\n0x%x bytes of handshake data sent\n", cbData);
+        logger.logInfo(loggerId, 0, "\n0x%x bytes of handshake data sent\n", cbData);
 #endif
 #ifdef DEBUG_PRINT_HEX_DUMP
-        PrintHexDump(cbData, pbMessage, out);
-        fprintf(out, "\n");
+        PrintHexDump(cbData, pbMessage);
+        logger.logInfo(loggerId, 0, "\n");
 #endif
 
         // Free output buffer.
@@ -1511,7 +1513,7 @@ VerifyClientCertificate(
                             &pChainContext) )
     {
         Status = GetLastError();
-        fprintf(out, "ERROR (0x%x): returned by CertGetCertificateChain!\n", Status);
+        logger.logError(loggerId, Status, "returned by CertGetCertificateChain!\n");
         goto cleanup;
     }
 
@@ -1540,16 +1542,16 @@ VerifyClientCertificate(
                             &PolicyStatus) )
     {
         Status = GetLastError();
-        fprintf(out, "ERROR (0x%x): returned by CertVerifyCertificateChainPolicy!\n", Status);
+        logger.logError(loggerId, Status, "returned by CertVerifyCertificateChainPolicy!\n");
         goto cleanup;
     }
 
     if ( PolicyStatus.dwError )
     {
         Status = PolicyStatus.dwError;
-        DisplayWinVerifyTrustError(Status, out); 
+        logger.logError(loggerId, Status, "%s!\n", GetWinVerifyTrustError(Status));
         if ( PolicyStatus.dwError == CERT_E_UNTRUSTEDROOT )
-            fprintf(out, "skipping\n");
+            logger.logInfo(loggerId, 0, "skipping\n");
         else
             goto cleanup;
     }

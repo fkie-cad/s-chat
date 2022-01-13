@@ -15,9 +15,6 @@
 class ConnectionDataDialog : public BasicDialog
 {
     private:
-        PCONFIG_FILE CfgFile = nullptr;
-        ConfigFileParser* CfgFileParser = nullptr;
-
         bool disabled = false;
 
         BOOL has_changed = false;
@@ -30,10 +27,6 @@ class ConnectionDataDialog : public BasicDialog
         
         INT_PTR CALLBACK openCb(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) override;
         
-        VOID setConfigFile(PCONFIG_FILE CfgFile_);
-        
-        VOID setConfigFileParser(ConfigFileParser* CfgFileParser_);
-
         VOID enable();
 
         VOID disable();
@@ -42,6 +35,8 @@ class ConnectionDataDialog : public BasicDialog
         
     private:
         INT_PTR onCommand(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) override;
+
+        VOID initInputs();
 
         VOID fillInputs(PCONNECTION_DATA data);
 

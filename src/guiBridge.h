@@ -45,7 +45,7 @@ void showInfoStatus(
 void AppendWindowTextA(
     _In_ HWND ctrl, 
     _In_ PCHAR Text, 
-    _In_ PARAFORMAT* fmt
+    _In_opt_ PARAFORMAT* fmt
 );
 
 void showMessages(

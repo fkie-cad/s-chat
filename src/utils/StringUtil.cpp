@@ -49,7 +49,7 @@ const char* StringUtil::trim(char* s)
     return ltrim(rtrim(s));
 }
 
-int CountLines(
+int StringUtil::CountLines(
     uint8_t* Buffer,
     size_t BufferSize,
     uint32_t* NrLines
@@ -78,6 +78,18 @@ int CountLines(
     *NrLines = count;
 
     return status;
+}
+
+bool StringUtil::startsWith(const char *pre, const char *str)
+{
+    if ( pre == NULL || str == NULL )
+        return false;
+
+    size_t lenpre = strlen(pre),
+           lenstr = strlen(str);
+    return lenstr < lenpre 
+        ? false 
+        : memcmp(pre, str, lenpre) == 0;
 }
 
 void StringUtil::split(const std::string& s, char delim, std::vector<std::string>* elems)
@@ -115,3 +127,31 @@ bool StringUtil::toBool(std::string value)
     return b;
 }
 
+bool StringUtil::getFormatedTime(char* buffer, size_t n, bool lineBreak, const char* prefix, const char* postfix)
+{
+    SYSTEMTIME sts;
+    GetLocalTime(&sts);
+    char lb[0x3];
+    if ( lineBreak )
+    {
+        lb[0] = '\r';
+        lb[1] = '\n';
+        lb[2] = 0;
+    }
+    else
+    {
+        lb[0] = 0;
+    }
+
+    int s = sprintf_s(
+        buffer, n,
+        "%s%02d.%02d.%04d %02d:%02d:%02d%s%s",
+        prefix,
+        sts.wDay, sts.wMonth, sts.wYear, 
+        sts.wHour, sts.wMinute, sts.wSecond,
+        postfix,
+        lb
+    );
+    buffer[n-1] = 0;
+    return s != -1;
+}

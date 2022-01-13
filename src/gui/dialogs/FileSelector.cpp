@@ -1,58 +1,59 @@
 #include "FileSelector.h"
 
-// Instance creation helper
-HRESULT FileSelector::CDialogEventHandler_CreateInstance(REFIID riid, void **ppv)
-{
-    *ppv = NULL;
-    CDialogEventHandler *pDialogEventHandler = new (std::nothrow) CDialogEventHandler();
-    HRESULT hr = pDialogEventHandler ? S_OK : E_OUTOFMEMORY;
-    if (SUCCEEDED(hr))
-    {
-        hr = pDialogEventHandler->QueryInterface(riid, ppv);
-        pDialogEventHandler->Release();
-    }
-    return hr;
-}
+#include <strsafe.h>
 
-// Only appears after a large file has been sent.
-// VERIFIER STOP 0000000000000350: pid 0x2AE8: Unloading DLL that allocated TLS index that was not freed. 
-//
-//    000000000047ABBA : TLS index
-//    00007FFEA0AB5EE3 : Address of the code that allocated this TLS index.
-//    00000207945E7FD8 : DLL name address. Use du to dump it.
-//    00007FFEA0AB0000 : DLL base address.
-//
-// dlnashext!wil::init_once_nothrow<<lambda_ba621665f78b7b7f3bfc8a7498684c3d> >
-LRESULT FileSelector::select(HWND hWnd, DWORD flags, HWND output, PCZZSTR prefix)
+//// Instance creation helper
+//HRESULT FileSelector::CDialogEventHandler_CreateInstance(REFIID riid, void **ppv)
+//{
+//    *ppv = NULL;
+//    CDialogEventHandler *pDialogEventHandler = new (std::nothrow) CDialogEventHandler();
+//    HRESULT hr = pDialogEventHandler ? S_OK : E_OUTOFMEMORY;
+//    if (SUCCEEDED(hr))
+//    {
+//        hr = pDialogEventHandler->QueryInterface(riid, ppv);
+//        pDialogEventHandler->Release();
+//    }
+//    return hr;
+//}
+
+ 
+HRESULT FileSelector::select(HWND hWnd, DWORD flags, PUINT8* result, PULONG resultSize)
 {
     UNREFERENCED_PARAMETER(hWnd);
 
-    DWORD dwCookie = 0;
-    BOOL bCookie = FALSE;
+    //DWORD dwCookie = 0;
+    //BOOL bCookie = FALSE;
     DWORD dwFlags = 0;
     IShellItem *psiResult = NULL;
     PWSTR pszFilePath = NULL;
-    IFileDialogEvents *pfde = NULL;
+    //IFileDialogEvents *pfde = NULL;
     IFileDialog *pfd = NULL;
+    INT s;
+    HRESULT hr = S_OK;
+
+    //hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE); // VERIFIER STOP 0000000000000350: pid 0x2AE8: Unloading DLL that allocated TLS index that was not freed.
+    hr = CoInitializeEx(NULL, COINIT_MULTITHREADED | COINIT_DISABLE_OLE1DDE);
+    if ( FAILED(hr) )
+        return hr;
 
     // CoCreate the File Open Dialog object.
-    HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, 
+    hr = CoCreateInstance(CLSID_FileOpenDialog, 
                       NULL, 
                       CLSCTX_INPROC_SERVER, 
                       IID_PPV_ARGS(&pfd));
     if ( FAILED(hr) )
-        return hr;
-
-    // Create an event handling object, and hook it up to the dialog.
-    hr = CDialogEventHandler_CreateInstance(IID_PPV_ARGS(&pfde));
-    if ( FAILED(hr) )
         goto clean;
 
-    // Hook up the event handler.
-    hr = pfd->Advise(pfde, &dwCookie);
-    if ( FAILED(hr) )
-        goto clean;
-    bCookie = TRUE;
+    //// Create an event handling object, and hook it up to the dialog.
+    //hr = CDialogEventHandler_CreateInstance(IID_PPV_ARGS(&pfde));
+    //if ( FAILED(hr) )
+    //    goto clean;
+
+    //// Hook up the event handler.
+    //hr = pfd->Advise(pfde, &dwCookie);
+    //if ( FAILED(hr) )
+    //    goto clean;
+    //bCookie = TRUE;
 
     // Set the options on the dialog.
     // Before setting, always get the options first in order 
@@ -94,48 +95,32 @@ LRESULT FileSelector::select(HWND hWnd, DWORD flags, HWND output, PCZZSTR prefix
     if ( FAILED(hr) )
         goto clean;
 
-    // We are just going to print out the 
-    // name of the file for sample sake.
+    // get name of the file 
     hr = psiResult->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
     if ( FAILED(hr) )
         goto clean;
 
-    if ( output != NULL )
+    if ( result != NULL )
     {
-        if ( prefix != NULL && prefix[0] != 0 )
-        {
-            size_t value_size = wcslen(pszFilePath)+7;
-            wchar_t* value = new wchar_t[value_size];
-            swprintf_s(value, value_size, L"%hs%s", prefix, pszFilePath);
-            value[value_size-1] = 0;
-            SetWindowTextW(output, value);
-            delete[] value;
-        }
-        else
-        {
-            SetWindowTextW(output, pszFilePath);
-        }
+        size_t value_size = wcslen(pszFilePath) + 1; // returns wchar count
+        *result = (PUINT8)malloc(value_size*2); // allocates bytes => *2
+
+        s = StringCchCopyW((PWCHAR)(*result), value_size, pszFilePath);
+        *resultSize = (ULONG)value_size * 2;
     }
-    //TaskDialog(NULL,
-    //           NULL,
-    //           L"CommonFileDialogApp",
-    //           pszFilePath,
-    //           NULL,
-    //           TDCBF_OK_BUTTON,
-    //           TD_INFORMATION_ICON,
-    //           NULL);
 
 clean:
     if ( pszFilePath != NULL )
         CoTaskMemFree(pszFilePath);
     if ( psiResult != NULL )
         psiResult->Release();
-    if ( bCookie )
-        pfd->Unadvise(dwCookie);
-    if ( pfde != NULL )
-        pfde->Release();
+    //if ( bCookie )
+        //pfd->Unadvise(dwCookie);
+    //if ( pfde != NULL )
+        //pfde->Release();
     if ( pfd != NULL )
         pfd->Release();
+    CoUninitialize();
 
     return hr;
 }

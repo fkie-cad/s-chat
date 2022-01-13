@@ -31,38 +31,43 @@ typedef USHORT ADDRESS_FAMILY;
 #endif 
 
 
-
+#pragma pack(1)
 typedef struct _SCHAT_BASE_HEADER {
-    size_t size; // size of header: SCHAT_BASE_HEADER + other header
     uint64_t type; // 
+    size_t size; // size of header: SCHAT_BASE_HEADER + other header
     uint32_t flags; // see MSG_FLAG_XXX
 } SCHAT_BASE_HEADER, *PSCHAT_BASE_HEADER;
+#pragma pack()
 
-//#define SCHAT_BASE_HEADER_SIZE ((ULONG)sizeof(SCHAT_BASE_HEADER))
 
+#pragma pack(1)
 typedef struct _SCHAT_DATA_HEADER {
     uint32_t Size; // size of data
     uint32_t Offset; // offset into data
 } SCHAT_DATA_HEADER, *PSCHAT_DATA_HEADER;
+#pragma pack()
 
-//#define SCHAT_DATA_HEADER_SIZE ((ULONG)sizeof(SCHAT_DATA_HEADER))
 
+#pragma pack(1)
 typedef struct _SCHAT_HELLO_HEADER {
     SCHAT_BASE_HEADER bh;
     SCHAT_DATA_HEADER nameHeader;
     char data[1];
 } SCHAT_HELLO_HEADER, *PSCHAT_HELLO_HEADER;
+#pragma pack()
 
-//#define SCHAT_HELLO_HEADER_DEF_SIZE (SCHAT_BASE_HEADER_SIZE+SCHAT_DATA_HEADER_SIZE)
 
+#pragma pack(1)
 typedef struct _SCHAT_MESSAGE_HEADER {
     SCHAT_BASE_HEADER bh;
     char name[MAX_NAME_LN];
+    uint32_t data_ln;
     char data[1];
 } SCHAT_MESSAGE_HEADER, *PSCHAT_MESSAGE_HEADER;
+#pragma pack()
 
-//#define SCHAT_MESSAGE_HEADER_DEF_SIZE (SCHAT_BASE_HEADER_SIZE+MAX_NAME_LN)
 
+#pragma pack(1)
 typedef struct _SCHAT_FILE_INFO_HEADER {
     SCHAT_BASE_HEADER bh;
     size_t file_size;
@@ -71,24 +76,26 @@ typedef struct _SCHAT_FILE_INFO_HEADER {
     uint32_t base_name_ln;
     char base_name[1];
 } SCHAT_FILE_INFO_HEADER, *PSCHAT_FILE_INFO_HEADER;
+#pragma pack()
 
-//#define SCHAT_FILE_INFO_HEADER_DEF_SIZE (SCHAT_BASE_HEADER_SIZE+MAX_NAME_LN+SHA256_BYTES_LN)
 
+#pragma pack(1)
 typedef struct _SCHAT_FILE_STATUS_HEADER {
     SCHAT_BASE_HEADER bh;
     char name[MAX_NAME_LN];
     uint32_t base_name_ln;
     char base_name[1];
 } SCHAT_FILE_STATUS_HEADER, *PSCHAT_FILE_STATUS_HEADER;
+#pragma pack()
 
-//#define SCHAT_FILE_STATUS_HEADER_DEF_SIZE (SCHAT_BASE_HEADER_SIZE+SCHAT_DATA_HEADER_SIZE+MAX_NAME_LN)
 
+#pragma pack(1)
 typedef struct _SCHAT_FILE_DATA_HEADER {
     SCHAT_BASE_HEADER bh;
     uint8_t data[1];
 } SCHAT_FILE_DATA_HEADER, *PSCHAT_FILE_DATA_HEADER;
+#pragma pack()
 
-//#define SCHAT_FILE_DATA_HEADER_DEF_SIZE (SCHAT_BASE_HEADER_SIZE)
 
 #define MSG_TYPE_HELLO (0x00000000484c4c45)
 #define MSG_TYPE_TEXT (0x0000000054584554)

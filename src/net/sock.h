@@ -12,6 +12,9 @@
 #endif
 #include <stdint.h>
 
+#include "../utils/Logger.h"
+extern Logger logger;
+extern size_t loggerId;
 
 
 #define MAKE_UINTXX(_t_, _ptr_) ((_t_)*(_t_*)(_ptr_))
@@ -27,8 +30,7 @@ int initConnection(
     char *ip,
     char *port_str,
     SOCKET *sock,
-    int flags,
-    FILE* out
+    int flags
 );
 
 int connectSock(
@@ -37,14 +39,12 @@ int connectSock(
 );
 
 void printAddrInfo(
-    ADDRINFOA *info,
-    FILE* out
+    ADDRINFOA *info
 );
 
 void printSockAddr(
     PSOCKADDR_STORAGE addr, 
-    int addr_ln,
-    FILE* out
+    int addr_ln
 );
 
 #endif

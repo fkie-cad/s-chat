@@ -153,19 +153,26 @@
     </Link>
   </ItemDefinitionGroup>
 
-  <ItemDefinitionGroup Condition="'$(DebugPrint)'!='0'">
+  <ItemDefinitionGroup Condition="'$(DebugPrint)'!='0' And '$(DebugPrint)'!=''">
     <ClCompile>
-      <PreprocessorDefinitions>DEBUG_PRINT_LEVEL=$(DebugPrint);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>DEBUG_PRINT=$(DebugPrint);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  
+  <ItemDefinitionGroup Condition="'$(ErrorPrint)'=='1'">
+    <ClCompile>
+      <PreprocessorDefinitions>ERROR_PRINT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
 
   <ItemGroup>
     <ClCompile Include="src\gui\gui.cpp;" />
+    <ClCompile Include="src\gui\subEditControl.cpp;" />
     <ClCompile Include="src\gui\ToolTip.cpp;" />
     <ClCompile Include="src\gui\dialogs\AboutDialog.cpp;" />
     <ClCompile Include="src\gui\dialogs\BasicDialog.cpp;" />
     <ClCompile Include="src\gui\dialogs\ConfirmCloseDialog.cpp;" />
-    <ClCompile Include="src\gui\dialogs\CDialogEventHandler.cpp;" />
+    <!--<ClCompile Include="src\gui\dialogs\CDialogEventHandler.cpp;" />-->
     <ClCompile Include="src\gui\dialogs\ConnectionDataDialog.cpp;" />
     <ClCompile Include="src\gui\dialogs\FileSelector.cpp;" />
     <ClCompile Include="src\gui\dialogs\FileTransferDialog.cpp;" />
@@ -178,16 +185,12 @@
     <ClCompile Include="src\schannel\common.cpp;src\schannel\connection.cpp;src\schannel\TlsSock.cpp;" />
     <ClCompile Include="src\utils\Converter.cpp;" />
     <ClCompile Include="src\utils\ConfigFileParser.cpp;" />
+    <ClCompile Include="src\utils\Logger.cpp;" />
     <ClCompile Include="src\utils\StringUtil.cpp;" />
   </ItemGroup>
   
   <ItemGroup>
     <ResourceCompile Include="res\gui.rc" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <Image Include="res\gui.ico" />
-    <Image Include="res\small.ico" />
   </ItemGroup>
   
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

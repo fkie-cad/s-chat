@@ -10,8 +10,8 @@ class BasicDialog
     protected:
         HWND BaseDlg = nullptr;
         HWND MainWindow = nullptr;
-        RECT DlgRect;
-        RECT MainWindowRect;
+        RECT DlgRect = {};
+        RECT MainWindowRect = {};
 
     public:
         BasicDialog() = default;

@@ -18,10 +18,13 @@ INT_PTR CALLBACK PreferencesDialog::openCb(HWND hDlg, UINT message, WPARAM wPara
             ToolTip::forChildId(IDC_PD_LOG_IPT, hDlg, "Save log files in this dir.");
             ToolTip::forChildId(IDC_PD_CERT_IPT, hDlg, "Save remote certificates in this dir.");
             ToolTip::forChildId(IDC_PD_FILE_IPT, hDlg, "Save transfered files in this dir.");
+            initInputs();
             fillInputs(data);
             if ( disabled )
+            {
                 disableInputs(hDlg, iptIds.data(), (ULONG)iptIds.size());
                 disableButtons(hDlg, btnIds.data(), (ULONG)btnIds.size());
+            }
             break;
 
         case WM_COMMAND:
@@ -36,31 +39,52 @@ INT_PTR PreferencesDialog::onCommand(HWND hDlg, UINT message, WPARAM wParam, LPA
     INT_PTR result = 0;
     int wmId = LOWORD(wParam);
     PPREFERENCES_DATA data = (PPREFERENCES_DATA)lParam;
-    HWND selTarget;
+    HWND selTarget = NULL;
+    PUINT8 path = NULL;
+    ULONG pathSize = 0;
 
     switch ( wmId )
     {
         case IDC_PD_LOG_BTN:
             selTarget = GetDlgItem(hDlg, IDC_PD_LOG_IPT);
-            result = FileSel.select(hDlg, FOS_PICKFOLDERS, selTarget, NULL);
+            result = FileSel.select(hDlg, FOS_PICKFOLDERS, &path, &pathSize);
             break;
 
         case IDC_PD_CERT_BTN:
             selTarget = GetDlgItem(hDlg, IDC_PD_CERT_IPT);
-            result = FileSel.select(hDlg, FOS_PICKFOLDERS, selTarget, NULL);
+            result = FileSel.select(hDlg, FOS_PICKFOLDERS, &path, &pathSize);
             break;
 
         case IDC_PD_FILE_BTN:
             selTarget = GetDlgItem(hDlg, IDC_PD_FILE_IPT);
-            result = FileSel.select(hDlg, FOS_PICKFOLDERS, selTarget, NULL);
+            result = FileSel.select(hDlg, FOS_PICKFOLDERS, &path, &pathSize);
             break;
 
         case IDOK:
             updateData(data);
             break;
     }
+
+    if ( path )
+    {
+        SetWindowTextW(selTarget, (PWCHAR)path);
+        free(path);
+    }
     
     return BasicDialog::onCommand(hDlg, message, wParam, lParam);
+}
+
+VOID PreferencesDialog::initInputs()
+{
+    // limit input size
+    HWND child = GetDlgItem(BaseDlg, IDC_PD_LOG_IPT);
+    SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(MAX_PATH-1), NULL);
+
+    child = GetDlgItem(BaseDlg, IDC_PD_CERT_IPT);
+    SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(MAX_PATH-1), NULL);
+    
+    child = GetDlgItem(BaseDlg, IDC_PD_FILE_IPT);
+    SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(MAX_PATH-1), NULL);
 }
 
 VOID PreferencesDialog::fillInputs(PPREFERENCES_DATA data)
@@ -116,14 +140,4 @@ VOID PreferencesDialog::disable()
 VOID PreferencesDialog::enable()
 {
     disabled = false;
-}
-
-VOID PreferencesDialog::setConfigFile(PCONFIG_FILE CfgFile_)
-{
-    this->CfgFile = CfgFile_;
-}
-
-VOID PreferencesDialog::setConfigFileParser(ConfigFileParser* CfgFileParser_)
-{
-    this->CfgFileParser = CfgFileParser_;
 }

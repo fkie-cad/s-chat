@@ -21,9 +21,16 @@ CommandLineToArgvA(
 	BOOLEAN in_SPACE;
 
 	len = (ULONG)strlen(CmdLine);
-	i = ((len + 2) / 2) * sizeof(PVOID) + sizeof(PVOID);
+	i = ((len + 2) / 2) * (ULONG)sizeof(PVOID) + (ULONG)sizeof(PVOID);
 
-	argv = (PCHAR*)HeapAlloc(GetProcessHeap(), 0, i + (len + 2) * sizeof(CHAR));
+	ULONG argvSize = i + (len + 2) * (ULONG)sizeof(CHAR);
+	if ( argvSize == 0 )
+	{
+		*_argc = 0;
+		return NULL;
+	}
+
+	argv = (PCHAR*)HeapAlloc(GetProcessHeap(), 0, argvSize);
 	if ( !argv )
 	{
 		*_argc = 0;

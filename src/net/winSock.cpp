@@ -12,17 +12,17 @@ int initS()
 #endif
     if ( WSAStartup(MAKEWORD(2,2),&wsa) != 0 )
     {
-        printf("Failed. Error Code : %d\n", WSAGetLastError());
-        return -1;
+        logger.logError(loggerId, WSAGetLastError(), "WSAStartup failed\n");
+        return GetLastError();
     }
 #ifdef DEBUG_PRINT
-    printf(" wVersion: 0x%04x\n", wsa.wVersion);
-    printf(" wHighVersion: 0x%04x\n", wsa.wHighVersion);
-    printf(" iMaxSockets: 0x%x\n", wsa.iMaxSockets);
-    printf(" iMaxUdpDg: 0x%x\n", wsa.iMaxUdpDg);
-    printf(" lpVendorInfo: %p\n", (PVOID)wsa.lpVendorInfo); // should be ignored
-    printf(" szDescription: %.*s\n", WSADESCRIPTION_LEN, wsa.szDescription);
-    printf(" szSystemStatus: %.*s\n", WSASYS_STATUS_LEN, wsa.szSystemStatus);
+    logger.logInfo(loggerId, 0, " wVersion: 0x%04x\n", wsa.wVersion);
+    logger.logInfo(loggerId, 0, " wHighVersion: 0x%04x\n", wsa.wHighVersion);
+    logger.logInfo(loggerId, 0, " iMaxSockets: 0x%x\n", wsa.iMaxSockets);
+    logger.logInfo(loggerId, 0, " iMaxUdpDg: 0x%x\n", wsa.iMaxUdpDg);
+    logger.logInfo(loggerId, 0, " lpVendorInfo: %p\n", (PVOID)wsa.lpVendorInfo); // should be ignored
+    logger.logInfo(loggerId, 0, " szDescription: %.*s\n", WSADESCRIPTION_LEN, wsa.szDescription);
+    logger.logInfo(loggerId, 0, " szSystemStatus: %.*s\n", WSASYS_STATUS_LEN, wsa.szSystemStatus);
 #endif
     return 0;
 }
@@ -54,14 +54,17 @@ int getLastError()
 
 void checkReceiveError(int le)
 {
-    if (le == WSAECONNRESET)
+    switch (le)
+    {
+    case WSAECONNRESET:
         printf("connection reset\n");
-    else if (le == WSAECONNABORTED)
+    case WSAECONNABORTED:
         printf("connection aborted\n");
-    else if (le == WSAENOTCONN)
+    case WSAENOTCONN:
         printf("not connected\n");
-    else
+    default:
         printf("ERROR (0x%lx): recv failed.\n", le);
+    }
 }
 
 int deblockSocket(SOCKET sock)
@@ -70,7 +73,7 @@ int deblockSocket(SOCKET sock)
     int s = ioctlsocket(sock, FIONBIO, &mode);
     if ( s == SOCKET_ERROR )
     {
-        printf("ERROR (0x%x): ioctlsocket failed.\n", getLastSError());
+        logger.logError(loggerId, s, "ioctlsocket failed.\n", getLastSError());
     }
 
     return s;

@@ -1,5 +1,14 @@
 #include "CDialogEventHandler.h"
 
+CDialogEventHandler::CDialogEventHandler() 
+    : _cRef(1)
+{}
+
+CDialogEventHandler::~CDialogEventHandler()
+{
+    //Release();
+};
+
 IFACEMETHODIMP CDialogEventHandler::QueryInterface(REFIID riid, void** ppv)
 {
     static const QITAB qit[] = {
@@ -19,7 +28,7 @@ IFACEMETHODIMP_(ULONG) CDialogEventHandler::AddRef()
 IFACEMETHODIMP_(ULONG) CDialogEventHandler::Release()
 {
     long cRef = InterlockedDecrement(&_cRef);
-    if (!cRef)
+    if ( !cRef )
         delete this;
     return cRef;
 }

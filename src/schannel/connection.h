@@ -25,7 +25,10 @@
 
 
 
-extern FILE* out;
+#include "../utils/Logger.h"
+extern Logger logger;
+extern size_t loggerId;
+
 extern const char* file_dir;
 
 extern PSecurityFunctionTable g_pSSPI;

@@ -29,6 +29,7 @@ typedef struct _CONFIG_FILE
             "cert files dir", 
             "transfered files dir"
         };
+        Path[0] = 0;
     }
 } CONFIG_FILE, *PCONFIG_FILE;
 

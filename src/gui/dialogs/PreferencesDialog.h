@@ -16,8 +16,6 @@
 class PreferencesDialog : public BasicDialog
 {
     private:
-        PCONFIG_FILE CfgFile = nullptr;
-        ConfigFileParser* CfgFileParser = nullptr;
         FileSelector FileSel;
 
         bool disabled = false;
@@ -33,10 +31,6 @@ class PreferencesDialog : public BasicDialog
         
         INT_PTR CALLBACK openCb(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) override;
         
-        VOID setConfigFile(PCONFIG_FILE CfgFile_);
-        
-        VOID setConfigFileParser(ConfigFileParser* CfgFileParser_);
-
         VOID enable();
 
         VOID disable();
@@ -45,6 +39,8 @@ class PreferencesDialog : public BasicDialog
 
     private:
         INT_PTR onCommand(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) override;
+
+        VOID initInputs();
 
         VOID fillInputs(PPREFERENCES_DATA data);
 

@@ -7,6 +7,7 @@
 #include "framework.h"
 #include <Commdlg.h>
 #include <shobjidl.h>
+#include <strsafe.h>
 
 #include "gui.h"
 
@@ -21,9 +22,10 @@
 #include "../engine/engine.h"
 #include "../guiBridge.h"
 #include "../files/Files.h"
-#include "../Strings.h"
+#include "../utils/StringUtil.h"
 
 #include "../utils/ConfigFileParser.h"
+#include "../utils/Logger.h"
 
 #include "dialogs/AboutDialog.h"
 #include "dialogs/BasicDialog.h"
@@ -47,7 +49,6 @@
 
 
 
-// Forward declarations of functions included in this code module:
 static ATOM MyRegisterClass(HINSTANCE hInstance);
 static BOOL InitInstance(HINSTANCE, int);
 static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -62,12 +63,10 @@ static INT_PTR CALLBACK onCloseCB(HWND hDlg, UINT message, WPARAM wParam, LPARAM
 static LRESULT onCommand(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static LRESULT onCreate(HWND hWnd);
 static LRESULT onPaint(HWND hWnd);
-//static LRESULT onClose(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static LRESULT onDestroy(HWND hWnd);
 static LRESULT onSafeData();
 
 static LRESULT onSelectFile(HWND hWnd, DWORD flags, HWND output, PCZZSTR prefix);
-static LRESULT SelectFile(HWND hWnd, DWORD flags, HWND output, PCZZSTR prefix);
 
 static LRESULT onConnect(HWND hWnd);
 static LRESULT onListen(HWND hWnd);
@@ -79,6 +78,7 @@ static DWORD WINAPI ListenThread(LPVOID lpParam);
 static VOID parseCmdLine(LPSTR lpCmdLine);
 static void parseConfigFile();
 static void fillParamDefaults();
+static int initLogger();
 static VOID updateConfigFile(PCONNECTION_DATA ConnData, PPREFERENCES_DATA PrefsData);
 
 static VOID sayHello();
@@ -88,8 +88,6 @@ static BOOL loadSound(LPSTR lpName, HGLOBAL* Res);
 static LRESULT sendMessage(PCHAR msg, ULONG msg_len);
 static LRESULT sendFile(PCHAR msg, ULONG msg_len);
 static LRESULT CancelFileTransfer();
-
-DWORD WINAPI InfoStatusFade(LPVOID lpParam);
 
 
 
@@ -175,7 +173,7 @@ FileSelector FileSel;
 #define DEFAULT_PROG_BAR_W (100)
 #define DEFAULT_PROG_BAR_H (20)
 #define STATUS_OPT_W (200)
-#define STATUS_MARGIN (1)
+#define STATUS_MARGIN (5)
 
 RECT MainRect;
 RECT MessageOptRect;
@@ -185,6 +183,8 @@ RECT InfoStatusOptRect;
 
 int rows_y[] = { 10, 30, 50, 70, 100, 130, 370, 400, 430 };
 
+size_t loggerId = 0;
+Logger logger;
 
 
 
@@ -206,7 +206,13 @@ int APIENTRY WinMain(
     parseCmdLine(lpCmdLine);
     parseConfigFile();
     fillParamDefaults();
+    initLogger();
 
+    //HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED | COINIT_DISABLE_OLE1DDE);
+    //if ( FAILED(hr) )
+    //{
+    //    logger.log
+    //}
 
     // load icons
     gui_icon_on = (HICON)LoadImageA(hInstance, MAKEINTRESOURCEA(IDI_GUI_ON), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
@@ -248,11 +254,9 @@ int APIENTRY WinMain(
         return 0;
     }
     
-    ConnectionDataDlg.setConfigFile(&CfgFile);
     ConnectionDataDlg.setMainWindow(MainWindow);
     
     PreferencesDlg.setMainWindow(MainWindow);
-    PreferencesDlg.setConfigFile(&CfgFile);
 
     AboutDlg.setMainWindow(MainWindow);
 
@@ -333,7 +337,6 @@ VOID parseCmdLine(LPSTR lpCmdLine)
                 break;
 
             if ( pszOptionLen < SHA1_STRING_BUFFER_LN ) 
-                //strcpy_s(CertFile, MAX_PATH, pszOption);
                 strcpy_s(ConnectionData.CertThumb, SHA1_STRING_BUFFER_LN, pszOption);
 
             i++;
@@ -490,6 +493,36 @@ void fillParamDefaults()
     }
 }
 
+int initLogger()
+{
+    SYSTEMTIME sts;
+    GetLocalTime(&sts);
+    PCHAR logPath = NULL;
+    SIZE_T logPathSize = strlen(PreferencesData.LogDir) + strlen(REL_NAME) + 20 + 7;
+    logPath = new CHAR[logPathSize];
+    bool dynamicLogPath = false;
+    if ( !logPath )
+    {
+        logPath = (PCHAR)(REL_NAME ".log");
+    }
+    else
+    {
+        dynamicLogPath = true;
+        StringCchPrintfA(logPath, logPathSize, "%s\\%s-%04d.%02d.%02d-%02d.%02d.%02d.log", 
+            PreferencesData.LogDir, 
+            REL_NAME,
+            sts.wYear, sts.wMonth, sts.wDay, 
+            sts.wHour, sts.wMinute, sts.wSecond
+            );
+    }
+    int s = logger.openFile(logPath, loggerId);
+
+    if ( dynamicLogPath )
+        delete[] logPath;
+
+    return s;
+}
+
 //
 //  FUNCTION: MyRegisterClass()
 //
@@ -511,7 +544,6 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.lpszMenuName = MAKEINTRESOURCEA(IDC_GUI);
     wcex.lpszClassName = WindowClass;
     wcex.hIconSm = gui_icon_off;
-    //wcex.hIconSm = small_icon_off;
 
     return RegisterClassExA(&wcex);
 }
@@ -570,7 +602,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     return TRUE;
 }
 
-BOOL CALLBACK EnumChildProc(HWND hwndChild, LPARAM lParam)
+BOOL CALLBACK onResize(HWND hwndChild, LPARAM lParam)
 {
     int idChild;
     idChild = GetWindowLong(hwndChild, GWL_ID);
@@ -598,7 +630,10 @@ BOOL CALLBACK EnumChildProc(HWND hwndChild, LPARAM lParam)
         rcChild = &StatusOptRect;
     else if ( idChild == WND_INFO_STATUS_OPT_IDX )
         rcChild = &InfoStatusOptRect;
-    else if ( idChild == WND_MESSAGE_IPT_IDX || WND_FILE_BTN_IDX || WND_SEND_BTN_IDX || WND_FILE_PROGRESS_IDX )
+    else if ( idChild == WND_MESSAGE_IPT_IDX || 
+              idChild == WND_FILE_BTN_IDX || 
+              idChild == WND_SEND_BTN_IDX || 
+              idChild == WND_FILE_PROGRESS_IDX )
         rcChild = &MessageIptRect;
     else
         return TRUE;
@@ -666,9 +701,6 @@ BOOL CALLBACK EnumChildProc(HWND hwndChild, LPARAM lParam)
 
     MoveWindow(hwndChild, newX, newY, newW, newH, TRUE);
 
-    // Make sure the child window is visible. 
-    //ShowWindow(hwndChild, SW_SHOW);
-
     return TRUE;
 }
 
@@ -703,7 +735,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     
     case WM_SIZE:
         GetClientRect(hWnd, &MainRect);
-        EnumChildWindows(hWnd, EnumChildProc, (LPARAM)&MainRect);
+        EnumChildWindows(hWnd, onResize, (LPARAM)&MainRect);
         return 0;
 
     case WM_CLOSE:
@@ -768,10 +800,6 @@ LRESULT onCommand(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             SetWindowTextA(MainWindow, WindowTitleC);
         }
         break;
-
-    //case WM_CTLCOLORSTATIC:
-    //    SetWindowTextA(CertFileIpt, "WM_CTLCOLORSTATIC");
-    //    break;
 
     case IDM_SAVE:
         onSafeData();
@@ -883,12 +911,16 @@ LRESULT onDestroy(HWND hWnd)
     FreeResource(notify_snd);
     
     KillTimer(MainWindow, IDT_INFO_TIMER); 
+    
+	logger.clear();
 
     if ( pmsg )
         delete[] pmsg;
 
     if ( CfgFileParser )
         delete CfgFileParser;
+    
+    //CoUninitialize();
 
     PostQuitMessage(0);
     return result;
@@ -966,12 +998,6 @@ LRESULT onCreate(HWND hWnd)
         hWnd, (HMENU)WND_FILE_BTN_IDX, NULL, NULL
     );
     ToolTip::forChild(SelFileBtn, hWnd, "Select a file to send.");
-     
-    //LoadLibrary("Msftedit.dll");
-    //    MessageOpt = CreateWindowExA(0, "RICHEDIT50W", "Type here",
-    //    WS_BORDER | WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY, 
-    //    ipt_x, rows_y[6], msg_box_w, msg_box_h,
-    //    hWnd, (HMENU)WND_MESSAGE_OPT_IDX, MainInstance, NULL);
     MessageOptRect.left = PARENT_PADDING;
     MessageOptRect.top = rows_y[4];
     MessageOptRect.right = msg_box_w;
@@ -983,6 +1009,14 @@ LRESULT onCreate(HWND hWnd)
         MessageOptRect.left, MessageOptRect.top, MessageOptRect.right, MessageOptRect.bottom,
         hWnd, (HMENU)WND_MESSAGE_OPT_IDX, NULL, NULL
     );
+    //LoadLibrary("Msftedit.dll");
+    //MessageOpt = CreateWindowExA(
+    //    0, 
+    //    "RICHEDIT50W", 
+    //    "Type here",
+    //    WS_BORDER | WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY, 
+    //    MessageOptRect.left, MessageOptRect.top, MessageOptRect.right, MessageOptRect.bottom,
+    //    hWnd, (HMENU)WND_MESSAGE_OPT_IDX, NULL, NULL);
 
     ListenBtn = CreateWindowExA(
         0,
@@ -1153,8 +1187,6 @@ LRESULT onConnect(HWND hWnd)
 {
     LRESULT result = 0;
     UNREFERENCED_PARAMETER(hWnd);
-    
-    initLog("client");
 
     if ( ConnectionStatus == CONNECTION_STATUS::STOPPING )
         return 0;
@@ -1165,12 +1197,15 @@ LRESULT onConnect(HWND hWnd)
 
         return 0;
     }
+    
+    client_setLogDir(PreferencesData.LogDir);
+    initLog("client");
 
     if ( ConnectionStatus == CONNECTION_STATUS::STOPPED )
     {
         if ( ConnectionThread != NULL )
         {
-            showInfoStatus("ERROR: Connectino thread not NULL");
+            showInfoStatus("ERROR: Connection thread not NULL");
             return -1;
         }
         ConnectionThread = NULL;
@@ -1191,17 +1226,15 @@ LRESULT onConnect(HWND hWnd)
             0,                      // use default stack size  
             ReceiveThreadFn,       // thread function name
             hWnd,        // argument to thread function 
-            0,           // use default creation flags 
+            CREATE_SUSPENDED,           // use default creation flags 
             &ConnectionThreadId    // returns the thread identifier 
         );
         if ( ConnectionThread == NULL )
         {
             showInfoStatus("Creating receive thread failed!");
-            stopConnection(hWnd, "Disconnected", ConnectBtn, "Connect", ListenBtn);
+            cleanClient();
             goto clean;
         }
-        CloseHandle(ConnectionThread);
-        ConnectionThread = NULL;
         
         disableConnectedControls(ListenBtn);
         showConnStatus("Connected");
@@ -1211,6 +1244,10 @@ LRESULT onConnect(HWND hWnd)
         cstmtx.lock();
         ConnectionStatus = CONNECTION_STATUS::CONNECTED;
         cstmtx.unlock();
+
+        ResumeThread(ConnectionThread);
+        CloseHandle(ConnectionThread);
+        ConnectionThread = NULL;
     }
     else if ( ConnectionStatus == CONNECTION_STATUS::CONNECTED )
     {
@@ -1229,8 +1266,6 @@ LRESULT onListen(HWND hWnd)
     UNREFERENCED_PARAMETER(hWnd);
     CHAR buffer[0x50];
 
-    initLog("server");
-
     if ( ConnectionStatus == CONNECTION_STATUS::STOPPING )
         return 0;
 
@@ -1240,6 +1275,9 @@ LRESULT onListen(HWND hWnd)
 
         return 0;
     }
+    
+    client_setLogDir(PreferencesData.LogDir);
+    initLog("server");
 
     if ( ConnectionStatus == CONNECTION_STATUS::STOPPED )
     {
@@ -1266,7 +1304,7 @@ LRESULT onListen(HWND hWnd)
             0,            // use default stack size  
             ListenThread, // thread function name
             hWnd,        // argument to thread function 
-            0,           // use default creation flags 
+            CREATE_SUSPENDED,           // use default creation flags 
             &ConnectionThreadId    // returns the thread identifier 
         );
         if ( ConnectionThread == NULL )
@@ -1275,8 +1313,6 @@ LRESULT onListen(HWND hWnd)
             stopConnection(hWnd, "Deaf", ListenBtn, "Listen", ConnectBtn);
             goto clean;
         }
-        CloseHandle(ConnectionThread);
-        ConnectionThread = NULL;
         
         disableConnectedControls(ConnectBtn);
         SetWindowTextA(ListenBtn, "Stop");
@@ -1287,6 +1323,10 @@ LRESULT onListen(HWND hWnd)
         cstmtx.lock();
         ConnectionStatus = CONNECTION_STATUS::LISTENING;
         cstmtx.unlock();
+
+        ResumeThread(ConnectionThread);
+        CloseHandle(ConnectionThread);
+        ConnectionThread = NULL;
     }
     else if ( ConnectionStatus == CONNECTION_STATUS::LISTENING )
     {
@@ -1314,14 +1354,11 @@ LRESULT onSend(HWND hWnd)
     char* msg = new char[msg_len];
     GetWindowTextA(MessageIpt, &msg[0], msg_len);
 
-    if ( startsWith(MSG_CMD_FILE,  msg) )
+    if ( StringUtil::startsWith(MSG_CMD_FILE,  msg) )
         r = sendFile(msg, msg_len);
     else
         r = sendMessage(msg, msg_len);
 
-    //if ( r != 0 )
-    //    return r;
-    
     if ( msg )
         delete[] msg;
 
@@ -1330,19 +1367,19 @@ LRESULT onSend(HWND hWnd)
 
 LRESULT sendMessage(PCHAR msg, ULONG msg_len)
 {
-    LRESULT r = 0;
+    INT r = 0;
 
     showInfoStatus("Sending...");
 
     r = client_sendMessage(msg, msg_len);
-    if ( (ULONG)r == SCHAT_ERROR_INVALID_SOCKET )
+    if ( r == SCHAT_ERROR_INVALID_SOCKET )
     {
         sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Not connected yet!");
         showInfoStatus(err_msg);
     }
-    else if ( (ULONG)r != 0 )
+    else if ( r != 0 )
     {
-        sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Send error: 0x%X", (ULONG)r);
+        sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Send error: 0x%X", r);
         showInfoStatus(err_msg);
     }
     else
@@ -1389,7 +1426,6 @@ LRESULT sendFile(PCHAR msg, ULONG msg_len)
     else
     {
         SetWindowTextA(MessageIpt, "");
-        //showStatus("");
     }
 
     return r;
@@ -1415,7 +1451,6 @@ VOID toggleFileBtn(FILE_TRANSFER_STATUS state)
 
 LRESULT CancelFileTransfer()
 {
-    //toggleFileBtn(FILE_TRANSFER_STATUS::STOPPED);
     client_cancelFileTransfer();
 
     return 0;
@@ -1479,8 +1514,6 @@ VOID stopConnection(HWND hWnd, const char* msg, HWND btn, const char* btnText, H
     SetWindowTextA(btn, btnText);
 
     enableConnectedControls(otherBtn);
-    //SendMessageA(NameIpt, EM_SETREADONLY, FALSE, NULL);
-    //EnableWindow(otherBtn, TRUE);
 
     ConnectionThread = NULL;
     ConnectionThreadId = 0;
@@ -1511,18 +1544,47 @@ VOID stopNetworking()
     cstmtx.unlock();
 }
 
+
+
 LRESULT onSelectFile(HWND hWnd, DWORD flags, HWND output, PCZZSTR prefix)
 {
+    LRESULT r;
     if ( FileTransferStatus == FILE_TRANSFER_STATUS::STOPPED )
     {
-        return FileSel.select(hWnd, flags, output, prefix);
+        PUINT8 result = NULL;
+        ULONG resultSize;
+
+        r = FileSel.select(hWnd, flags, &result, &resultSize);
+        if ( FAILED(r) )
+        {
+            if ( result )
+                free(result);
+            logger.logError(loggerId, (uint32_t)r, "Select file failed!\n");
+            return 0;
+        }
+
+        if ( result )
+        {
+            SIZE_T msgSize = resultSize/2 + strlen(prefix);
+            PWCHAR msg = new WCHAR[msgSize];
+            if ( !msg )
+                return 0;
+
+            StringCchPrintfW(msg, msgSize, L"%hs%s", prefix, (PWCHAR)result);
+            SetWindowTextW(output, msg);
+            
+            free(result);
+            delete[] msg;
+        }
     }
     else if ( FileTransferStatus == FILE_TRANSFER_STATUS::ACTIVE )
     {
-        return CancelFileTransfer();
+        CancelFileTransfer();
     }
     return 0;
 }
+
+
 
 #define GUI_HELLO_MSG_LN (0x200)
 VOID sayHello()
@@ -1566,7 +1628,7 @@ void parseConfigFile()
     const CHAR* config_name = ".config";
     //size_t conifg_name_ln = strlen(config_name);
     ULONG path_ln = GetFullPathNameA(config_name, MAX_PATH, CfgFile.Path, NULL);
-    if ( path_ln == 0 || path_ln == MAX_PATH )
+    if ( path_ln == 0 || path_ln >= MAX_PATH )
     {
         CfgFile.Path[0] = 0;
         return;
@@ -1664,13 +1726,13 @@ VOID updateConfigFile(PCONNECTION_DATA ConnData, PPREFERENCES_DATA PrefsData)
     tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_IP], MAX_IP_LN-1, "");
     if ( strcmp(&tmpStr[0], ConnData->ip) != 0 )
     {
-        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_IP], ConnData->ip, strlen(ConnData->ip));
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_IP], ConnData->ip);
     }
 
     tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_PORT], MAX_PORT_LN-1, "");
     if ( strcmp(&tmpStr[0], ConnData->port) != 0 )
     {
-        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_PORT], ConnData->port, strlen(ConnData->port));
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_PORT], ConnData->port);
     }
 
     tmpShrt = CfgFileParser->getUInt16Value(CfgFile.Keys[CONFIG_FILE_KEY_IP_VS], AF_UNSPEC);
@@ -1693,30 +1755,30 @@ VOID updateConfigFile(PCONNECTION_DATA ConnData, PPREFERENCES_DATA PrefsData)
     tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_USER_NAME], MAX_NAME_LN-1, "");
     if ( strcmp(&tmpStr[0], ConnData->name) != 0 )
     {
-        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_USER_NAME], ConnData->name, strlen(ConnData->name));
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_USER_NAME], ConnData->name);
     }
 
     tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_CERT_THUMB], SHA1_STRING_BUFFER_LN-1, "");
     if ( strcmp(&tmpStr[0], ConnData->CertThumb) != 0 )
     {
-        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_CERT_THUMB], ConnData->CertThumb, strlen(ConnData->CertThumb));
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_CERT_THUMB], ConnData->CertThumb);
     }
 
     tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_LOG_FILES], MAX_PATH-1, "");
     if ( strcmp(&tmpStr[0], PrefsData->LogDir) != 0 )
     {
-        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_LOG_FILES], PrefsData->LogDir, strlen(PrefsData->LogDir));
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_LOG_FILES], PrefsData->LogDir);
     }
 
     tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_CERT_FILES], MAX_PATH-1, "");
     if ( strcmp(&tmpStr[0], PrefsData->CertDir) != 0 )
     {
-        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_CERT_FILES], PrefsData->CertDir, strlen(PrefsData->CertDir));
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_CERT_FILES], PrefsData->CertDir);
     }
 
     tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_T_FILES], MAX_PATH-1, "");
     if ( strcmp(&tmpStr[0],  PrefsData->FileDir) != 0 )
     {
-        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_T_FILES], PrefsData->FileDir, strlen(PrefsData->FileDir));
+        CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_T_FILES], PrefsData->FileDir);
     }
 }

@@ -3,6 +3,7 @@
 #include "ConnectionDataDialog.h"
 #include "../../utils/ConfigFileParser.h"
 #include "../ToolTip.h"
+#include "../subEditControl.h"
 
 
 //Message handler for connection data
@@ -14,12 +15,15 @@ INT_PTR CALLBACK ConnectionDataDialog::openCb(HWND hDlg, UINT message, WPARAM wP
     switch ( message )
     {
         case WM_INITDIALOG:
-            has_changed = FALSE;    
+            has_changed = FALSE;
+
             ToolTip::forChildId(IDC_CD_IP_IPT, hDlg, "Server Ip. The Server may leave this empty.");
             ToolTip::forChildId(IDC_CD_PORT_IPT, hDlg, "Server/Listening Port");
             ToolTip::forChildId(IDC_CD_VS_IPT, hDlg, "Ip version 4 or 6. Can be left empty, if Ip is filled.");
             ToolTip::forChildId(IDC_CD_NAME_IPT, hDlg, "Your nick name apearing in the chat.");
             ToolTip::forChildId(IDC_CD_CT_IPT, hDlg, "Thumb print (sha1) of your certificate.");
+
+            initInputs();
             fillInputs(data);
             if ( disabled )
                 disableInputs(hDlg, iptIds.data(), (ULONG)iptIds.size());
@@ -45,6 +49,27 @@ INT_PTR ConnectionDataDialog::onCommand(HWND hDlg, UINT message, WPARAM wParam, 
     }
     
     return BasicDialog::onCommand(hDlg, message, wParam, lParam);
+}
+
+VOID ConnectionDataDialog::initInputs()
+{
+    // limit input size
+    HWND child = GetDlgItem(BaseDlg, IDC_CD_IP_IPT);
+    SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(MAX_IP_LN-1), NULL);
+	SetWindowSubclass(child, IpEditControl, IDC_CD_IP_IPT, 0);
+
+    child = GetDlgItem(BaseDlg, IDC_CD_PORT_IPT);
+    SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(MAX_PORT_LN-1), NULL);
+    
+    child = GetDlgItem(BaseDlg, IDC_CD_VS_IPT);
+    SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(1), NULL);
+    
+    child = GetDlgItem(BaseDlg, IDC_CD_NAME_IPT);
+    SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(MAX_NAME_LN-1), NULL);
+
+    child = GetDlgItem(BaseDlg, IDC_CD_CT_IPT);
+    SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(SHA1_STRING_LN), NULL);
+    SetWindowSubclass(child, HexEditControl, IDC_CD_CT_IPT, 0);
 }
 
 VOID ConnectionDataDialog::fillInputs(PCONNECTION_DATA data)
@@ -153,14 +178,4 @@ VOID ConnectionDataDialog::disable()
 VOID ConnectionDataDialog::enable()
 {
     disabled = false;
-}
-
-VOID ConnectionDataDialog::setConfigFile(PCONFIG_FILE CfgFile_)
-{
-    this->CfgFile = CfgFile_;
-}
-
-VOID ConnectionDataDialog::setConfigFileParser(ConfigFileParser* CfgFileParser_)
-{
-    this->CfgFileParser = CfgFileParser_;
 }
