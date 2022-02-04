@@ -36,6 +36,7 @@
 #include "dialogs/FileSelector.h"
 #include "ToolTip.h"
 #include "ConfigFile.h"
+#include "StringPool.h"
 
 #define MAX_LOADSTRING (0x80)
 
@@ -1140,20 +1141,21 @@ ADDRESS_FAMILY deriveFamily(PCHAR ip_, size_t n)
 
 VOID changeIcon(CONNECTION_STATUS status)
 {
-    if ( status == CONNECTION_STATUS::CONNECTED )
+    switch ( status )
     {
-        SendMessage(MainWindow, WM_SETICON, ICON_SMALL, (LPARAM)(gui_icon_on));
-        SendMessage(MainWindow, WM_SETICON, ICON_BIG, (LPARAM)(gui_icon_on));
-    }
-    else if ( status == CONNECTION_STATUS::LISTENING )
-    {
-        SendMessage(MainWindow, WM_SETICON, ICON_SMALL, (LPARAM)(gui_icon_listen));
-        SendMessage(MainWindow, WM_SETICON, ICON_BIG, (LPARAM)(gui_icon_listen));
-    }
-    else
-    {
-        SendMessage(MainWindow, WM_SETICON, ICON_SMALL, (LPARAM)(gui_icon_off));
-        SendMessage(MainWindow, WM_SETICON, ICON_BIG, (LPARAM)(gui_icon_off));
+        case CONNECTION_STATUS::CONNECTED:
+            SendMessage(MainWindow, WM_SETICON, ICON_SMALL, (LPARAM)(gui_icon_on));
+            SendMessage(MainWindow, WM_SETICON, ICON_BIG, (LPARAM)(gui_icon_on));
+            break;
+
+        case CONNECTION_STATUS::LISTENING:
+            SendMessage(MainWindow, WM_SETICON, ICON_SMALL, (LPARAM)(gui_icon_listen));
+            SendMessage(MainWindow, WM_SETICON, ICON_BIG, (LPARAM)(gui_icon_listen));
+            break;
+
+        default:
+            SendMessage(MainWindow, WM_SETICON, ICON_SMALL, (LPARAM)(gui_icon_off));
+            SendMessage(MainWindow, WM_SETICON, ICON_BIG, (LPARAM)(gui_icon_off));
     }
 }
 
@@ -1213,14 +1215,6 @@ LRESULT onConnect(HWND hWnd)
 
         setupNetClient();
 
-        result = initClient(ConnectionData.ip, ConnectionData.port, ConnectionData.family, ConnectionData.CertThumb);
-        if ( result != 0 )
-        {
-            sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Connecting failed: 0x%X", (INT)result);
-            showInfoStatus(err_msg);
-            goto clean;
-        }
-
         ConnectionThread = CreateThread(
             NULL,                   // default security attributes
             0,                      // use default stack size  
@@ -1237,7 +1231,6 @@ LRESULT onConnect(HWND hWnd)
         }
         
         disableConnectedControls(ListenBtn);
-        showConnStatus("Connected");
         changeIcon(CONNECTION_STATUS::CONNECTED);
         SetWindowTextA(ConnectBtn, "Stop");
 
@@ -1438,14 +1431,18 @@ VOID toggleFileBtn(FILE_TRANSFER_STATUS state)
 
     FileTransferStatus = state;
 
-    if ( state == FILE_TRANSFER_STATUS::ACTIVE )
+    switch ( state )
     {
-        SetWindowTextA(SelFileBtn, FILE_BTN_CANCEL_STR);
+        case FILE_TRANSFER_STATUS::ACTIVE:
+            SetWindowTextA(SelFileBtn, FILE_BTN_CANCEL_STR);
+			break;
 
-    }
-    else if ( state == FILE_TRANSFER_STATUS::STOPPED )
-    {
-        SetWindowTextA(SelFileBtn, FILE_BTN_SELECT_STR);
+        case FILE_TRANSFER_STATUS::STOPPED:
+            SetWindowTextA(SelFileBtn, FILE_BTN_SELECT_STR);
+			break;
+
+        default:
+            break;
     }
 }
 
@@ -1464,8 +1461,20 @@ DWORD WINAPI ReceiveThreadFn(LPVOID lpParam)
     int s = 0;
     HWND hWnd = (HWND)(lpParam);
     
-    char msg[0x1000];
-    uint32_t len = 0x1000;
+    // connect
+    showConnStatus(SC_SS_CONNECTING);
+    s = initClient(ConnectionData.ip, ConnectionData.port, ConnectionData.family, ConnectionData.CertThumb);
+    if ( s != 0 )
+    {
+        sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Connecting failed: 0x%X", s);
+        showInfoStatus(err_msg);
+        goto clean;
+    }
+    showConnStatus(SC_SS_CONNECTED);
+
+    // not used
+    char msg[0x1];
+    uint32_t len = 0x1;
 
     s = receiveMessages(
         msg, 
@@ -1473,7 +1482,8 @@ DWORD WINAPI ReceiveThreadFn(LPVOID lpParam)
         NULL,
         0
     );
-    
+
+clean:
     stopConnection(hWnd, "Disconnected", ConnectBtn, "Connect", ListenBtn);
 
     return s;

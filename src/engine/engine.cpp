@@ -569,7 +569,10 @@ int receiveMessages(
             offset += sprintf_s(&header[offset], LOG_HEADER_SIZE-offset, "port: 0x%x (%u)\r\n", ntohs(addr6->sin6_port), ntohs(addr6->sin6_port));
         }
     }
-    sprintf_s(&header[offset], LOG_HEADER_SIZE-offset, "connected\r\n--------------------- %02d.%02d.%04d %02d:%02d:%02d --------------------------\r\n\r\n", 
+    sprintf_s(&header[offset], LOG_HEADER_SIZE-offset, 
+        "connected\r\n"
+        "\r\n"
+        "--------------------- %02d.%02d.%04d %02d:%02d:%02d --------------------------\r\n\r\n", 
         sts.wDay, sts.wMonth, sts.wYear, sts.wHour, sts.wMinute, sts.wSecond);
     header[LOG_HEADER_SIZE-1] = 0;
     showMessages(header, MSG_TYPE_INFO);
@@ -606,7 +609,11 @@ int receiveMessages(
         sts.wDay, sts.wMonth, sts.wYear, 
         sts.wHour, sts.wMinute, sts.wSecond
     );
-    sprintf_s(header, 0x80, "\r\n--------------------- %02d.%02d.%04d %02d:%02d:%02d --------------------------\r\ndisconnected\r\n\r\n", sts.wDay, sts.wMonth, sts.wYear, sts.wHour, sts.wMinute, sts.wSecond);
+    sprintf_s(header, 0x80, 
+        "\r\n--------------------- %02d.%02d.%04d %02d:%02d:%02d --------------------------\r\n"
+        "\r\n"
+        "disconnected\r\n\r\n", 
+        sts.wDay, sts.wMonth, sts.wYear, sts.wHour, sts.wMinute, sts.wSecond);
     header[0x7f] = 0;
     showMessages(header, MSG_TYPE_INFO);
     
