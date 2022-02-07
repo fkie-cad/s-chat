@@ -73,7 +73,7 @@ ULONG ReceiveBufferSize = 0;
 BOOL fClientAuth = true;
 
 static BOOL wsaStarted = false;
-static BOOL logInitialized = false;
+//static BOOL logInitialized = false;
 static BOOL receiving = false;
 static BOOL listening = false;
 
@@ -122,7 +122,7 @@ int initClient(
     target_port = port;
     family = family_;
 
-    initLog("client");
+    //initLog("client");
 #ifdef DEBUG_PRINT
     logger.logInfo(loggerId, 0, "initClient\n");
     logger.logInfo(loggerId, 0, " - ip: %s\n", ip);
@@ -264,7 +264,7 @@ int initServer(
     
     PADDRINFOA addr_info = NULL;
     
-    initLog("server");
+    //initLog("server");
 #ifdef DEBUG_PRINT
     logger.logInfo(loggerId, 0, "initServer\n");
     logger.logInfo(loggerId, 0, " - ip: %s\n", ip);
@@ -667,8 +667,8 @@ int client_sendMessage(
 {
     int s = 0;
 
-    if ( !logInitialized )
-        initLog(REL_NAME);
+    //if ( !logInitialized )
+    //    initLog(REL_NAME);
 
     if ( ConnectSocket == INVALID_SOCKET )
     {
@@ -743,8 +743,8 @@ int client_sendFile(
     uint32_t cbMessage = 0;
     int s = 0;
 
-    if ( !logInitialized )
-        initLog(REL_NAME);
+    //if ( !logInitialized )
+    //    initLog(REL_NAME);
     
     //
     // check status
@@ -1309,8 +1309,8 @@ int cleanClient()
 {
     int s = 0;
     
-    if ( !logInitialized )
-        initLog(REL_NAME);
+    //if ( !logInitialized )
+    //    initLog(REL_NAME);
     
     if ( wsaStarted  )
     {
@@ -1362,8 +1362,8 @@ void initLog(const char* label)
 {
     int s = 0;
 
-    if ( logInitialized )
-        return;
+    //if ( logInitialized )
+    //    return;
 
 
     SYSTEMTIME sts;
@@ -1386,13 +1386,13 @@ void initLog(const char* label)
         return;
     }
 
-    logInitialized = true;
+    //logInitialized = true;
 }
 
 void closeLog()
 {
    logger.closeFile(loggerId);
-   logInitialized = false;
+   //logInitialized = false;
 }
 
 void client_setNick(const char* nick_)

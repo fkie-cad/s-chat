@@ -41,6 +41,11 @@ void showInfoStatus(
     _In_ const char* msg
 );
 
+void checkFillingState(
+    _In_ HWND ctrl, 
+    _In_ SIZE_T NextLength, 
+    _In_ INT Type
+);
 
 void AppendWindowTextA(
     _In_ HWND ctrl, 

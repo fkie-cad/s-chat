@@ -110,21 +110,17 @@ HWND FilePBar;
 #define ERROR_MESSAGE_SIZE (0x200)
 static CHAR err_msg[ERROR_MESSAGE_SIZE];
 
-//#define WND_NAME_IPT_IDX           (0x1)
-//#define WND_IP_IPT_IDX             (0x2)
-//#define WND_PORT_IPT_IDX           (0x3)
-//#define WND_CERT_IPT_IDX           (0x4)
-#define WND_INFO_STATUS_OPT_IDX    (0x5)
-#define WND_MESSAGE_IPT_IDX        (0x6)
-#define WND_MESSAGE_OPT_IDX        (0x7)
-#define WND_CONNECT_BTN_IDX        (0x8)
-#define WND_LISTEN_BTN_IDX         (0x9)
-#define WND_STATUS_OPT_IDX         (0xa)
-#define WND_SEND_BTN_IDX           (0xb)
-#define WND_FILE_PROGRESS_IDX      (0xc)
-#define WND_IP_VERSION_IPT_IDX     (0xd)
-#define WND_FILE_IPT_IDX           (0xe)
-#define WND_FILE_BTN_IDX           (0xf)
+#define WND_INFO_STATUS_OPT_IDX    (0x1)
+#define WND_MESSAGE_IPT_IDX        (0x2)
+#define WND_MESSAGE_OPT_IDX        (0x3)
+#define WND_CONNECT_BTN_IDX        (0x4)
+#define WND_LISTEN_BTN_IDX         (0x5)
+#define WND_STATUS_OPT_IDX         (0x6)
+#define WND_SEND_BTN_IDX           (0x7)
+#define WND_FILE_PROGRESS_IDX      (0x8)
+#define WND_IP_VERSION_IPT_IDX     (0x9)
+#define WND_FILE_IPT_IDX           (0xa)
+#define WND_FILE_BTN_IDX           (0xb)
 
 static CONNECTION_STATUS ConnectionStatus = CONNECTION_STATUS::STOPPED;
 static FILE_TRANSFER_STATUS FileTransferStatus = FILE_TRANSFER_STATUS::STOPPED;
@@ -186,6 +182,10 @@ int rows_y[] = { 10, 30, 50, 70, 100, 130, 370, 400, 430 };
 
 size_t loggerId = 0;
 Logger logger;
+
+SIZE_T MessageOptMaxText = 0;
+SIZE_T MessageOptFillThreash = 0;
+SIZE_T MessageOptDeleteSize = 0;
 
 
 
@@ -499,7 +499,7 @@ int initLogger()
     SYSTEMTIME sts;
     GetLocalTime(&sts);
     PCHAR logPath = NULL;
-    SIZE_T logPathSize = strlen(PreferencesData.LogDir) + strlen(REL_NAME) + 20 + 7;
+    SIZE_T logPathSize = strlen(PreferencesData.LogDir) + strlen(REL_NAME) + 30;
     logPath = new CHAR[logPathSize];
     bool dynamicLogPath = false;
     if ( !logPath )
@@ -509,11 +509,11 @@ int initLogger()
     else
     {
         dynamicLogPath = true;
-        StringCchPrintfA(logPath, logPathSize, "%s\\%s-%04d.%02d.%02d-%02d.%02d.%02d.log", 
+        StringCchPrintfA(logPath, logPathSize, "%s\\%s-%04d.%02d.%02d-%02d.%02d.%02d.%03d.log", 
             PreferencesData.LogDir, 
             REL_NAME,
             sts.wYear, sts.wMonth, sts.wDay, 
-            sts.wHour, sts.wMinute, sts.wSecond
+            sts.wHour, sts.wMinute, sts.wSecond, sts.wMilliseconds
             );
     }
     int s = logger.openFile(logPath, loggerId);
@@ -605,8 +605,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 BOOL CALLBACK onResize(HWND hwndChild, LPARAM lParam)
 {
-    int idChild;
-    idChild = GetWindowLong(hwndChild, GWL_ID);
+    int idChild = GetWindowLong(hwndChild, GWL_ID);
     LPRECT rcParent = (LPRECT)lParam;
     LPRECT rcChild = NULL;
     
@@ -625,20 +624,26 @@ BOOL CALLBACK onResize(HWND hwndChild, LPARAM lParam)
         ParentH = MIN_WINDOW_HEIGHT;
 
     // check child id
-    if ( idChild == WND_MESSAGE_OPT_IDX )
-        rcChild = &MessageOptRect;
-    else if ( idChild == WND_STATUS_OPT_IDX )
-        rcChild = &StatusOptRect;
-    else if ( idChild == WND_INFO_STATUS_OPT_IDX )
-        rcChild = &InfoStatusOptRect;
-    else if ( idChild == WND_MESSAGE_IPT_IDX || 
-              idChild == WND_FILE_BTN_IDX || 
-              idChild == WND_SEND_BTN_IDX || 
-              idChild == WND_FILE_PROGRESS_IDX )
-        rcChild = &MessageIptRect;
-    else
-        return TRUE;
-
+    switch ( idChild )
+    {
+        case WND_MESSAGE_OPT_IDX:
+            rcChild = &MessageOptRect;
+            break;
+        case WND_STATUS_OPT_IDX:
+            rcChild = &StatusOptRect;
+            break;
+        case WND_INFO_STATUS_OPT_IDX:
+            rcChild = &InfoStatusOptRect;
+            break;
+        case WND_MESSAGE_IPT_IDX:
+        case WND_FILE_BTN_IDX:
+        case WND_SEND_BTN_IDX: 
+        case WND_FILE_PROGRESS_IDX:
+            rcChild = &MessageIptRect;
+            break;
+        default:
+            return TRUE;
+    }
 //#ifdef DEBUG_PRINT
 //    std::string s = "left: "+std::to_string(rcParent->left)
 //        +", top: "+std::to_string(rcParent->top)
@@ -646,58 +651,68 @@ BOOL CALLBACK onResize(HWND hwndChild, LPARAM lParam)
 //        +", bottom: "+std::to_string(rcParent->bottom);
 //    showStatus(s.c_str());
 //#endif
-
-    if ( idChild == WND_MESSAGE_OPT_IDX )
+    
+    switch ( idChild )
     {
-        newX = (INT)(rcChild->left);
-        newY = (INT)(rcChild->top);
-        newW = (INT)(ParentW - PARENT_PADDING*2);
-        newH = (INT)(ParentH - rcChild->top - PARENT_PADDING*3);
+        case WND_MESSAGE_OPT_IDX:
+        {
+            newX = (INT)(rcChild->left);
+            newY = (INT)(rcChild->top);
+            newW = (INT)(ParentW - PARENT_PADDING*2);
+            newH = (INT)(ParentH - rcChild->top - PARENT_PADDING*3);
+            break;
+        }
+        case WND_MESSAGE_IPT_IDX:
+        {
+            newX = (INT)(rcChild->left);
+            newY = (INT)(rcChild->top);
+            newW = (INT)(ParentW - rcChild->left - BTN_W*2 - PARENT_PADDING - IPT_MARGIN*2);
+            newH = (INT)(rcChild->bottom);
+            break;
+        }
+        case WND_FILE_BTN_IDX:
+        {
+            newX = (INT)(ParentW - BTN_W - PARENT_PADDING);
+            newY = (INT)(rcChild->top);
+            newW = (INT)(BTN_W);
+            newH = (INT)(BTN_H);
+            break;
+        }
+        case WND_SEND_BTN_IDX:
+        {
+            newX = (INT)(ParentW - BTN_W*2 - PARENT_PADDING - IPT_MARGIN);
+            newY = (INT)(rcChild->top);
+            newW = (INT)(BTN_W);
+            newH = (INT)(BTN_H);
+            break;
+        }
+        case WND_FILE_PROGRESS_IDX:
+        {
+            newX = (INT)(ParentW - DEFAULT_PROG_BAR_W - PARENT_PADDING);
+            newY = (INT)(rcChild->top - DEFAULT_PROG_BAR_H);
+            newW = (INT)(DEFAULT_PROG_BAR_W);
+            newH = (INT)(DEFAULT_PROG_BAR_H);
+            break;
+        }
+        case WND_STATUS_OPT_IDX:
+        {
+            newX = (INT)(rcChild->left);
+            newY = (INT)(ParentH - IPT_H);
+            newW = (INT)(rcChild->right);
+            newH = (INT)(rcChild->bottom);
+            break;
+        }
+        case WND_INFO_STATUS_OPT_IDX:
+        {
+            newX = (INT)(rcChild->left);
+            newY = (INT)(ParentH - IPT_H);
+            newW = (INT)(ParentW - STATUS_OPT_W+STATUS_MARGIN);
+            newH = (INT)(rcChild->bottom);
+            break;
+        }
+        default:
+            return TRUE;
     }
-    else if ( idChild == WND_MESSAGE_IPT_IDX )
-    {
-        newX = (INT)(rcChild->left);
-        newY = (INT)(rcChild->top);
-        newW = (INT)(ParentW - rcChild->left - BTN_W*2 - PARENT_PADDING - IPT_MARGIN*2);
-        newH = (INT)(rcChild->bottom);
-    }
-    else if ( idChild == WND_FILE_BTN_IDX )
-    {
-        newX = (INT)(ParentW - BTN_W - PARENT_PADDING);
-        newY = (INT)(rcChild->top);
-        newW = (INT)(BTN_W);
-        newH = (INT)(BTN_H);
-    }
-    else if ( idChild == WND_SEND_BTN_IDX )
-    {
-        newX = (INT)(ParentW - BTN_W*2 - PARENT_PADDING - IPT_MARGIN);
-        newY = (INT)(rcChild->top);
-        newW = (INT)(BTN_W);
-        newH = (INT)(BTN_H);
-    }
-    else if ( idChild == WND_FILE_PROGRESS_IDX )
-    {
-        newX = (INT)(ParentW - DEFAULT_PROG_BAR_W - PARENT_PADDING);
-        newY = (INT)(rcChild->top - DEFAULT_PROG_BAR_H);
-        newW = (INT)(DEFAULT_PROG_BAR_W);
-        newH = (INT)(DEFAULT_PROG_BAR_H);
-    }
-    else if ( idChild == WND_STATUS_OPT_IDX )
-    {
-        newX = (INT)(rcChild->left);
-        newY = (INT)(ParentH - IPT_H);
-        newW = (INT)(rcChild->right);
-        newH = (INT)(rcChild->bottom);
-    }
-    else if ( idChild == WND_INFO_STATUS_OPT_IDX )
-    {
-        newX = (INT)(rcChild->left);
-        newY = (INT)(ParentH - IPT_H);
-        newW = (INT)(ParentW - STATUS_OPT_W+STATUS_MARGIN);
-        newH = (INT)(rcChild->bottom);
-    }
-    else
-        return TRUE;
 
 
     MoveWindow(hwndChild, newX, newY, newW, newH, TRUE);
@@ -722,36 +737,42 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     switch ( message )
     {
-    case WM_COMMAND:
-        result = onCommand(hWnd, message, wParam, lParam);
-        break;
-
-    case WM_CREATE:
-        result = onCreate(hWnd);
-        break;
-
-    case WM_PAINT:
-        result = onPaint(hWnd);
-        break;
-    
-    case WM_SIZE:
-        GetClientRect(hWnd, &MainRect);
-        EnumChildWindows(hWnd, onResize, (LPARAM)&MainRect);
-        return 0;
-
-    case WM_CLOSE:
-        result = ConfirmClose(hWnd);
-        if ( result == IDOK )
-            return DefWindowProcA(hWnd, message, wParam, lParam);
-        else
+        case WM_COMMAND:
+            result = onCommand(hWnd, message, wParam, lParam);
             break;
 
-    case WM_DESTROY:
-        result = onDestroy(hWnd);
-        break;
+        case WM_CREATE:
+            result = onCreate(hWnd);
+            break;
 
-    default:
-        return DefWindowProcA(hWnd, message, wParam, lParam);
+        case WM_DROPFILES:
+            showInfoStatus("File dropped");
+            break;
+
+        case WM_PAINT:
+            result = onPaint(hWnd);
+            break;
+    
+        case WM_SIZE:
+            MainRect.right = LOWORD(lParam);
+            MainRect.bottom = HIWORD(lParam);
+            //GetClientRect(hWnd, &MainRect);
+            EnumChildWindows(hWnd, onResize, (LPARAM)&MainRect);
+            return 0;
+
+        case WM_CLOSE:
+            result = ConfirmClose(hWnd);
+            if ( result == IDOK )
+                return DefWindowProcA(hWnd, message, wParam, lParam);
+            else
+                break;
+
+        case WM_DESTROY:
+            result = onDestroy(hWnd);
+            break;
+
+        default:
+            return DefWindowProcA(hWnd, message, wParam, lParam);
     }
     return result;
 }
@@ -760,60 +781,76 @@ LRESULT onCommand(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     LRESULT result = 0;
     int wmId = LOWORD(wParam);
-    std::string r;
+    int wmEvent = HIWORD(wParam);
+
+    //logger.logInfo(loggerId, 0, "onCommand: hWnd %p, message: 0x%x, .wParam; 0x%x (hi: 0x%x, lo: 0x%x), lParam: 0x%x (hi: 0x%x, lo: 0x%x)\n", 
+    //    hWnd, message, wParam, HIWORD(wParam), LOWORD(wParam), lParam, HIWORD(lParam), LOWORD(lParam));
 
     switch ( wmId )
     {
-    case WND_CONNECT_BTN_IDX:
-        result = onConnect(hWnd);
-        break;
+        case WND_CONNECT_BTN_IDX:
+            result = onConnect(hWnd);
+            break;
 
-    case WND_LISTEN_BTN_IDX:
-        result = onListen(hWnd);
-        break;
+        case WND_LISTEN_BTN_IDX:
+            result = onListen(hWnd);
+            break;
 
-    case WND_FILE_BTN_IDX:
-        result = onSelectFile(hWnd, FOS_FORCEFILESYSTEM, MessageIpt, MSG_CMD_FILE);
-        break;
+        case WND_FILE_BTN_IDX:
+            result = onSelectFile(hWnd, FOS_FORCEFILESYSTEM, MessageIpt, MSG_CMD_FILE);
+            break;
 
-    case WND_SEND_BTN_IDX:
-        result = onSend(hWnd);
-        break;
+        case WND_SEND_BTN_IDX:
+            result = onSend(hWnd);
+            break;
 
-    case IDM_ABOUT:
-        DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_ABOUT_DLG), hWnd, AboutDialogCB, 0L);
-        break;
+        case IDM_ABOUT:
+            DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_ABOUT_DLG), hWnd, AboutDialogCB, 0L);
+            break;
 
-    case IDM_PREFS:
-        result = (LRESULT)DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_PREFS_DLG), hWnd, PrefsDialogCB, 0L);
-        if ( PreferencesDlg.hasChanged() )
-        {
-            DataHasChanged = true;
-            SetWindowTextA(MainWindow, WindowTitleC);
-        }
-        break;
+        case IDM_PREFS:
+            result = (LRESULT)DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_PREFS_DLG), hWnd, PrefsDialogCB, 0L);
+            if ( PreferencesDlg.hasChanged() )
+            {
+                DataHasChanged = true;
+                SetWindowTextA(MainWindow, WindowTitleC);
+            }
+            break;
 
-    case IDM_CONN_DATA:
-        DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_CONN_DATA_DLG), hWnd, ConnectionDataDialogCB, 0L);
-        if ( ConnectionDataDlg.hasChanged() )
-        {
-            DataHasChanged = true;
-            SetWindowTextA(MainWindow, WindowTitleC);
-        }
-        break;
+        case IDM_CONN_DATA:
+            DialogBoxParamA(MainInstance, MAKEINTRESOURCEA(IDD_CONN_DATA_DLG), hWnd, ConnectionDataDialogCB, 0L);
+            if ( ConnectionDataDlg.hasChanged() )
+            {
+                DataHasChanged = true;
+                SetWindowTextA(MainWindow, WindowTitleC);
+            }
+            break;
 
-    case IDM_SAVE:
-        onSafeData();
-        break;
+        case IDM_SAVE:
+            onSafeData();
+            break;
 
-    case IDM_EXIT:
-        result = ConfirmClose(hWnd);
-        if ( result == IDOK )
-            DestroyWindow(hWnd);
-        break;
+        case IDM_EXIT:
+            result = ConfirmClose(hWnd);
+            if ( result == IDOK )
+                DestroyWindow(hWnd);
+            break;
 
-    default:
-        return DefWindowProcA(hWnd, message, wParam, lParam);
+        case WND_MESSAGE_OPT_IDX:
+            switch ( wmEvent )
+            {
+                case EN_ERRSPACE:
+                case EN_MAXTEXT:
+                    logger.logInfo(loggerId, 0, "Window %p run out of space: 0x%x 0x%x\n", (HWND)lParam, LOWORD(wParam), HIWORD(wParam));
+                    checkFillingState(MessageOpt, 0, 1);
+                    break;
+
+                default:
+                    break;
+            }
+
+        default:
+            return DefWindowProcA(hWnd, message, wParam, lParam);
     }
 
     return result;
@@ -947,6 +984,12 @@ LRESULT CALLBACK MesageIptSC(HWND hWnd, UINT msg, WPARAM wParam,
                     return 0;
             }
 
+        //case WM_DROPFILES:
+        //    showInfoStatus("File dropped");
+        //    //CHAR buffer[MAX_PATH];
+        //    //UINT s = DragQueryFileA(wParam, 0, buffer, MAX_PATH-1);
+        //    break;
+
        default:
            result = DefSubclassProc(hWnd, msg, wParam, lParam);
     } 
@@ -970,7 +1013,7 @@ LRESULT onCreate(HWND hWnd)
     MessageIptRect.right = DEFAULT_WINDOW_WIDTH - PARENT_PADDING*2 - BTN_W*2 - IPT_MARGIN*2;
     MessageIptRect.bottom = IPT_H;
     MessageIpt = CreateWindowExA(
-        0, // WS_EX_CLIENTEDGE
+        0, //WS_EX_ACCEPTFILES, // WS_EX_CLIENTEDGE
         WC_EDITA, 
         (pmsg)?pmsg:"", 
         WS_BORDER | WS_CHILD | WS_VISIBLE  | ES_AUTOHSCROLL | ES_MULTILINE,
@@ -993,7 +1036,7 @@ LRESULT onCreate(HWND hWnd)
 
     SelFileBtn = CreateWindowA(
         WC_BUTTONA,
-        FILE_BTN_SELECT_STR,
+        SC_SS_FILE_BTN_SELECT,
         WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
         file_btn_x, rows_y[3], BTN_W, BTN_H,
         hWnd, (HMENU)WND_FILE_BTN_IDX, NULL, NULL
@@ -1003,7 +1046,8 @@ LRESULT onCreate(HWND hWnd)
     MessageOptRect.top = rows_y[4];
     MessageOptRect.right = msg_box_w;
     MessageOptRect.bottom = msg_box_h;
-    MessageOpt = CreateWindowA(
+    MessageOpt = CreateWindowExA(
+        0L,
         WC_EDITA,
         "",
         WS_BORDER | WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY,
@@ -1087,6 +1131,16 @@ LRESULT onCreate(HWND hWnd)
     setInfoStatusOutput(InfoStatusOpt);
     setMessageOutput(MessageOpt);
     setFilePBar(FilePBar);
+    
+    MessageOptMaxText = SendMessageA(MessageOpt, EM_GETLIMITTEXT, 0, 0);
+    MessageOptFillThreash = (SIZE_T)(MessageOptMaxText * MSG_OPT_TH);
+    MessageOptDeleteSize = (SIZE_T)(MessageOptMaxText * MSG_OPT_CLR);
+
+#ifdef DEBUG_PRINT
+    logger.logInfo(loggerId, 0, "MessageOptMaxText: %zu\n", MessageOptMaxText);
+    logger.logInfo(loggerId, 0, "MessageOptFillThreash: %zu\n", MessageOptFillThreash);
+    logger.logInfo(loggerId, 0, "MessageOptDeleteSize: %zu\n", MessageOptDeleteSize);
+#endif
 
     sayHello();
     if ( type == 1 )
@@ -1200,8 +1254,8 @@ LRESULT onConnect(HWND hWnd)
         return 0;
     }
     
-    client_setLogDir(PreferencesData.LogDir);
-    initLog("client");
+    //client_setLogDir(PreferencesData.LogDir);
+    //initLog("client");
 
     if ( ConnectionStatus == CONNECTION_STATUS::STOPPED )
     {
@@ -1269,8 +1323,8 @@ LRESULT onListen(HWND hWnd)
         return 0;
     }
     
-    client_setLogDir(PreferencesData.LogDir);
-    initLog("server");
+    //client_setLogDir(PreferencesData.LogDir);
+    //initLog("server");
 
     if ( ConnectionStatus == CONNECTION_STATUS::STOPPED )
     {
@@ -1434,11 +1488,11 @@ VOID toggleFileBtn(FILE_TRANSFER_STATUS state)
     switch ( state )
     {
         case FILE_TRANSFER_STATUS::ACTIVE:
-            SetWindowTextA(SelFileBtn, FILE_BTN_CANCEL_STR);
+            SetWindowTextA(SelFileBtn, SC_SS_FILE_BTN_CANCEL);
 			break;
 
         case FILE_TRANSFER_STATUS::STOPPED:
-            SetWindowTextA(SelFileBtn, FILE_BTN_SELECT_STR);
+            SetWindowTextA(SelFileBtn, SC_SS_FILE_BTN_SELECT);
 			break;
 
         default:
@@ -1461,6 +1515,10 @@ DWORD WINAPI ReceiveThreadFn(LPVOID lpParam)
     int s = 0;
     HWND hWnd = (HWND)(lpParam);
     
+    // actually not used
+    char msg[0x1];
+    uint32_t len = 0x1;
+    
     // connect
     showConnStatus(SC_SS_CONNECTING);
     s = initClient(ConnectionData.ip, ConnectionData.port, ConnectionData.family, ConnectionData.CertThumb);
@@ -1471,10 +1529,6 @@ DWORD WINAPI ReceiveThreadFn(LPVOID lpParam)
         goto clean;
     }
     showConnStatus(SC_SS_CONNECTED);
-
-    // not used
-    char msg[0x1];
-    uint32_t len = 0x1;
 
     s = receiveMessages(
         msg, 

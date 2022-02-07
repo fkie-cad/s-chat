@@ -125,7 +125,7 @@ exit /B 0
 :build
     SETLOCAL
         set proj=%~1
-        if [%debug%]==[1] call :buildEx %proj%,%platform%,Debug,%debug_print%,%rtl%,%pdb%
+        if [%debug%]==[1] call :buildEx %proj%,%platform%,Debug,%debug_print%,%rtl%,1
         if [%release%]==[1] call :buildEx %proj%,%platform%,Release,%debug_print%,%rtl%,%pdb%
     ENDLOCAL
     
@@ -183,7 +183,7 @@ exit /B 0
     echo /r: Build in release mode.
     echo /b: Bitness of exe. 32^|64. Default: 64.
     echo /rtl: Build with runtime libs.
-    echo /pdb: Compile with pdbs.
+    echo /pdb: Compile release build with pdbs.
     echo.
     echo Flags:
     echo /dp: Debug print output.

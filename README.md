@@ -4,8 +4,8 @@ Secure TLS/SSL Windows E2E Chat.
 Currently just supporting TLS 1.2 due to Windows SChannel restrictions.
 
 ## Version ##
-1.0.10  
-Last changed: 04.02.2022
+1.0.11  
+Last changed: 07.02.2022
 
 ## Descrtiption
 GUI chat application that connects two communication partners directly over TCP using TLS 1.2.
@@ -39,7 +39,7 @@ Build modes:
 - /r: Build in release mode.
 - /b: Bitness of exe. 32^|64. Default: 64.
 - /rtl: Build with statically include runtime libs.
-- /pdb: Compile with pdbs.
+- /pdb: Compile release version with pdbs.
 Flags:
 - /dp: Debug print output.
 - /dphd: Extended hex dump debug print output.
@@ -59,7 +59,7 @@ Options:
 
 ## Run
 `SChat.exe` may be run by double clicking or via the cmd.
-Start options may be passed via the command line or a config file.
+Start options may be passed via the command line or a config file (recommended).
 The config file is searched for in the current directory (out of which the application is started) and has to be named `.config`.
 
 **Usage:**
@@ -78,7 +78,7 @@ $ SChat.exe [/i ip] [/v vs] [/p port] [/n name] [/c certThumb] [/l logDir] [/d c
  
 **Example:**
 ```bash
-$ server SChat.exe -i 123.456.789.876 -p 5432 -n alice -c aliceCertThumbPrint
+$ SChat.exe -i 123.456.789.876 -p 5432 -n alice -c aliceCertThumbPrint
 ```
 
 The cmd options may be skipped, because there are input fields in the app for them too.
@@ -97,7 +97,7 @@ After that, the communication partners can start sending messages to each other 
 Files can be sent by pressing the `File` button and browsing a file or by typing `/file path\to\the\file` and then pressing `Enter` or `Send`.
 On the receiving side, they are stored in the current directory (default).
 
-There is a log file beeing created, named `<server|client>-<date>-<time>.log` in the current working directory (default), which will be filled with infos, depending on the debug print compiler flags.
+There is a log file beeing created, named `<SChat>-<date>-<time>.log` in the current working directory (default), which will be filled with infos, depending on the debug print compiler flags.
 
 The certificate of the other side is stored in `<sha1(cert)>.der` in the current working directory (default).
 The hash (sha1) of the certificate is also displayed with the connection info in the message output.
@@ -107,9 +107,11 @@ The directory where the log files, transfered file and certificate files are sav
 
 An example .config is located in [res/.config.example](res/.config.example).
 
-The logs currently are not readable while the app is running. 
-This may be fixed in the future.
-
+The maximum size of messages, that can be displayed in the message window is 30.000 chars.
+If it's filled up by 90% (27.000 chars) it will be freed by 20% of the maximum Size (6.000) chars from the beginning.
+Currently there is no autosave option or safe button.
+The deleted parts of the messages will be lost.
+Those safe options may be added in future versions though.
 
 
 ## Create certificate

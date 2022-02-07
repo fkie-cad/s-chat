@@ -9,12 +9,12 @@
 
 #include "dbg.h"
 
-PARAFORMAT InfoFmt;
-PARAFORMAT LocalFmt;
-PARAFORMAT RemoteFmt;
-bool InfoFmtInitialized = false;
-bool LocalFmtInitialized = false;
-bool RemoteFmtInitialized = false;
+//PARAFORMAT InfoFmt;
+//PARAFORMAT LocalFmt;
+//PARAFORMAT RemoteFmt;
+//bool InfoFmtInitialized = false;
+//bool LocalFmtInitialized = false;
+//bool RemoteFmtInitialized = false;
 
 
 extern int last_type;
@@ -22,7 +22,6 @@ extern int last_type;
 static HWND InfoStatusOpt = NULL;
 static HWND ConnStatusOpt = NULL;
 static HWND MessageOutput = NULL;
-//static HWND ThumbPrintOutput = NULL;
 static HWND FilePBar = NULL;
 static std::mutex msg_mtx;
 static std::mutex conn_status_mtx;
@@ -31,6 +30,10 @@ static std::mutex pg_mtx;
 
 extern HWND MainWindow;
 extern HGLOBAL notify_snd;
+
+extern SIZE_T MessageOptMaxText;
+extern SIZE_T MessageOptFillThreash;
+extern SIZE_T MessageOptDeleteSize;
 
 static ULONG InfoStatusThreadId = 0;
 static HANDLE InfoStatusThread = NULL;
@@ -107,7 +110,7 @@ void showConnStatus(
     conn_status_mtx.unlock();
 }
 
-#define SHOW_STATUS_DURATION (4000)
+#define SHOW_STATUS_DURATION (5000)
 
 VOID CALLBACK InfoStatusTimerProc(HWND hwnd, UINT message, UINT idTimer, DWORD dwTime)
 { 
@@ -132,6 +135,51 @@ void showInfoStatus(
     info_status_mtx.unlock();
 }
 
+#undef SHOW_STATUS_DURATION
+
+
+/**
+ * Check text box filling
+ * 
+ * Type 1:
+ * If filling exceeds threshold, delete some chars.
+ * TODO: opt in for autosaving these chars
+ */
+void checkFillingState(
+    _In_ HWND ctrl, 
+    _In_ SIZE_T NextLength, 
+    _In_ INT Type
+)
+{
+    (Type);
+    SIZE_T TextSize = GetWindowTextLengthA(ctrl) + NextLength;
+
+    //std::string ms = "message size: "+std::to_string(TextSize)+" / "+std::to_string(MessageOptFillThreash);
+    //showInfoStatus(ms.c_str());
+
+    if ( GetWindowTextLengthA(ctrl) < MessageOptDeleteSize )
+        return;
+
+    if ( TextSize > MessageOptFillThreash )
+    {
+        // get the current selection
+        //DWORD StartPos, EndPos;
+        //SendMessageA(ctrl, EM_GETSEL, (WPARAM)(&StartPos), (WPARAM)(&EndPos));
+
+        // select some text at the beginning
+        SendMessageA(ctrl, EM_SETSEL, 0, (WPARAM)MessageOptDeleteSize);
+    
+        // insert clear the selection
+        SendMessageA(ctrl, EM_REPLACESEL, FALSE, NULL);
+    
+        // restore the previous selection
+        //SendMessageA(ctrl, EM_SETSEL, StartPos, EndPos);
+
+        // scroll to end
+        SendMessageA(ctrl, EM_SCROLL, SB_BOTTOM, 0L);
+    }
+}
+
 //#include <richedit.h>
 void AppendWindowTextA(
     _In_ HWND ctrl, 
@@ -139,46 +187,49 @@ void AppendWindowTextA(
     _In_opt_ PARAFORMAT* fmt
 )
 {
+    checkFillingState(ctrl, strlen(Text)+3, 1);
+
     // get the current selection
     DWORD StartPos, EndPos;
-    SendMessage(ctrl, EM_GETSEL, (WPARAM)(&StartPos), (WPARAM)(&EndPos));
+    SendMessageA(ctrl, EM_GETSEL, (WPARAM)(&StartPos), (WPARAM)(&EndPos));
 
     // move the caret to the end of the text
-    int outLength = GetWindowTextLength(ctrl);
-    SendMessage(ctrl, EM_SETSEL, outLength, outLength);
+    int outLength = GetWindowTextLengthA(ctrl);
+    SendMessageA(ctrl, EM_SETSEL, outLength, outLength);
     //int oldLength = outLength;
     
     // insert the text at the new caret position
-    SendMessage(ctrl, EM_REPLACESEL, TRUE, (LPARAM)(Text));
+    SendMessageA(ctrl, EM_REPLACESEL, TRUE, (LPARAM)(Text));
     
-    outLength = GetWindowTextLength(ctrl);
-    SendMessage(ctrl, EM_SETSEL, outLength, outLength);
-    SendMessage(ctrl, EM_REPLACESEL, TRUE, (LPARAM)("\r\n"));
+    outLength = GetWindowTextLengthA(ctrl);
+    SendMessageA(ctrl, EM_SETSEL, outLength, outLength);
+    SendMessageA(ctrl, EM_REPLACESEL, TRUE, (LPARAM)("\r\n"));
     
-    if ( fmt != NULL )
-    {
-        //SendMessage(ctrl, EM_SETSEL, outLength, outLength+oldLength);
-        //SendMessage(ctrl, EM_SETPARAFORMAT, 0, (LPARAM)fmt);
+    (fmt);
+    //if ( fmt != NULL )
+    //{
+    //    SendMessage(ctrl, EM_SETSEL, outLength, outLength+oldLength);
+    //    SendMessage(ctrl, EM_SETPARAFORMAT, 0, (LPARAM)fmt);
 
-        //CHARFORMATA cfmt;
-        //ZeroMemory(&cfmt, sizeof(cfmt));
-        //cfmt.cbSize = sizeof(cfmt);
-        //cfmt.dwMask = CFM_COLOR;
-        //if ( fmt->wAlignment == PFA_LEFT )
-        //    cfmt.crTextColor = RGB(0,100,100);
-        //else if ( fmt->wAlignment == PFA_RIGHT )
-        //    cfmt.crTextColor = RGB(100,100,0);
-        //else
-        //    cfmt.crTextColor = RGB(0,0,0);
-        //SendMessage(ctrl, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM)&cfmt);
-    }
+    //    CHARFORMATA cfmt;
+    //    ZeroMemory(&cfmt, sizeof(cfmt));
+    //    cfmt.cbSize = sizeof(cfmt);
+    //    cfmt.dwMask = CFM_COLOR;
+    //    if ( fmt->wAlignment == PFA_LEFT )
+    //        cfmt.crTextColor = RGB(0,100,100);
+    //    else if ( fmt->wAlignment == PFA_RIGHT )
+    //        cfmt.crTextColor = RGB(100,100,0);
+    //    else
+    //        cfmt.crTextColor = RGB(0,0,0);
+    //    SendMessage(ctrl, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM)&cfmt);
+    //}
 
     // restore the previous selection
-    SendMessage(ctrl, EM_SETSEL, StartPos, EndPos);
+    SendMessageA(ctrl, EM_SETSEL, StartPos, EndPos);
 
     // scroll to end
     //SendMessage(ctrl, EM_SCROLL, SB_PAGEDOWN, 0);
-    SendMessage(ctrl, EM_SCROLL, SB_BOTTOM, 0L);
+    SendMessageA(ctrl, EM_SCROLL, SB_BOTTOM, 0L);
 }
 
 BOOL playSound(
@@ -191,7 +242,7 @@ BOOL playSound(
     res = (LPCSTR)LockResource(hRes);
     if ( res != NULL )
     { 
-        s = sndPlaySound(res, SND_MEMORY | SND_SYNC | SND_NODEFAULT); 
+        s = sndPlaySoundA(res, SND_MEMORY | SND_SYNC | SND_NODEFAULT); 
         UnlockResource(hRes); 
     } 
  
@@ -292,6 +343,7 @@ void showMessages(
             sound_thread = NULL;
         }
     }
+
 }
 
 void showMessages(

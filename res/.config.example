@@ -9,8 +9,8 @@ Bob
 # user cert thumb
 DEADC0FFEEBEAADDEDDEAFC0CAFEEDEDC0DEF00D0
 # log files dir
-data\logs
+C:\SChat\logs
 # cert files dir
-data\certs
+C:\SChat\certs
 # transfered files dir
-data\files
+C:\SChat\files
