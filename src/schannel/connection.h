@@ -164,19 +164,19 @@ VerifyClientCertificate(
 );
 
 void SChannel_clean(
-    _Out_ PCtxtHandle Context,
-    _Out_ PCredHandle ClientCreds,
-    _Out_ PCredHandle ServerCreds,
-    _Out_ HCERTSTORE* CertStore
+    _Inout_ PCtxtHandle Context,
+    _Inout_ PCredHandle ClientCreds,
+    _Inout_ PCredHandle ServerCreds,
+    _Inout_ HCERTSTORE* CertStore
 );
 
 void deleteCreds(
-    _Out_ PCredHandle Creds
+    _Inout_ PCredHandle Creds
 );
 
 void 
 deleteSecurityContext(
-    _Out_ CtxtHandle *phContext
+    _Inout_ CtxtHandle *phContext
 );
 
 #endif

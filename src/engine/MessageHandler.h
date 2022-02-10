@@ -18,6 +18,7 @@ extern const char* nick;
 extern char other_name[MAX_NAME_LN];
 
 extern FT_RECV_OBJECTS ft_recv_obj;
+extern FT_RECV_OBJECTS ft_send_obj;
 
 
 

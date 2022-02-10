@@ -9,6 +9,7 @@
 #include "../schannel/TlsSock.h"
 #include "../files/Files.h"
 #include "MessageHandler.h"
+#include "../gui/StringPool.h"
 
 #ifdef GUI
 extern HINSTANCE MainInstance;
@@ -158,7 +159,6 @@ int sendAcceptedFileInfo(
     strcpy_s(message->name, MAX_NAME_LN, name);
     message->name[MAX_NAME_LN-1] = 0;
 
-#ifdef GUI
     if ( !accepted )
     {
         showSentFileInfo(
@@ -171,7 +171,6 @@ int sendAcceptedFileInfo(
             true
         );
     }
-#endif
 
     s = sendSChannelData(
             (PUCHAR)message, 
@@ -298,32 +297,14 @@ ULONG WINAPI recvFTDataThread(
 
     //
     // msg box : accept file ?
-    //
-#ifdef GUI
-    //base_name_ln = getBaseName(rtd->ftd->path, rtd->ftd->path_ln, &base_name);
-    //fmt_str = "Accept file transfer?\r\nfile: %s";
-    //msg_ln = strlen(fmt_str) + base_name_ln;
-    //msg = new char[msg_ln];
-    //sprintf_s(msg, msg_ln, fmt_str, base_name);
-    //MessageBeep(MB_ICONEXCLAMATION);
-    //answer = MessageBoxA(
-    //            MainWindow,
-    //            msg,
-    //            "File transfer",
-    //            MB_YESNO | MB_ICONEXCLAMATION | MB_APPLMODAL
-    //        );
+
     base_name_ln = getBaseName(rtd->ftd->path, rtd->ftd->path_ln, &base_name);
     fmt_str = "File: %s";
     msg_ln = strlen(fmt_str) + base_name_ln;
     msg = new char[msg_ln];
     sprintf_s(msg, msg_ln, fmt_str, base_name);
     MessageBeep(MB_ICONEXCLAMATION);
-    //answer = MessageBoxA(
-    //            MainWindow,
-    //            msg,
-    //            "File transfer",
-    //            MB_YESNO | MB_ICONEXCLAMATION | MB_APPLMODAL
-    //        );
+
     answer = (INT) DialogBoxParamA(
                 MainInstance, 
                 MAKEINTRESOURCEA(IDD_ACCEPT_FT_DLG), 
@@ -346,21 +327,19 @@ ULONG WINAPI recvFTDataThread(
     
     if ( answer != IDYES || s != 0 )
     {
-        showInfoStatus("Filetransfer not accepted");
+        showInfoStatus(SC_IS_FT_REJECTED);
         s = SCHAT_ERROR_FT_NOT_ACCEPTED;
         goto clean;
     }
-    showInfoStatus("Filetransfer accepted");
-#endif
+    showInfoStatus(SC_IS_FT_ACCEPTED);
+
+
     //
     // enter receiving loop
     //
 
-#ifdef GUI
-    showInfoStatus("Filetransfer connected");
     togglePBar(TRUE);
     toggleFileBtn(FILE_TRANSFER_STATUS::ACTIVE);
-#endif
 
     *(rtd->running) = TRUE;
     s = receiveSChannelData(
@@ -417,13 +396,7 @@ int disconnectFTRecvSocket(
         Context->dwUpper = 0;
     }
 
-#ifdef GUI
-    showInfoStatus("Filetransfer terminated");
-#endif
-
-//#ifdef GUI
-//    showCertSha("");
-//#endif
+    showInfoStatus(SC_IS_FT_FINISHED);
 
     return s;
 }

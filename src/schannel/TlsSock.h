@@ -4,6 +4,7 @@
 #include "sec.h"
 
 
+#include "../crypto/windows/HasherCNG.h"
 
 
 #include "../utils/Logger.h"
@@ -33,7 +34,7 @@ int acceptTLSSocket(
     _In_ PCredHandle Creds,
     _In_ PBYTE pbIoBuffer,
     _In_ ULONG cbIoBuffer,
-    _Out_ uint8_t* CertHash,
+    _Out_writes_(SHA1_BYTES_LN) uint8_t* CertHash,
     _Out_ SOCKADDR_STORAGE* addr,
     _Out_ socklen_t* addr_ln
 );
@@ -56,12 +57,12 @@ int connectTLSSocket(
     _Out_ SOCKET* Socket,
     _Out_ PCtxtHandle Context,
     _In_ PCredHandle Creds,
-    _Out_ uint8_t* CertHash
+    _Out_writes_(SHA1_BYTES_LN) uint8_t* CertHash
 );
 
 int hashCert(
     _In_ PCCERT_CONTEXT cert, 
-    _Out_ uint8_t* bytes
+    _Out_writes_(SHA1_BYTES_LN) uint8_t* bytes
 );
 
 #endif

@@ -16,6 +16,9 @@
 //bool LocalFmtInitialized = false;
 //bool RemoteFmtInitialized = false;
 
+#define MSG_TYPE_NONE (0)
+#define MSG_TYPE_SELF (1)
+#define MSG_TYPE_OTHER (2)
 
 extern int last_type;
 
@@ -121,14 +124,16 @@ VOID CALLBACK InfoStatusTimerProc(HWND hwnd, UINT message, UINT idTimer, DWORD d
 } 
 
 void showInfoStatus(
-    _In_ const char* msg
+    _In_ const char* msg,
+    _In_ bool fade
 )
 {
     if ( InfoStatusOpt == NULL )
         return;
 
     KillTimer(MainWindow, IDT_INFO_TIMER); 
-    SetTimer(MainWindow, IDT_INFO_TIMER, SHOW_STATUS_DURATION, (TIMERPROC) InfoStatusTimerProc);
+    if ( fade )
+        SetTimer(MainWindow, IDT_INFO_TIMER, SHOW_STATUS_DURATION, (TIMERPROC) InfoStatusTimerProc);
 
     info_status_mtx.lock();
     SetWindowTextA(InfoStatusOpt, msg);
@@ -187,18 +192,17 @@ void AppendWindowTextA(
     _In_opt_ PARAFORMAT* fmt
 )
 {
+    int outLength;
+
     checkFillingState(ctrl, strlen(Text)+3, 1);
 
     // get the current selection
     DWORD StartPos, EndPos;
     SendMessageA(ctrl, EM_GETSEL, (WPARAM)(&StartPos), (WPARAM)(&EndPos));
 
-    // move the caret to the end of the text
-    int outLength = GetWindowTextLengthA(ctrl);
+    // move the caret to the end of the text, replace text
+    outLength = GetWindowTextLengthA(ctrl);
     SendMessageA(ctrl, EM_SETSEL, outLength, outLength);
-    //int oldLength = outLength;
-    
-    // insert the text at the new caret position
     SendMessageA(ctrl, EM_REPLACESEL, TRUE, (LPARAM)(Text));
     
     outLength = GetWindowTextLengthA(ctrl);
@@ -228,7 +232,6 @@ void AppendWindowTextA(
     SendMessageA(ctrl, EM_SETSEL, StartPos, EndPos);
 
     // scroll to end
-    //SendMessage(ctrl, EM_SCROLL, SB_PAGEDOWN, 0);
     SendMessageA(ctrl, EM_SCROLL, SB_BOTTOM, 0L);
 }
 
@@ -265,11 +268,12 @@ ULONG WINAPI notify(
     return 0;
 }
 
-#define UINT8_TO_CHAR2(_i_, _s_) { \
-    if ( _i_ < 10 ) { _s_[0] = '0'; _itoa_s(_i_, &_s_[1], 2, 10); }\
-    else { _itoa_s(_i_, &_s_[0], 3, 10); } \
+#define TIMEUINT_TO_CHAR2(_i_, _s_) { \
+    if ( _i_ < 0 || _i_ > 60 ) { _s_[0] = 0; _s_[1] = 0; }\
+    else if ( _i_ < 10 ) { _s_[0] = '0'; _s_[1] = (char)(_i_+0x30); }\
+    else { _s_[0] = (char)((_i_/10)+0x30); _s_[1] = (char)((_i_%10)+0x30); } \
     _s_[2] = 0; \
-}
+} 
 
 void showMessages(
     _In_ PSCHAT_MESSAGE_HEADER message, 
@@ -279,7 +283,7 @@ void showMessages(
     if ( MessageOutput == NULL )
         return;
 
-    int type = (self) ? 1 : 2;
+    int type = (self) ? MSG_TYPE_SELF : MSG_TYPE_OTHER;
 
     //initFormats();
     PARAFORMAT* fmt = NULL;
@@ -295,7 +299,7 @@ void showMessages(
     //    fmt = &RemoteFmt;
     //}
 
-    msgSize = strlen(message->name) + message->data_ln + 19;
+    msgSize = strlen(message->name) + message->data_ln + 0x20;
     msg = new CHAR[msgSize];
     int w = 0;
     if ( !msg )
@@ -310,16 +314,18 @@ void showMessages(
 
         char hours[3];
         char minutes[3];
-        UINT8_TO_CHAR2(sts.wHour, hours);
-        UINT8_TO_CHAR2(sts.wMinute, minutes);
+        TIMEUINT_TO_CHAR2(sts.wHour, hours);
+        TIMEUINT_TO_CHAR2(sts.wMinute, minutes);
 
-        w = sprintf_s(msg, msgSize, "\r\n== %s (%s:%s) ==\r\n", 
+        w = sprintf_s(
+            msg, msgSize, 
+            "\r\n== %s (%s:%s) ==\r\n", 
             message->name, hours, minutes);
     }
     w = sprintf_s(&msg[w], msgSize-w, "%s", (char*)message->data);
 
     last_type = type;
-    AppendWindowTextA(MessageOutput, &msg[0], fmt);
+    AppendWindowTextA(MessageOutput, msg, fmt);
 
     msg_mtx.unlock();
 
@@ -343,7 +349,6 @@ void showMessages(
             sound_thread = NULL;
         }
     }
-
 }
 
 void showMessages(
@@ -389,7 +394,8 @@ void showProgress(
     char pc[PG_STRING_SIZE];
     sprintf_s(pc, PG_STRING_SIZE, "0x%zx / 0x%zx (%u%%)", v, s, percent);
     pc[PG_STRING_SIZE-1] = 0;
-    showInfoStatus(pc);
+    
+    showInfoStatus(pc, false);
     
     if ( FilePBar == NULL )
         return;

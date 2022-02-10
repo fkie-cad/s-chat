@@ -38,7 +38,8 @@ void showConnStatus(
 );
 
 void showInfoStatus(
-    _In_ const char* msg
+    _In_ const char* msg,
+    _In_ bool fade=true
 );
 
 void checkFillingState(

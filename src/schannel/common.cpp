@@ -237,23 +237,23 @@ GetWinVerifyTrustError(
 
     switch(Status)
     {
-    case CERT_E_EXPIRED:                pszName = "CERT_E_EXPIRED";                 break;
-    case CERT_E_VALIDITYPERIODNESTING:  pszName = "CERT_E_VALIDITYPERIODNESTING";   break;
-    case CERT_E_ROLE:                   pszName = "CERT_E_ROLE";                    break;
-    case CERT_E_PATHLENCONST:           pszName = "CERT_E_PATHLENCONST";            break;
-    case CERT_E_CRITICAL:               pszName = "CERT_E_CRITICAL";                break;
-    case CERT_E_PURPOSE:                pszName = "CERT_E_PURPOSE";                 break;
-    case CERT_E_ISSUERCHAINING:         pszName = "CERT_E_ISSUERCHAINING";          break;
-    case CERT_E_MALFORMED:              pszName = "CERT_E_MALFORMED";               break;
-    case CERT_E_UNTRUSTEDROOT:          pszName = "CERT_E_UNTRUSTEDROOT";           break;
-    case CERT_E_CHAINING:               pszName = "CERT_E_CHAINING";                break;
-    case TRUST_E_FAIL:                  pszName = "TRUST_E_FAIL";                   break;
-    case CERT_E_REVOKED:                pszName = "CERT_E_REVOKED";                 break;
-    case CERT_E_UNTRUSTEDTESTROOT:      pszName = "CERT_E_UNTRUSTEDTESTROOT";       break;
-    case CERT_E_REVOCATION_FAILURE:     pszName = "CERT_E_REVOCATION_FAILURE";      break;
-    case CERT_E_CN_NO_MATCH:            pszName = "CERT_E_CN_NO_MATCH";             break;
-    case CERT_E_WRONG_USAGE:            pszName = "CERT_E_WRONG_USAGE";             break;
-    default:                            pszName = "(unknown)";                      break;
+        case CERT_E_EXPIRED:                pszName = "CERT_E_EXPIRED";                 break;
+        case CERT_E_VALIDITYPERIODNESTING:  pszName = "CERT_E_VALIDITYPERIODNESTING";   break;
+        case CERT_E_ROLE:                   pszName = "CERT_E_ROLE";                    break;
+        case CERT_E_PATHLENCONST:           pszName = "CERT_E_PATHLENCONST";            break;
+        case CERT_E_CRITICAL:               pszName = "CERT_E_CRITICAL";                break;
+        case CERT_E_PURPOSE:                pszName = "CERT_E_PURPOSE";                 break;
+        case CERT_E_ISSUERCHAINING:         pszName = "CERT_E_ISSUERCHAINING";          break;
+        case CERT_E_MALFORMED:              pszName = "CERT_E_MALFORMED";               break;
+        case CERT_E_UNTRUSTEDROOT:          pszName = "CERT_E_UNTRUSTEDROOT";           break;
+        case CERT_E_CHAINING:               pszName = "CERT_E_CHAINING";                break;
+        case TRUST_E_FAIL:                  pszName = "TRUST_E_FAIL";                   break;
+        case CERT_E_REVOKED:                pszName = "CERT_E_REVOKED";                 break;
+        case CERT_E_UNTRUSTEDTESTROOT:      pszName = "CERT_E_UNTRUSTEDTESTROOT";       break;
+        case CERT_E_REVOCATION_FAILURE:     pszName = "CERT_E_REVOCATION_FAILURE";      break;
+        case CERT_E_CN_NO_MATCH:            pszName = "CERT_E_CN_NO_MATCH";             break;
+        case CERT_E_WRONG_USAGE:            pszName = "CERT_E_WRONG_USAGE";             break;
+        default:                            pszName = "(unknown)";                      break;
     }
 
     return pszName;
@@ -266,22 +266,22 @@ getSecErrorString(
 {
     switch(Status)
     {
-    case SEC_E_ALGORITHM_MISMATCH: return "SEC_E_ALGORITHM_MISMATCH"; break;
-    case SEC_E_BUFFER_TOO_SMALL: return "SEC_E_BUFFER_TOO_SMALL"; break;
-    case SEC_E_CERT_EXPIRED: return "SEC_E_CERT_EXPIRED"; break;
-    case SEC_E_CERT_UNKNOWN: return "SEC_E_CERT_UNKNOWN"; break;
-    case SEC_E_CONTEXT_EXPIRED: return "SEC_E_CONTEXT_EXPIRED"; break;
-    case SEC_E_CRYPTO_SYSTEM_INVALID: return "SEC_E_CRYPTO_SYSTEM_INVALID"; break;
-    case SEC_E_DECRYPT_FAILURE: return "The specified data could not be decrypted"; break;
-    case SEC_E_ENCRYPT_FAILURE: return "The specified data could not be encrypted"; break;
-    case SEC_E_INSUFFICIENT_MEMORY: return "SEC_E_INSUFFICIENT_MEMORY"; break;
-    case SEC_E_INTERNAL_ERROR: return "The Local Security Authority cannot be contacted"; break;
-    case SEC_E_INVALID_HANDLE: return "SEC_E_INVALID_HANDLE"; break;
-    case SEC_E_INVALID_TOKEN: return "SEC_E_INVALID_TOKEN"; break;
-    case SEC_E_NO_CREDENTIALS: return "SEC_E_NO_CREDENTIALS"; break;
-    case SEC_E_QOP_NOT_SUPPORTED: return "SEC_E_QOP_NOT_SUPPORTED"; break;
-    case SEC_E_UNKNOWN_CREDENTIALS: return "SEC_E_UNKNOWN_CREDENTIALS"; break;
-    default: return "(unknown)"; break;
+        case SEC_E_ALGORITHM_MISMATCH: return "SEC_E_ALGORITHM_MISMATCH"; break;
+        case SEC_E_BUFFER_TOO_SMALL: return "SEC_E_BUFFER_TOO_SMALL"; break;
+        case SEC_E_CERT_EXPIRED: return "SEC_E_CERT_EXPIRED"; break;
+        case SEC_E_CERT_UNKNOWN: return "SEC_E_CERT_UNKNOWN"; break;
+        case SEC_E_CONTEXT_EXPIRED: return "SEC_E_CONTEXT_EXPIRED"; break;
+        case SEC_E_CRYPTO_SYSTEM_INVALID: return "SEC_E_CRYPTO_SYSTEM_INVALID"; break;
+        case SEC_E_DECRYPT_FAILURE: return "The specified data could not be decrypted"; break;
+        case SEC_E_ENCRYPT_FAILURE: return "The specified data could not be encrypted"; break;
+        case SEC_E_INSUFFICIENT_MEMORY: return "SEC_E_INSUFFICIENT_MEMORY"; break;
+        case SEC_E_INTERNAL_ERROR: return "The Local Security Authority cannot be contacted"; break;
+        case SEC_E_INVALID_HANDLE: return "SEC_E_INVALID_HANDLE"; break;
+        case SEC_E_INVALID_TOKEN: return "SEC_E_INVALID_TOKEN"; break;
+        case SEC_E_NO_CREDENTIALS: return "SEC_E_NO_CREDENTIALS"; break;
+        case SEC_E_QOP_NOT_SUPPORTED: return "SEC_E_QOP_NOT_SUPPORTED"; break;
+        case SEC_E_UNKNOWN_CREDENTIALS: return "SEC_E_UNKNOWN_CREDENTIALS"; break;
+        default: return "(unknown)"; break;
     }
 }
 

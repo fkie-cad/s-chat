@@ -21,6 +21,11 @@ CommandLineToArgvA(
 	BOOLEAN in_SPACE;
 
 	len = (ULONG)strlen(CmdLine);
+	if ( len == 0 )
+	{
+		*_argc = 0;
+		return NULL;
+	}
 	i = ((len + 2) / 2) * (ULONG)sizeof(PVOID) + (ULONG)sizeof(PVOID);
 
 	ULONG argvSize = i + (len + 2) * (ULONG)sizeof(CHAR);

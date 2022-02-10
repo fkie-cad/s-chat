@@ -26,6 +26,7 @@
 #include "../files/Files.h"
 #include "filetransfer.h"
 #include "MessageHandler.h"
+#include "../gui/StringPool.h"
 
 
 
@@ -85,7 +86,9 @@ void closeLog();
 int handleConnection(char* msg, uint32_t msg_len);
 int sendMessages(char* buffer, uint32_t size);
 
-ULONG WINAPI sendDataThread(LPVOID lpParam);
+ULONG WINAPI sendDataThread(
+    LPVOID lpParam
+);
 int cleanFtSendConnection(
     SOCKET* Socket,
     PCtxtHandle Context,
@@ -197,11 +200,9 @@ int initClient(
         goto clean;
     wsaStarted = true;
     
-#ifdef GUI
     char hash[SHA1_STRING_BUFFER_LN];
     hashToString(other_cert_hash, SHA1_BYTES_LN, hash, SHA1_STRING_BUFFER_LN);
     showCertSha(hash);
-#endif
 
     s = readStreamEncryptionProperties(&Sizes, &hContext);
     if ( s != 0 )
@@ -536,14 +537,14 @@ int receiveMessages(
     GetLocalTime(&sts);
     logger.logInfo(
         loggerId, 0,
-        "\n\nreceive started: %02d.%02d.%04d %02d:%02d:%02d\n---------------------------------------\n",
+        "\n\nreceive started: %02u.%02u.%04u %02u:%02u:%02u\n---------------------------------------\n",
         sts.wDay, sts.wMonth, sts.wYear, 
         sts.wHour, sts.wMinute, sts.wSecond
     );
     
     char header[LOG_HEADER_SIZE];
     int offset = 0;
-#ifdef GUI
+
     if ( raddr_ln > 0)
     {
         PSOCKADDR addr4 = NULL;
@@ -572,11 +573,10 @@ int receiveMessages(
     sprintf_s(&header[offset], LOG_HEADER_SIZE-offset, 
         "connected\r\n"
         "\r\n"
-        "--------------------- %02d.%02d.%04d %02d:%02d:%02d --------------------------\r\n\r\n", 
+        "--------------------- %02u.%02u.%04u %02u:%02u:%02u --------------------------\r\n\r\n", 
         sts.wDay, sts.wMonth, sts.wYear, sts.wHour, sts.wMinute, sts.wSecond);
     header[LOG_HEADER_SIZE-1] = 0;
     showMessages(header, MSG_TYPE_INFO);
-#endif
 
     if ( engine_type == ENGINE_TYPE_NONE )
     {
@@ -605,16 +605,18 @@ int receiveMessages(
     GetLocalTime(&sts);
     logger.logInfo(
         loggerId, 0,
-        "---------------------------------------\nconnection stopped: %02d.%02d.%04d %02d:%02d:%02d\n\n",
+        "---------------------------------------\nconnection stopped: %02u.%02u.%04u %02u:%02u:%02u\n\n",
         sts.wDay, sts.wMonth, sts.wYear, 
         sts.wHour, sts.wMinute, sts.wSecond
     );
-    sprintf_s(header, 0x80, 
-        "\r\n--------------------- %02d.%02d.%04d %02d:%02d:%02d --------------------------\r\n"
+    sprintf_s(
+        header, LOG_HEADER_SIZE, 
+        "\r\n--------------------- %02u.%02u.%04u %02u:%02u:%02u --------------------------\r\n"
         "\r\n"
         "disconnected\r\n\r\n", 
-        sts.wDay, sts.wMonth, sts.wYear, sts.wHour, sts.wMinute, sts.wSecond);
-    header[0x7f] = 0;
+        sts.wDay, sts.wMonth, sts.wYear, sts.wHour, sts.wMinute, sts.wSecond
+    );
+    header[LOG_HEADER_SIZE-1] = 0;
     showMessages(header, MSG_TYPE_INFO);
     
 
@@ -729,23 +731,27 @@ int client_sendFile(
 {
     // Currently not supporting sending and receiving files at once.
     // Would be possible though with layout changes in gui.
-    if ( ft_send_obj.thread_id != 0  || ft_recv_obj.thread_id != 0 )
+
+    ft_send_mtx.lock();
+    if ( ft_send_obj.flags&FT_FLAG_ACTIVE || ft_recv_obj.flags&FT_FLAG_ACTIVE )
     {
+        ft_send_mtx.unlock();
         return SCHAT_ERROR_MAX_FT;
     }
-
     initFTObject(&ft_send_obj);
-
-    target_ip = ip;
-    target_port = port;
-    family = family_;
+    ft_send_obj.flags |= FT_FLAG_ACTIVE;
+    ft_send_mtx.unlock();
     
     uint32_t cbMessage = 0;
     int s = 0;
+    PSCHAT_FILE_INFO_HEADER message = NULL;
+    size_t file_size;
+    CHAR full_path[MAX_PATH];
+    CHAR* base_name = NULL;
+    ULONG full_path_ln;
+    ULONG base_name_ln;
+    uint8_t hash[SHA256_BYTES_LN];
 
-    //if ( !logInitialized )
-    //    initLog(REL_NAME);
-    
     //
     // check status
 
@@ -753,7 +759,7 @@ int client_sendFile(
     {
         s = SCHAT_ERROR_INVALID_SOCKET;
         logger.logError(loggerId, s, "ConnectSocket invalid\n");
-        return s;
+        goto clean;
     }
     
     //
@@ -763,23 +769,29 @@ int client_sendFile(
     {
         s = SCHAT_ERROR_NO_IP;
         logger.logError(loggerId, s, "No ip!\n");
-        return s;
+        goto clean;
     }
 
-    if ( family != AF_INET && family != AF_INET6 )
+    if ( family_ != AF_INET && family_ != AF_INET6 )
     {
         s = SCHAT_ERROR_WRONG_IPV;
         logger.logError(loggerId, s, "Wrong ip version!\n");
-        return s;
+        goto clean;
     }
 
     if ( port == NULL || strlen(port) == 0 )
     {
         s = SCHAT_ERROR_NO_PORT;
         logger.logError(loggerId, s, "No port!\n");
-        return s;
+        goto clean;
     }
     
+
+    target_ip = ip;
+    target_port = port;
+    family = family_;
+
+
     //
     // fill header
 
@@ -787,62 +799,59 @@ int client_sendFile(
     {
         s = SCHAT_ERROR_PATH_TOO_LONG;
         logger.logError(loggerId, s, "File path too long\n");
-        return s;
+        goto clean;
     }
 
     if ( !fileExists(path) )
     {
         s = SCHAT_ERROR_FILE_NOT_FOUND;
         logger.logError(loggerId, s, "file not found!\n");
-        return s;
+        goto clean;
     }
 
-    size_t file_size = 0;
+    file_size = 0;
     s = getFileSize(path, &file_size);
     if ( s != 0 || file_size == 0 )
     {
         s = SCHAT_ERROR_FILE_SIZE;
         logger.logError(loggerId, s, "getFileSize failed or returned 0\n");
-        return s;
+        goto clean;
     }
     
-    CHAR full_path[MAX_PATH];
-    CHAR* base_name = NULL;
-    ULONG full_path_ln = GetFullPathNameA(path, MAX_PATH, full_path, &base_name);
+    full_path_ln = GetFullPathNameA(path, MAX_PATH, full_path, &base_name);
     if ( full_path_ln == 0 || full_path_ln >= MAX_PATH )
     {
         logger.logError(loggerId, GetLastError(), "GetFullPathName failed!\n");
-        return SCHAT_ERROR_FILE_NOT_FOUND;
+        s = SCHAT_ERROR_FILE_NOT_FOUND;
+        goto clean;
     }
     if ( base_name == NULL || base_name[0] == 0 )
     {
         s = SCHAT_ERROR_FILE_NOT_FOUND;
         logger.logError(loggerId, s, "file_name too short!\n");
-        return s;
+        goto clean;
     }
-    ULONG base_name_ln = (ULONG)strlen(base_name);
-    
-    uint8_t hash[SHA256_BYTES_LN];
+    base_name_ln = (ULONG)strlen(base_name);
+
     s = sha256File(full_path, hash, SHA256_BYTES_LN);
     if ( s != 0 )
     {
         logger.logError(loggerId, s, "Calculating hash failed!\n");
-        return SCHAT_ERROR_CALCULATE_HASH;
+        s = SCHAT_ERROR_CALCULATE_HASH;
+        goto clean;
     }
     
-    ft_send_mtx.lock();
-    ft_send_obj.running = true;
-    ft_send_mtx.unlock();
 
     //
     // send info header to the other side
+    // TODO: move after the call to connect/create a ft socket
 
-    PSCHAT_FILE_INFO_HEADER message = (PSCHAT_FILE_INFO_HEADER)(SendBuffer + Sizes.cbHeader);
+    message = (PSCHAT_FILE_INFO_HEADER)(SendBuffer + Sizes.cbHeader);
     ZeroMemory(message, sizeof(SCHAT_FILE_INFO_HEADER));
     cbMessage = sizeof(SCHAT_FILE_INFO_HEADER) + base_name_ln;
     message->bh.size = cbMessage;
     message->bh.type = MSG_TYPE_FILE_INFO;
-    if ( !ft_send_obj.running )
+    if ( ft_send_obj.flags&FT_FLAG_CANCEL )
         message->bh.flags = MSG_FLAG_STOP;
     strcpy_s(message->name, MAX_NAME_LN, nick);
     message->name[MAX_NAME_LN-1] = 0;
@@ -874,7 +883,6 @@ int client_sendFile(
     }
     
     // show accepted file to send in chat
-#ifdef GUI
     showSentFileInfo(
         FT_INFO_LABEL_SENDING,
         hash,
@@ -884,10 +892,10 @@ int client_sendFile(
         nick,
         true
     );
-#endif
+
 
     //
-    // create thread to connect/accept new socket and sending the file 
+    // create thread to connect/accept new socket and send the file 
 
     if ( ft_send_obj.thread_id == 0 )
     {
@@ -897,7 +905,7 @@ int client_sendFile(
         {
             s = SCHAT_ERROR_NO_MEMORY;
             logger.logError(loggerId, s, "malloc DATA_THREAD_PARAMS failed!\n");
-            return s;
+            goto clean;
         }
         tp->file_size = file_size;
         //strcpy_s(tp->path, len, path);
@@ -913,27 +921,36 @@ int client_sendFile(
                                 0,         // use default stack size  
                                 sendDataThread,    // thread function name
                                 tp,     // argument to thread function 
-                                0,        // use default creation flags 
+                                CREATE_SUSPENDED,        // use default creation flags 
                                 &ft_send_obj.thread_id    // returns the thread identifier 
                             );
         if ( ft_send_obj.thread == NULL )
         {
+            free(tp);
+            tp = NULL;
+
             s = GetLastError();
             logger.logError(loggerId, s, "CreateThread ft receive failed\n");
-            if ( tp != NULL )
-                free(tp);
             goto clean;
         }
+
+        ft_send_obj.flags |= FT_FLAG_RUNNING;
+        ResumeThread(ft_send_obj.thread);
         CloseHandle(ft_send_obj.thread);
         ft_send_obj.thread = NULL;
     }
+
 clean:
-    ;
+    if ( s != 0 )
+    {
+        ft_send_obj.flags = 0;
+    };
 
     return s;
 }
 
 // TODO: move to filetransfer.cpp
+// This is done in a new thread with ft sockets to don't block sender until receiver answers
 ULONG WINAPI sendDataThread(LPVOID lpParam)
 {
     PFT_SEND_THREAD_DATA tp = (PFT_SEND_THREAD_DATA)(lpParam);
@@ -945,7 +962,7 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
     ULONG cbMessage;
     PSCHAT_FILE_DATA_HEADER message = NULL;
     uint8_t* buffer = NULL;
-    ULONG buffer_size = NULL;
+    ULONG buffer_size = 0;
 
     ULONG block_size;
     size_t nParts;
@@ -974,7 +991,6 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
         goto clean;
     }
 
-    ZeroMemory(other_ft_cert_hash, SHA256_BYTES_LN);
 
     // A client sending a file will connect a new socket to the accepting server.
     // The accept is triggerd by the receiving FILE_INFO_HEADER.
@@ -1019,6 +1035,12 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
         logger.logInfo(loggerId, 0, "FT accepted\n");
 #endif
     }
+    else
+    { 
+        s = SCHAT_ERROR_UNKNOWN_ENGINE;
+        logger.logError(loggerId, s, "SCHAT_ERROR_UNKNOWN_ENGINE\n");
+        goto clean;
+    }
 
     // compare ft certificate hash to main connection certificate
     if ( memcmp(other_cert_hash, other_ft_cert_hash, SHA256_BYTES_LN) != 0 )
@@ -1028,9 +1050,12 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
         goto clean;
     }
     
+    // send file info not until here
+    // ...
+
+
     //
     // wait for accepting answer
-    // This is done in new thread with ft sockets to don't block sender until receiver answers
 
     other_name[0] = 0;
     s = receiveSChannelData(
@@ -1052,13 +1077,11 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
 
 
     //
-    // Then the data is send over the new (accepted or connected) ft_send_obj.Socket
-    // If sending is canceled, a 0 data package is sent and the cancled answer is awaited
+    // Then the data is sent over the new (accepted or connected) ft_send_obj.Socket
+    // If sending is canceled, a 0 data package is sent and the canceled answer is awaited
     //
-#ifdef GUI
     togglePBar(true);
     toggleFileBtn(FILE_TRANSFER_STATUS::ACTIVE);
-#endif
 
     s = fopen_s(&file, tp->path, "rb");
     if ( s != 0 )
@@ -1083,7 +1106,7 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
         message = (PSCHAT_FILE_DATA_HEADER)(buffer + Sizes.cbHeader);
         ZeroMemory(message, sizeof(SCHAT_FILE_DATA_HEADER));
         message->bh.type = MSG_TYPE_FILE_DATA;
-        if ( !ft_send_obj.running )
+        if ( ft_send_obj.flags&FT_FLAG_CANCEL )
         {
             message->bh.flags = MSG_FLAG_STOP;
             block_size = 0;
@@ -1104,9 +1127,9 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
         message->bh.size = cbMessage;
 
         offset += block_size;
-#ifdef GUI
+
         showProgress(offset, tp->file_size);
-#endif
+
         s = sendSChannelData(
                 (PUCHAR)message, 
                 (ULONG)message->bh.size, 
@@ -1132,7 +1155,7 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
         message = (PSCHAT_FILE_DATA_HEADER)(buffer + Sizes.cbHeader);
         ZeroMemory(message, sizeof(SCHAT_FILE_DATA_HEADER));
         message->bh.type = MSG_TYPE_FILE_DATA;
-        if ( !ft_send_obj.running )
+        if ( ft_send_obj.flags&FT_FLAG_CANCEL )
         {
             message->bh.flags = MSG_FLAG_STOP;
             rest = 0;
@@ -1154,9 +1177,9 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
         message->bh.size = cbMessage;
         
         offset += rest;
-#ifdef GUI
+
         showProgress(offset, tp->file_size);
-#endif
+
         s = sendSChannelData(
                 (PUCHAR)message, 
                 (ULONG)message->bh.size, 
@@ -1186,56 +1209,42 @@ sending_finished:
 #ifdef DEBUG_PRINT
         logger.logInfo(loggerId, 0, "FT Data canceled\n");
 #endif
-#ifdef GUI
-    //const char* base_name = NULL;
-    //size_t base_name_ln = getBaseName(tp->path, tp->path_ln, &base_name);
-    //showSentFileInfo(
-    //    FT_INFO_LABEL_CANCELED,
-    //    NULL,
-    //    tp->file_size,
-    //    base_name,
-    //    base_name_ln,
-    //    nick,
-    //    true
-    //);
-#endif
     }
+
     // wait for a finished reply before cleaning the connection and exiting the thread
     // If not waited, cancel finishes quicker but other side receives corrupted data.
-    //else
-    {
 #ifdef DEBUG_PRINT
-        logger.logInfo(loggerId, 0, "FT Data sent, waiting for reply\n");
+    logger.logInfo(loggerId, 0, "FT Data sent, waiting for reply\n");
 #endif
-        ft_send_mtx.lock();
-        ft_send_obj.running = true;
-        ft_send_mtx.unlock();
-        s = receiveSChannelData(
-                ft_send_obj.Socket,
-                creds,
-                &ft_send_obj.Context,
-                &Sizes,
-                buffer,
-                buffer_size,
-                engine_type,
-                &ft_send_obj.running
-            );
-        if ( s != 0 )
+    // reset to running, if canceled
+    ft_send_mtx.lock();
+    ft_send_obj.running = true;
+    ft_send_mtx.unlock();
+
+    s = receiveSChannelData(
+            ft_send_obj.Socket,
+            creds,
+            &ft_send_obj.Context,
+            &Sizes,
+            buffer,
+            buffer_size,
+            engine_type,
+            &ft_send_obj.running
+        );
+    if ( s != 0 )
+    {
+        if ( s != SEC_I_CONTEXT_EXPIRED )
         {
-            if ( s != SEC_I_CONTEXT_EXPIRED )
-            {
-                logger.logError(loggerId, s, "receving ft finished answer\n");
-                s = SCHAT_ERROR_RECEIVE_MESSAGES;
-                goto clean;
-            }
+            logger.logError(loggerId, s, "receving ft finished answer\n");
+            s = SCHAT_ERROR_RECEIVE_MESSAGES;
+            goto clean;
         }
+    }
 #ifdef DEBUG_PRINT
     logger.logInfo(loggerId, 0, "FT Data received reply\n");
 #endif
-    }
 
 clean:
-#ifdef GUI
     if ( s == SCHAT_ERROR_SENDING_DATA )
     {
         const char* base_name = NULL;
@@ -1253,10 +1262,14 @@ clean:
         buffer[s] = 0;
         showInfoStatus((char*)buffer);
     }
+    else
+    {
+        showInfoStatus(SC_IS_FT_FINISHED);
+    }
 
     togglePBar(false);
     toggleFileBtn(FILE_TRANSFER_STATUS::STOPPED);
-#endif
+
     if ( file != NULL )
         fclose(file);
     if ( tp != NULL )
@@ -1265,6 +1278,7 @@ clean:
         HeapFree(GetProcessHeap(), 0, buffer);
     cleanFtSendConnection(&ft_send_obj.Socket, &ft_send_obj.Context, engine_type);
     ft_send_obj.thread_id = 0;
+    ft_send_obj.flags = 0;
     ft_send_obj.running = false;
 
     return 0;
@@ -1282,9 +1296,9 @@ int cleanFtSendConnection(
 #endif
     s = Disconnect(Socket, &hClientCreds, Context, Type);
     if ( s != 0 )
-        logger.logError(loggerId, s, "disconnecting ft from server\n");
+        logger.logError(loggerId, s, "disconnecting ft from server failed.\n");
     else
-        logger.logInfo(loggerId, 0, "Disconnecting ft connection successfully\n");
+        logger.logInfo(loggerId, 0, "Disconnected ft connection successfully.\n");
 
     initFTObject(&ft_send_obj);
 
@@ -1297,7 +1311,7 @@ int client_cancelFileTransfer()
     // ???
     
     ft_send_mtx.lock();
-    ft_send_obj.running = false;
+    ft_send_obj.flags |= FT_FLAG_CANCEL;
     ft_send_mtx.unlock();
 
     cancelFileReceive();
@@ -1308,9 +1322,6 @@ int client_cancelFileTransfer()
 int cleanClient()
 {
     int s = 0;
-    
-    //if ( !logInitialized )
-    //    initLog(REL_NAME);
     
     if ( wsaStarted  )
     {
@@ -1325,7 +1336,7 @@ int cleanClient()
             logger.logError(loggerId, s, "disconnecting from server failed\n");
         }
     
-        // closed in Disconnect for sure
+        // ConnectSocket is closed in Disconnect for sure
         //closeSocket(&ConnectSocket);
         closeSocket(&ListenSocket);
         closeSocket(&ft_send_obj.Socket);
@@ -1351,10 +1362,6 @@ int cleanClient()
     
     last_type = 0;
 
-//#ifdef GUI
-//    closeLog();
-//#endif
-
     return EXIT_SUCCESS;
 }
 
@@ -1374,7 +1381,7 @@ void initLog(const char* label)
     RtlZeroMemory(out_path, MAX_PATH);
     StringCchPrintfA(
         out_path, MAX_PATH, 
-        "%s\\%s-%02d.%02d.%04d-%02d.%02d.%02d.log", 
+        "%s\\%s-%02u.%02u.%04u-%02u.%02u.%02u.log", 
         d,
         label,
         sts.wDay, sts.wMonth, sts.wYear, sts.wHour, sts.wMinute, sts.wSecond);

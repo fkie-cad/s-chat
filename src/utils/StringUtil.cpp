@@ -145,7 +145,7 @@ bool StringUtil::getFormatedTime(char* buffer, size_t n, bool lineBreak, const c
 
     int s = sprintf_s(
         buffer, n,
-        "%s%02d.%02d.%04d %02d:%02d:%02d%s%s",
+        "%s%02u.%02u.%04u %02u:%02u:%02u%s%s",
         prefix,
         sts.wDay, sts.wMonth, sts.wYear, 
         sts.wHour, sts.wMinute, sts.wSecond,

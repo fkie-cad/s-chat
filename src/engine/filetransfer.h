@@ -13,7 +13,7 @@
 
 #define FT_INFO_LABEL_SENDING "sending"
 #define FT_INFO_LABEL_RECEIVED "received"
-#define FT_INFO_LABEL_CANCELED "cancelled"
+#define FT_INFO_LABEL_CANCELED "canceled"
 
 typedef struct _FILE_TRANSFER_DATA {
     char name[MAX_NAME_LN];
@@ -45,11 +45,15 @@ typedef struct _FT_SEND_THREAD_DATA {
     char path[1];
 } FT_SEND_THREAD_DATA, *PFT_SEND_THREAD_DATA;
 
+#define FT_FLAG_ACTIVE  (0x1)
+#define FT_FLAG_RUNNING (0x2)
+#define FT_FLAG_CANCEL  (0x4)
 typedef struct _FT_OBJECTS {
+    CtxtHandle Context; //
+    SOCKET Socket;
     HANDLE thread;
     ULONG thread_id;
-    SOCKET Socket;
-    CtxtHandle Context; //
+    UINT32 flags;
     BOOL running;
 } FT_OBJECTS, *PFT_OBJECTS,
 FT_SEND_OBJECTS, *PFT_SEND_OBJECTS,

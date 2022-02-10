@@ -1,3 +1,5 @@
+#include <strsafe.h>
+
 #include "../net/sock.h"
 #include "../schannel/sec.h"
 
@@ -168,12 +170,11 @@ int handleFTStatusMessage(
     PSCHAT_FILE_STATUS_HEADER message = (PSCHAT_FILE_STATUS_HEADER)data;
     
     // fills other name for sender side
-    strcpy_s(other_name, MAX_NAME_LN, message->name);
+    StringCchPrintfA(other_name, MAX_NAME_LN, message->name);
     other_name[MAX_NAME_LN-1] = 0;
 
     if ( message->bh.flags & MSG_FLAG_CANCEL )
     {
-#ifdef GUI
         showSentFileInfo(
             FT_INFO_LABEL_CANCELED,
             NULL,
@@ -183,7 +184,6 @@ int handleFTStatusMessage(
             message->name,
             false
         );
-#endif
         return SCHAT_ERROR_FT_NOT_ACCEPTED;
     }
     else if ( message->bh.flags & MSG_FLAG_ACCEPT )
@@ -201,13 +201,21 @@ int handleFileInfoMessage(
     _In_ INT type
 )
 {
-    if ( ft_recv_obj.thread_id != 0 )
+    FILE* file = NULL;
+    int s = 0;
+    size_t path_ln;
+    char* path = NULL;
+
+    mtx.lock();
+    if ( ft_send_obj.flags&FT_FLAG_ACTIVE || ft_recv_obj.flags&FT_FLAG_ACTIVE )
     {
+        mtx.unlock();
         return SCHAT_ERROR_MAX_FT;
     }
     initFTObject(&ft_recv_obj);
+    ft_recv_obj.flags |= FT_FLAG_ACTIVE;
+    mtx.unlock();
 
-    int s = 0;
 #ifdef DEBUG_PRINT_MESSAGE
     logger.logInfo(loggerId, 0, "MSG_TYPE_FILE_INFO:\n");
 #endif
@@ -224,29 +232,31 @@ int handleFileInfoMessage(
 
     if ( info->file_size == 0 )
     {
-        logger.logError(loggerId, s, "File size is 0.\n", SCHAT_ERROR_FILE_SIZE);
-        return SCHAT_ERROR_FILE_SIZE;
+        s = SCHAT_ERROR_FILE_SIZE;
+        logger.logError(loggerId, s, "File size is 0.\n");
+        goto clean;
     }
 
-    size_t path_ln = strlen(file_dir) + info->base_name_ln + 2; // separator and terminating 0
+    path_ln = strlen(file_dir) + info->base_name_ln + 2; // separator and terminating 0
     
-    mtx.lock();
     ftd = (PFILE_TRANSFER_DATA)malloc(sizeof(FILE_TRANSFER_DATA) + path_ln);
-    mtx.unlock();
+
     if ( ftd == NULL )
     {
-        logger.logError(loggerId, s, "malloc FILE_TRANSFER_DATA failed\n", GetLastError());
-        return SCHAT_ERROR_NO_MEMORY;
+        logger.logError(loggerId,  GetLastError(), "malloc FILE_TRANSFER_DATA failed\n");
+        s = SCHAT_ERROR_NO_MEMORY;
+        goto clean;
     }
 
     // construct path
-    char* path = ftd->path;
+    path = ftd->path;
     if ( path == NULL )
     {
-        logger.logError(loggerId, s, "malloc path failed\n", GetLastError());
-        return SCHAT_ERROR_NO_MEMORY;
+        logger.logError(loggerId, GetLastError(), "malloc path failed\n");
+        s = SCHAT_ERROR_NO_MEMORY;
+        goto clean;
     }
-    sprintf_s(path, path_ln, "%s\\%s", ((file_dir==NULL)?".":file_dir), info->base_name);
+    StringCchPrintfA(path, path_ln, "%s\\%s", ((file_dir==NULL)?".":file_dir), info->base_name);
     path[path_ln-1] = 0;
     ftd->path_ln = path_ln;
     strcpy_s(ftd->name, MAX_NAME_LN, info->name);
@@ -257,12 +267,12 @@ int handleFileInfoMessage(
 #endif
 
     // open FILE*
-    FILE* file = NULL;
     s = fopen_s(&file, path, "wb");
     if ( s != 0 )
     {
-        logger.logError(loggerId, s, "open transfer file failed\n", GetLastError());
-        return SCHAT_ERROR_OPEN_FILE;
+        logger.logError(loggerId, GetLastError(), "open transfer file failed\n");
+        s = SCHAT_ERROR_OPEN_FILE;
+        goto clean;
     }
 
     // fill transfer struct
@@ -277,7 +287,6 @@ int handleFileInfoMessage(
 #ifdef DEBUG_PRINT_MESSAGE
     logger.logInfo(loggerId, 0, "%s : base_name: %s, size: 0x%zx\n", info->name, info->base_name, info->file_size);
 #endif
-#ifdef GUI
 
     showSentFileInfo(
         FT_INFO_LABEL_SENDING,
@@ -288,21 +297,19 @@ int handleFileInfoMessage(
         info->name,
         false
     );
-#endif
     
     
-    mtx.lock();
     rtd = (PFT_RECEIVE_THREAD_DATA)malloc(sizeof(FT_RECEIVE_THREAD_DATA));
-    mtx.unlock();
     if ( rtd == NULL )
     {
-        logger.logError(loggerId, s, "malloc PFT_RECEIVE_THREAD_DATA failed\n", GetLastError());
+        logger.logError(loggerId, GetLastError(), "malloc PFT_RECEIVE_THREAD_DATA failed\n");
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
     ZeroMemory(rtd, sizeof(FT_RECEIVE_THREAD_DATA));
 
     // start receiving loop thread with the connected socket
+    ft_recv_obj.running = true;
     if ( ft_recv_obj.thread_id == 0 )
     {
         rtd->Sizes = pSizes;
@@ -311,27 +318,36 @@ int handleFileInfoMessage(
         rtd->ftd = ftd;
         rtd->name = nick;
 
-        mtx.lock();
         ft_recv_obj.thread = CreateThread(
                                 NULL,      // default security attributes
                                 0,         // use default stack size  
                                 recvFTDataThread,    // thread function name
                                 rtd,     // argument to thread function 
-                                0,        // use default creation flags 
+                                CREATE_SUSPENDED,        // use default creation flags 
                                 &ft_recv_obj.thread_id    // returns the thread identifier 
                             );
         if ( ft_recv_obj.thread == NULL )
         {
+            // cleaned up later
+            //free(rtd);
+            //rtd = NULL;
+
             s = GetLastError();
-            logger.logError(loggerId, s, "CreateThread ft receive failed\n", s);
-            mtx.unlock();
+            logger.logError(loggerId, s, "CreateThread ft receive failed\n");
             goto clean;
         }
-        mtx.unlock();
+
+        ft_recv_obj.flags |= FT_FLAG_RUNNING;
+        ResumeThread(ft_recv_obj.thread);
+        CloseHandle(ft_recv_obj.thread);
+        ft_recv_obj.thread = NULL;
     }
 
 clean:
-    ;
+    //if ( s != 0 )
+    //{
+    //    ft_recv_obj.flags = 0;
+    //};
 
     return s;
 }
@@ -352,8 +368,9 @@ int handleFileDataMessage(
 
     if ( ftd == NULL )
     {
-        logger.logError(loggerId, s, "FILE_TRANSFER_DATA not initialized\n", SCHAT_ERROR_OUT_OF_ORDER);
-        return SCHAT_ERROR_OUT_OF_ORDER;
+        s = SCHAT_ERROR_OUT_OF_ORDER;
+        logger.logError(loggerId, s, "FILE_TRANSFER_DATA not initialized\n");
+        return s;
     }
 
     PSCHAT_FILE_DATA_HEADER blob = (PSCHAT_FILE_DATA_HEADER)data;
@@ -362,20 +379,7 @@ int handleFileDataMessage(
     if ( block_size == 0 )
     {
         s = SCHAT_ERROR_FT_CANCELED;
-        logger.logError(loggerId, s, "Data message cancelled\n", s);
-#ifdef GUI
-    //const char* base_name = NULL;
-    //size_t base_name_ln = getBaseName(ftd->path, ftd->path_ln, &base_name);
-    //showSentFileInfo(
-    //    FT_INFO_LABEL_CANCELED,
-    //    NULL,
-    //    ftd->size,
-    //    base_name,
-    //    base_name_ln,
-    //    ftd->name,
-    //    true
-    //);
-#endif
+        logger.logError(loggerId, s, "Data message cancelled\n");
         goto clean;
     }
 
@@ -384,9 +388,7 @@ int handleFileDataMessage(
 #endif
 
     s = saveFile(ftd, blob->data, block_size);
-#ifdef GUI
     showProgress(ftd->written, ftd->size);
-#endif
 
 clean:
     // error or finished
@@ -416,11 +418,12 @@ clean:
     return s;
 }
 
-// Disconneting is the only option to tell the sender, that it's cancelled.
+// Disconneting is the only option to tell the sender, that it's canceled.
 // In case we don't want to send a received reply after each packet arrived.
 // Sender will clean, if error occurs.
 // Sending a cancelled msg would be nice, but the normal message socket would have to be used.
 // This runs on a different thread and may be in use causing trouble.
+// Creating another ft meta communication socket would be an option
 int cancelFileReceive()
 {
     
@@ -449,7 +452,6 @@ int cancelFileReceive()
     //    shutdown(rtd->Socket, SD_BOTH);
     //}
 
-#ifdef GUI
     const char* base_name = NULL;
     size_t base_name_ln = getBaseName(ftd->path, ftd->path_ln, &base_name);
     showSentFileInfo(
@@ -461,7 +463,6 @@ int cancelFileReceive()
         nick,
         true
     );
-#endif
     cleanFileReceive(false);
 
     return 0;
@@ -474,7 +475,7 @@ int cleanFileReceive(
     mtx.lock();
 
     // stop receiving loop in thread, if still running
-    ft_recv_obj.running = FALSE;
+    ft_recv_obj.running = false;
 
     if ( rtd )
     {
@@ -489,8 +490,8 @@ int cleanFileReceive(
             HeapFree(GetProcessHeap(), 0, rtd->pbIoBuffer);
 
         free(rtd);
+        rtd = NULL;
     }
-    rtd = NULL;
 
     if ( ftd != NULL )
     {
@@ -507,16 +508,16 @@ int cleanFileReceive(
     }
 
     // thread closes after handleMessage finishes and breaks out of receiveSChannelData
-#ifdef GUI
     togglePBar(FALSE);
     toggleFileBtn(FILE_TRANSFER_STATUS::STOPPED);
-#endif
     
     if ( ft_recv_obj.thread != NULL )
         CloseHandle(ft_recv_obj.thread);
     ft_recv_obj.thread = NULL;
     ft_recv_obj.thread_id = 0;
     
+    ft_recv_obj.flags = 0;
+
     mtx.unlock();
 
     return 0;

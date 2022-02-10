@@ -66,13 +66,13 @@ NTSTATUS cleanHashCtxt(PHashCtxt ctxt);
  * Using a FILE* to open the file.
  *
  * @param   path char* the input file path
- * @param   hash_bytes unsigned char* The input hash bytes
+ * @param   hash_bytes uint8_t* The input hash bytes
  * @param   hash_size DWORD Size of the hash_bytes.
  * @return  NTSTATUS the success state
  */
 NTSTATUS sha256File(
     const char* path, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size
 );
 
@@ -82,14 +82,14 @@ NTSTATUS sha256File(
  * Using a FILE* to open the file.
  *
  * @param   path char* the input file path
- * @param   hash_bytes unsigned char* The input hash bytes
+ * @param   hash_bytes uint8_t* The input hash bytes
  * @param   hash_size DWORD Size of the hash_bytes.
  * @return  ctxt PSha256Ctxt initialized Sha256Ctxt
  * @return  NTSTATUS the success state
  */
 NTSTATUS sha256FileC(
     const char* path, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size, 
     PSha256Ctxt ctxt
 );
@@ -99,14 +99,14 @@ NTSTATUS sha256FileC(
  *
  * @param   buffer uint8_t* the input buffer
  * @param   buffer_ln uint32_t size of buffer
- * @param   unsigned char* hash_bytes, 
+ * @param   uint8_t* hash_bytes, 
  * @param   hash_bytes_size DWORD Size of the hash_bytes.
  * @return  NTSTATUS the success state
  */
 NTSTATUS sha256Buffer(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size
 );
 
@@ -115,7 +115,7 @@ NTSTATUS sha256Buffer(
  *
  * @param   buffer uint8_t* the input buffer
  * @param   buffer_ln uint32_t size of buffer
- * @param   unsigned char* hash_bytes, 
+ * @param   uint8_t* hash_bytes, 
  * @param   hash_bytes_size DWORD Size of the hash_bytes.
  * @return  ctxt PSha256Ctxt initialized Sha256Ctxt
  * @return  NTSTATUS the success state
@@ -123,7 +123,7 @@ NTSTATUS sha256Buffer(
 NTSTATUS sha256BufferC(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size, 
     PSha256Ctxt ctxt
 );
@@ -133,13 +133,13 @@ NTSTATUS sha256BufferC(
  * Using a FILE* to open the file.
  *
  * @param   path char* the input file path
- * @param   hash_bytes unsigned char* The input hash bytes
+ * @param   hash_bytes uint8_t* The input hash bytes
  * @param   hash_size DWORD Size of the hash_bytes.
  * @return  NTSTATUS the success state
  */
 NTSTATUS sha1File(
     const char* path, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size
 );
 
@@ -149,14 +149,14 @@ NTSTATUS sha1File(
  * Using a FILE* to open the file.
  *
  * @param   path char* the input file path
- * @param   hash_bytes unsigned char* The input hash bytes
+ * @param   hash_bytes uint8_t* The input hash bytes
  * @param   hash_size DWORD Size of the hash_bytes.
  * @return  ctxt PSha1Ctxt initialized Sha1Ctxt
  * @return  NTSTATUS the success state
  */
 NTSTATUS sha1FileC(
     const char* path, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size, 
     PSha1Ctxt ctxt
 );
@@ -166,14 +166,14 @@ NTSTATUS sha1FileC(
  *
  * @param   buffer uint8_t* the input buffer
  * @param   buffer_ln uint32_t size of buffer
- * @param   unsigned char* hash_bytes, 
+ * @param   uint8_t* hash_bytes, 
  * @param   hash_bytes_size DWORD Size of the hash_bytes.
  * @return  NTSTATUS the success state
  */
 NTSTATUS sha1Buffer(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size
 );
 
@@ -182,7 +182,7 @@ NTSTATUS sha1Buffer(
  *
  * @param   buffer uint8_t* the input buffer
  * @param   buffer_ln uint32_t size of buffer
- * @param   unsigned char* hash_bytes, 
+ * @param   uint8_t* hash_bytes, 
  * @param   hash_bytes_size DWORD Size of the hash_bytes.
  * @return  ctxt PSha1Ctxt initialized Sha1Ctxt
  * @return  NTSTATUS the success state
@@ -190,7 +190,7 @@ NTSTATUS sha1Buffer(
 NTSTATUS sha1BufferC(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size, 
     PSha1Ctxt ctxt
 );
@@ -198,13 +198,13 @@ NTSTATUS sha1BufferC(
 /**
  * Convert hash bytes to ascii string.
  *
- * @param   hash unsigned char* The input hash bytes
+ * @param   hash uint8_t* The input hash bytes
  * @param   hash_size uint16_t Size of the hash_bytes.
  * @param   output char* The output hash string
  * @param   output_size uint16_t The outout buffer size. Should be at least hash_size*2 + 1.
  */
 void hashToString(
-    const unsigned char* hash, 
+    const uint8_t* hash, 
     uint16_t hash_size, 
     char* output, 
     uint16_t output_size
@@ -213,13 +213,13 @@ void hashToString(
 /**
  * Print the hash to stdout.
  *
- * @param   hash unsigned char* The input hash bytes
+ * @param   hash uint8_t* The input hash bytes
  * @param   hash_size uint16_t Size of the hash_bytes.
  * @param   prefix char* A Prefix.
  * @param   postfix char* A Postfix.
  */
 void printHash(
-    const unsigned char* hash, 
+    const uint8_t* hash, 
     uint16_t hash_size, 
     const char* prefix, 
     const char* postfix
@@ -231,13 +231,13 @@ void printHash(
  * Using a FILE* to open the file.
  *
  * @param   path char* the input file path
- * @param   hash_bytes unsigned char* The input hash bytes
+ * @param   hash_bytes uint8_t* The input hash bytes
  * @param   hash_size DWORD Size of the hash_bytes.
  * @return  NTSTATUS the success state
  */
 NTSTATUS md5File(
     const char* path, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size
 );
 
@@ -247,14 +247,14 @@ NTSTATUS md5File(
  * Using a FILE* to open the file.
  *
  * @param   path char* the input file path
- * @param   hash_bytes unsigned char* The input hash bytes
+ * @param   hash_bytes uint8_t* The input hash bytes
  * @param   hash_size DWORD Size of the hash_bytes.
  * @return  ctxt PMd5Ctxt initialized Sha256Ctxt
  * @return  NTSTATUS the success state
  */
 NTSTATUS md5FileC(
     const char* path, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size, 
     PMd5Ctxt ctxt
 );
@@ -264,14 +264,14 @@ NTSTATUS md5FileC(
  *
  * @param   buffer uint8_t* the input buffer
  * @param   buffer_ln uint32_t size of buffer
- * @param   unsigned char* hash_bytes, 
+ * @param   uint8_t* hash_bytes, 
  * @param   hash_bytes_size DWORD Size of the hash_bytes.
  * @return  NTSTATUS the success state
  */
 NTSTATUS md5Buffer(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size
 );
 
@@ -280,7 +280,7 @@ NTSTATUS md5Buffer(
  *
  * @param   buffer uint8_t* the input buffer
  * @param   buffer_ln uint32_t size of buffer
- * @param   unsigned char* hash_bytes, 
+ * @param   uint8_t* hash_bytes, 
  * @param   hash_bytes_size DWORD Size of the hash_bytes.
  * @return  ctxt PSha256Ctxt initialized Sha256Ctxt
  * @return  NTSTATUS the success state
@@ -288,7 +288,7 @@ NTSTATUS md5Buffer(
 NTSTATUS md5BufferC(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size, 
     PMd5Ctxt ctxt
 );

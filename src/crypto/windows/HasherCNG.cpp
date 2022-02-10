@@ -58,7 +58,7 @@ clean:
     return status;
 }
 
-NTSTATUS hashFileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PHashCtxt ctxt)
+NTSTATUS hashFileC(const char* path, uint8_t* hash_bytes, uint16_t hash_bytes_size, PHashCtxt ctxt)
 {
     NTSTATUS status = STATUS_UNSUCCESSFUL;
     FILE* fp = NULL;
@@ -150,7 +150,7 @@ clean:
 NTSTATUS hashBufferC(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size, 
     PHashCtxt ctxt
 )
@@ -195,7 +195,7 @@ clean:
 }
 
 
-NTSTATUS sha256File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
+NTSTATUS sha256File(const char* path, uint8_t* hash_bytes, uint16_t hash_bytes_size)
 {
     Sha256Ctxt ctxt;
     NTSTATUS status = 0;
@@ -214,7 +214,7 @@ clean:
     return status;
 }
 
-NTSTATUS sha256FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PSha256Ctxt ctxt)
+NTSTATUS sha256FileC(const char* path, uint8_t* hash_bytes, uint16_t hash_bytes_size, PSha256Ctxt ctxt)
 {
     return hashFileC(path, hash_bytes, hash_bytes_size, ctxt);
 }
@@ -222,7 +222,7 @@ NTSTATUS sha256FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_
 NTSTATUS sha256Buffer(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size
 )
 {
@@ -246,7 +246,7 @@ clean:
 NTSTATUS sha256BufferC(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size, 
     PSha256Ctxt ctxt
 )
@@ -254,7 +254,7 @@ NTSTATUS sha256BufferC(
     return hashBufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, ctxt);
 }
 
-NTSTATUS sha1File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
+NTSTATUS sha1File(const char* path, uint8_t* hash_bytes, uint16_t hash_bytes_size)
 {
     Sha1Ctxt ctxt;
     NTSTATUS status = 0;
@@ -273,7 +273,7 @@ clean:
     return status;
 }
 
-NTSTATUS sha1FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PSha1Ctxt ctxt)
+NTSTATUS sha1FileC(const char* path, uint8_t* hash_bytes, uint16_t hash_bytes_size, PSha1Ctxt ctxt)
 {
     return hashFileC(path, hash_bytes, hash_bytes_size, ctxt);
 }
@@ -281,7 +281,7 @@ NTSTATUS sha1FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_by
 NTSTATUS sha1Buffer(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size
 )
 {
@@ -305,7 +305,7 @@ clean:
 NTSTATUS sha1BufferC(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size, 
     PSha1Ctxt ctxt
 )
@@ -313,7 +313,7 @@ NTSTATUS sha1BufferC(
     return hashBufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, ctxt);
 }
 
-NTSTATUS md5File(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size)
+NTSTATUS md5File(const char* path, uint8_t* hash_bytes, uint16_t hash_bytes_size)
 {
     Md5Ctxt ctxt;
     NTSTATUS status = 0;
@@ -332,7 +332,7 @@ clean:
     return status;
 }
 
-NTSTATUS md5FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_bytes_size, PMd5Ctxt ctxt)
+NTSTATUS md5FileC(const char* path, uint8_t* hash_bytes, uint16_t hash_bytes_size, PMd5Ctxt ctxt)
 {
     return hashFileC(path, hash_bytes, hash_bytes_size, ctxt);
 }
@@ -340,7 +340,7 @@ NTSTATUS md5FileC(const char* path, unsigned char* hash_bytes, uint16_t hash_byt
 NTSTATUS md5Buffer(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size
 )
 {
@@ -364,7 +364,7 @@ clean:
 NTSTATUS md5BufferC(
     uint8_t* buffer, 
     uint32_t buffer_ln, 
-    unsigned char* hash_bytes, 
+    uint8_t* hash_bytes, 
     uint16_t hash_bytes_size, 
     PMd5Ctxt ctxt
 )
@@ -372,7 +372,7 @@ NTSTATUS md5BufferC(
     return hashBufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, ctxt);
 }
 
-void hashToString(const unsigned char* hash, uint16_t hash_size, char* output, uint16_t output_size)
+void hashToString(const uint8_t* hash, uint16_t hash_size, char* output, uint16_t output_size)
 {
     uint16_t i = 0;
 
@@ -384,7 +384,7 @@ void hashToString(const unsigned char* hash, uint16_t hash_size, char* output, u
     output[output_size-1] = 0;
 }
 
-void printHash(const unsigned char* hash, uint16_t hash_size, const char* prefix, const char* postfix)
+void printHash(const uint8_t* hash, uint16_t hash_size, const char* prefix, const char* postfix)
 {
     uint16_t i = 0;
 

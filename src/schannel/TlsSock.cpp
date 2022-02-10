@@ -4,7 +4,6 @@
 
 #include "../dbg.h"
 #include "connection.h"
-#include "../crypto/windows/HasherCNG.h"
 
 
 
@@ -15,7 +14,7 @@ int acceptTLSSocket(
     _In_ PCredHandle Creds,
     _In_ PBYTE pbIoBuffer,
     _In_ ULONG cbIoBuffer,
-    _Out_ uint8_t* CertHash,
+    _Out_writes_(SHA1_BYTES_LN) uint8_t* CertHash,
     _Out_ SOCKADDR_STORAGE* addr,
     _Out_ socklen_t* addr_ln
 )
@@ -151,7 +150,7 @@ int connectTLSSocket(
     _Out_ SOCKET* Socket,
     _Out_ PCtxtHandle Context,
     _In_ PCredHandle Creds,
-    _Out_ uint8_t* CertHash
+    _Out_writes_(SHA1_BYTES_LN) uint8_t* CertHash
 )
 {
     int s = 0;
@@ -163,6 +162,8 @@ int connectTLSSocket(
 #ifdef DEBUG_PRINT
     logger.logInfo(loggerId, 0, "connectTLSSocket()\n");
 #endif
+
+    RtlZeroMemory(CertHash, SHA1_BYTES_LN);
 
     s = initConnection(&addr_info, family, ip, port, Socket, AI_NUMERICHOST);
     if ( s != 0 )
@@ -272,7 +273,7 @@ clean:
 
 int hashCert(
     _In_ PCCERT_CONTEXT cert, 
-    _Out_ uint8_t* bytes
+    _Out_writes_(SHA1_BYTES_LN) uint8_t* bytes
 )
 {
     int s;

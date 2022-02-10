@@ -46,7 +46,11 @@
 #define DEFAULT_PORT ""
 
 #define MSG_CMD_FILE "\\file "
-#define MSG_CMD_FILE_LN (strlen(MSG_CMD_FILE))
+#define MSG_CMD_FILE_LN (6)
+
+
+#define MSG_OPT_TH (0.95)
+#define MSG_OPT_CLR (0.2)
 
 
 
@@ -124,7 +128,7 @@ static CHAR err_msg[ERROR_MESSAGE_SIZE];
 
 static CONNECTION_STATUS ConnectionStatus = CONNECTION_STATUS::STOPPED;
 static FILE_TRANSFER_STATUS FileTransferStatus = FILE_TRANSFER_STATUS::STOPPED;
-std::mutex cstmtx;
+static std::mutex cstmtx;
 static ULONG ConnectionThreadId = 0;
 static HANDLE ConnectionThread = NULL;
 
@@ -178,7 +182,7 @@ RECT MessageIptRect;
 RECT StatusOptRect;
 RECT InfoStatusOptRect;
 
-int rows_y[] = { 10, 30, 50, 70, 100, 130, 370, 400, 430 };
+int rows_y[] = { 10, 50, 70, 100 };
 
 size_t loggerId = 0;
 Logger logger;
@@ -509,7 +513,7 @@ int initLogger()
     else
     {
         dynamicLogPath = true;
-        StringCchPrintfA(logPath, logPathSize, "%s\\%s-%04d.%02d.%02d-%02d.%02d.%02d.%03d.log", 
+        StringCchPrintfA(logPath, logPathSize, "%s\\%s-%04u.%02u.%02u-%02u.%02u.%02u.%03u.log", 
             PreferencesData.LogDir, 
             REL_NAME,
             sts.wYear, sts.wMonth, sts.wDay, 
@@ -969,6 +973,7 @@ INT_PTR CALLBACK FTAcceptDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
     return FileTransferDlg.openCb(hDlg, message, wParam, lParam);
 }
 
+#include <shellapi.h>
 LRESULT CALLBACK MesageIptSC(HWND hWnd, UINT msg, WPARAM wParam,
                                LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
@@ -985,14 +990,23 @@ LRESULT CALLBACK MesageIptSC(HWND hWnd, UINT msg, WPARAM wParam,
             }
 
         //case WM_DROPFILES:
-        //    showInfoStatus("File dropped");
-        //    //CHAR buffer[MAX_PATH];
-        //    //UINT s = DragQueryFileA(wParam, 0, buffer, MAX_PATH-1);
+        //{
+        //    CHAR buffer[MAX_PATH + MSG_CMD_FILE_LN];
+        //    StringCchPrintfA(buffer, MSG_CMD_FILE_LN+1, "%s", MSG_CMD_FILE); // +1 for '0' termination
+        //    UINT s = DragQueryFileA((HDROP)wParam, 0, &buffer[MSG_CMD_FILE_LN], MAX_PATH-1);
+        //    if ( s )
+        //    {
+        //        buffer[MAX_PATH + MSG_CMD_FILE_LN - 1] = 0;
+        //        SetWindowTextA(hWnd, buffer);
+        //    }
+        //    DragFinish((HDROP)wParam);
         //    break;
+        //}
 
        default:
            result = DefSubclassProc(hWnd, msg, wParam, lParam);
     } 
+
     return result;
 }
 
@@ -1008,12 +1022,33 @@ LRESULT onCreate(HWND hWnd)
     int msg_box_w = 600;
     int msg_box_h = 230;
 
+    ListenBtn = CreateWindowExA(
+        0,
+        WC_BUTTONA,
+        SC_BL_LISTEN_BTN_ON,
+        WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
+        PARENT_PADDING, rows_y[0], BTN_W, BTN_H,
+        hWnd, (HMENU)WND_LISTEN_BTN_IDX, NULL, NULL
+    );
+    //ToolTip::forChild(ListenBtn, hWnd, "Start listening.");
+
+    ConnectBtn = CreateWindowExA(
+        0,
+        WC_BUTTONA,
+        SC_BL_CONNECT_BTN_ON,
+        WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
+        PARENT_PADDING + IPT_MARGIN + BTN_W, rows_y[0], BTN_W, BTN_H,
+        hWnd, (HMENU)WND_CONNECT_BTN_IDX, NULL, NULL
+    );
+    //ToolTip::forChild(ConnectBtn, hWnd, "Connect to a listening server.");
+
     MessageIptRect.left = PARENT_PADDING;
-    MessageIptRect.top = rows_y[3];
+    MessageIptRect.top = rows_y[2];
     MessageIptRect.right = DEFAULT_WINDOW_WIDTH - PARENT_PADDING*2 - BTN_W*2 - IPT_MARGIN*2;
     MessageIptRect.bottom = IPT_H;
     MessageIpt = CreateWindowExA(
-        0, //WS_EX_ACCEPTFILES, // WS_EX_CLIENTEDGE
+        0, // WS_EX_CLIENTEDGE
+        //WS_EX_ACCEPTFILES,
         WC_EDITA, 
         (pmsg)?pmsg:"", 
         WS_BORDER | WS_CHILD | WS_VISIBLE  | ES_AUTOHSCROLL | ES_MULTILINE,
@@ -1029,21 +1064,22 @@ LRESULT onCreate(HWND hWnd)
         WC_BUTTONA,
         "Send",
         WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
-        MessageIptRect.left + MessageIptRect.right + IPT_MARGIN, rows_y[3], BTN_W, BTN_H,
+        MessageIptRect.left + MessageIptRect.right + IPT_MARGIN, rows_y[2], BTN_W, BTN_H,
         hWnd, (HMENU)WND_SEND_BTN_IDX, NULL, NULL
     );
     ToolTip::forChild(SendBtn, hWnd, "Send message.");
 
     SelFileBtn = CreateWindowA(
         WC_BUTTONA,
-        SC_SS_FILE_BTN_SELECT,
+        SC_BL_FILE_BTN_SELECT,
         WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
-        file_btn_x, rows_y[3], BTN_W, BTN_H,
+        file_btn_x, rows_y[2], BTN_W, BTN_H,
         hWnd, (HMENU)WND_FILE_BTN_IDX, NULL, NULL
     );
     ToolTip::forChild(SelFileBtn, hWnd, "Select a file to send.");
+
     MessageOptRect.left = PARENT_PADDING;
-    MessageOptRect.top = rows_y[4];
+    MessageOptRect.top = rows_y[3];
     MessageOptRect.right = msg_box_w;
     MessageOptRect.bottom = msg_box_h;
     MessageOpt = CreateWindowExA(
@@ -1063,32 +1099,12 @@ LRESULT onCreate(HWND hWnd)
     //    MessageOptRect.left, MessageOptRect.top, MessageOptRect.right, MessageOptRect.bottom,
     //    hWnd, (HMENU)WND_MESSAGE_OPT_IDX, NULL, NULL);
 
-    ListenBtn = CreateWindowExA(
-        0,
-        WC_BUTTONA,
-        "Listen",
-        WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
-        PARENT_PADDING, rows_y[0], BTN_W, BTN_H,
-        hWnd, (HMENU)WND_LISTEN_BTN_IDX, NULL, NULL
-    );
-    //ToolTip::forChild(ListenBtn, hWnd, "Start listening.");
-
-    ConnectBtn = CreateWindowExA(
-        0,
-        WC_BUTTONA,
-        "Connect",
-        WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP,
-        PARENT_PADDING + IPT_MARGIN + BTN_W, rows_y[0], BTN_W, BTN_H,
-        hWnd, (HMENU)WND_CONNECT_BTN_IDX, NULL, NULL
-    );
-    //ToolTip::forChild(ConnectBtn, hWnd, "Connect to a listening server.");
-
     FilePBar = CreateWindowExA(
                 0, 
                 PROGRESS_CLASS, 
                 (LPTSTR) NULL, 
                 WS_CHILD | WS_VISIBLE, 
-                file_btn_x, rows_y[4], DEFAULT_PROG_BAR_W, DEFAULT_PROG_BAR_H,
+                file_btn_x, rows_y[3], DEFAULT_PROG_BAR_W, DEFAULT_PROG_BAR_H,
                 hWnd, 
                 (HMENU)WND_FILE_PROGRESS_IDX, 
                 GetModuleHandle(NULL), 
@@ -1162,7 +1178,7 @@ LRESULT onPaint(HWND hWnd)
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hWnd, &ps);
 
-    TextOutA(hdc, lbl_x, rows_y[2], message_lbl, (int)strlen(message_lbl));
+    TextOutA(hdc, lbl_x, rows_y[1], message_lbl, (int)strlen(message_lbl));
 
     EndPaint(hWnd, &ps);
     
@@ -1254,9 +1270,6 @@ LRESULT onConnect(HWND hWnd)
         return 0;
     }
     
-    //client_setLogDir(PreferencesData.LogDir);
-    //initLog("client");
-
     if ( ConnectionStatus == CONNECTION_STATUS::STOPPED )
     {
         if ( ConnectionThread != NULL )
@@ -1286,7 +1299,7 @@ LRESULT onConnect(HWND hWnd)
         
         disableConnectedControls(ListenBtn);
         changeIcon(CONNECTION_STATUS::CONNECTED);
-        SetWindowTextA(ConnectBtn, "Stop");
+        SetWindowTextA(ConnectBtn, SC_BL_CONNECT_BTN_OFF);
 
         cstmtx.lock();
         ConnectionStatus = CONNECTION_STATUS::CONNECTED;
@@ -1298,7 +1311,7 @@ LRESULT onConnect(HWND hWnd)
     }
     else if ( ConnectionStatus == CONNECTION_STATUS::CONNECTED )
     {
-        stopConnection(hWnd, "Disconnected", ConnectBtn, "Connect", ListenBtn);
+        stopConnection(hWnd, SC_CS_DISCONNECTED, ConnectBtn, SC_BL_CONNECT_BTN_ON, ListenBtn);
     }
 
 clean:
@@ -1341,7 +1354,7 @@ LRESULT onListen(HWND hWnd)
         result = initServer(ConnectionData.ip, ConnectionData.port, ConnectionData.family, ConnectionData.CertThumb);
         if ( result != 0 )
         {
-            sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Listening failed: 0x%X", (INT)result);
+            sprintf_s(err_msg, ERROR_MESSAGE_SIZE, SC_ES_LISTENING_FAILED_X, (INT)result);
             showInfoStatus(err_msg);
             goto clean;
         }
@@ -1357,13 +1370,13 @@ LRESULT onListen(HWND hWnd)
         if ( ConnectionThread == NULL )
         {
             showInfoStatus("Creating listen thread failed!");
-            stopConnection(hWnd, "Deaf", ListenBtn, "Listen", ConnectBtn);
+            stopConnection(hWnd, SC_CS_DEAF, ListenBtn, SC_BL_LISTEN_BTN_ON, ConnectBtn);
             goto clean;
         }
         
         disableConnectedControls(ConnectBtn);
-        SetWindowTextA(ListenBtn, "Stop");
-        sprintf_s(buffer, 0x50, "Listening on %s", ConnectionData.port);
+        SetWindowTextA(ListenBtn, SC_BL_LISTEN_BTN_OFF);
+        StringCchPrintfA(buffer, 0x50, "Listening on %s", ConnectionData.port);
         showConnStatus(buffer);
         changeIcon(CONNECTION_STATUS::LISTENING);
         
@@ -1377,7 +1390,7 @@ LRESULT onListen(HWND hWnd)
     }
     else if ( ConnectionStatus == CONNECTION_STATUS::LISTENING )
     {
-        stopConnection(hWnd, "Deaf", ListenBtn, "Listen", ConnectBtn);
+        stopConnection(hWnd, SC_CS_DEAF, ListenBtn, SC_BL_LISTEN_BTN_ON, ConnectBtn);
     }
 
 clean:
@@ -1416,12 +1429,12 @@ LRESULT sendMessage(PCHAR msg, ULONG msg_len)
 {
     INT r = 0;
 
-    showInfoStatus("Sending...");
+    showInfoStatus(SC_IS_SENDING);
 
     r = client_sendMessage(msg, msg_len);
     if ( r == SCHAT_ERROR_INVALID_SOCKET )
     {
-        sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Not connected yet!");
+        sprintf_s(err_msg, ERROR_MESSAGE_SIZE, SC_ES_CONNECTED);
         showInfoStatus(err_msg);
     }
     else if ( r != 0 )
@@ -1442,11 +1455,11 @@ LRESULT sendFile(PCHAR msg, ULONG msg_len)
 {
     LRESULT r = 0;
 
-    showInfoStatus("Sending...");
+    showInfoStatus(SC_IS_SENDING);
 
     if ( msg_len <= MSG_CMD_FILE_LN+1 )
     {
-        showInfoStatus("Path too short!");
+        showInfoStatus(SC_ES_PATH_TOO_SHORT);
         return -1;
     }
 
@@ -1455,19 +1468,19 @@ LRESULT sendFile(PCHAR msg, ULONG msg_len)
     
     if ( path_len < 2 )
     {
-        showInfoStatus("Path too short!");
+        showInfoStatus(SC_ES_PATH_TOO_SHORT);
         return -1;
     }
 
     r = client_sendFile(path, path_len, ConnectionData.ip, ConnectionData.port, ConnectionData.family);
     if ( (ULONG)r == SCHAT_ERROR_INVALID_SOCKET )
     {
-        sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Not connected yet!");
+        sprintf_s(err_msg, ERROR_MESSAGE_SIZE, SC_ES_CONNECTED);
         showInfoStatus(err_msg);
     }
     else if ( (ULONG)r != 0 )
     {
-        sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Send file error : 0x%X", (ULONG)r);
+        sprintf_s(err_msg, ERROR_MESSAGE_SIZE, SC_ES_SENDING_FILE_FAILED_X, (ULONG)r);
         showInfoStatus(err_msg);
     }
     else
@@ -1488,11 +1501,11 @@ VOID toggleFileBtn(FILE_TRANSFER_STATUS state)
     switch ( state )
     {
         case FILE_TRANSFER_STATUS::ACTIVE:
-            SetWindowTextA(SelFileBtn, SC_SS_FILE_BTN_CANCEL);
+            SetWindowTextA(SelFileBtn, SC_BL_FILE_BTN_CANCEL);
 			break;
 
         case FILE_TRANSFER_STATUS::STOPPED:
-            SetWindowTextA(SelFileBtn, SC_SS_FILE_BTN_SELECT);
+            SetWindowTextA(SelFileBtn, SC_BL_FILE_BTN_SELECT);
 			break;
 
         default:
@@ -1520,15 +1533,15 @@ DWORD WINAPI ReceiveThreadFn(LPVOID lpParam)
     uint32_t len = 0x1;
     
     // connect
-    showConnStatus(SC_SS_CONNECTING);
+    showConnStatus(SC_CS_CONNECTING);
     s = initClient(ConnectionData.ip, ConnectionData.port, ConnectionData.family, ConnectionData.CertThumb);
     if ( s != 0 )
     {
-        sprintf_s(err_msg, ERROR_MESSAGE_SIZE, "Connecting failed: 0x%X", s);
+        sprintf_s(err_msg, ERROR_MESSAGE_SIZE, SC_ES_CONNECTING_FAILED_X, s);
         showInfoStatus(err_msg);
         goto clean;
     }
-    showConnStatus(SC_SS_CONNECTED);
+    showConnStatus(SC_CS_CONNECTED);
 
     s = receiveMessages(
         msg, 
@@ -1538,7 +1551,7 @@ DWORD WINAPI ReceiveThreadFn(LPVOID lpParam)
     );
 
 clean:
-    stopConnection(hWnd, "Disconnected", ConnectBtn, "Connect", ListenBtn);
+    stopConnection(hWnd, SC_CS_DISCONNECTED, ConnectBtn, SC_BL_CONNECT_BTN_ON, ListenBtn);
 
     return s;
 }
@@ -1556,7 +1569,7 @@ DWORD WINAPI ListenThread(LPVOID lpParam)
         len
     );
     
-    stopConnection(hWnd, "Deaf", ListenBtn, "Listen", ConnectBtn);
+    stopConnection(hWnd, SC_CS_DEAF, ListenBtn, SC_BL_LISTEN_BTN_ON, ConnectBtn);
 
     return s;
 }
@@ -1565,11 +1578,13 @@ VOID stopConnection(HWND hWnd, const char* msg, HWND btn, const char* btnText, H
 {
     UNREFERENCED_PARAMETER(hWnd);
     
+    cstmtx.lock();
     if ( ConnectionStatus == CONNECTION_STATUS::STOPPED || 
          ConnectionStatus == CONNECTION_STATUS::STOPPING )
+    {
+        cstmtx.unlock();
         return;
-
-    cstmtx.lock();
+    }
     ConnectionStatus = CONNECTION_STATUS::STOPPING;
     cstmtx.unlock();
 
@@ -1591,17 +1606,17 @@ VOID stopConnection(HWND hWnd, const char* msg, HWND btn, const char* btnText, H
 
 VOID stopNetworking()
 {
+    cstmtx.lock();
     if ( ConnectionStatus == CONNECTION_STATUS::STOPPED || 
          ConnectionStatus == CONNECTION_STATUS::STOPPING )
+    {
+        cstmtx.unlock();
         return;
-
-    cstmtx.lock();
+    }
     ConnectionStatus = CONNECTION_STATUS::STOPPING;
     cstmtx.unlock();
 
-    showConnStatus("Stopping...");
     cleanClient();
-    showConnStatus("Stopped");
     
     cstmtx.lock();
     ConnectionStatus = CONNECTION_STATUS::STOPPED;
@@ -1659,9 +1674,15 @@ VOID sayHello()
 
     char hello[GUI_HELLO_MSG_LN];
     int o = 0;
-    o += sprintf_s(hello, GUI_HELLO_MSG_LN, "%s\r\n", REL_NAME);
-    o += sprintf_s(&hello[o], GUI_HELLO_MSG_LN - o, "Version: %s - %s\r\n", REL_VS, REL_DATE);
-    o += sprintf_s(&hello[o], GUI_HELLO_MSG_LN - o, "Compiled: %s -- %s\r\n\r\n", COMPILE_DATE, COMPILE_TIME);
+    o += sprintf_s(
+        hello, GUI_HELLO_MSG_LN, 
+        "%s\r\n"
+        "Version: %s - %s\r\n"
+        "Compiled: %s -- %s\r\n\r\n", 
+        REL_NAME, 
+        REL_VS, REL_DATE, 
+        COMPILE_DATE, COMPILE_TIME
+    );
 
     SetWindowTextA(MessageOpt, hello);
 }

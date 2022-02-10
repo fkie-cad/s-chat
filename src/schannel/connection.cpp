@@ -51,6 +51,9 @@ CreateCredentials(
     SECURITY_STATUS Status = SEC_E_OK;
     PCCERT_CONTEXT pCertContext = NULL;
     SCH_CREDENTIALS SchCreds;
+    
+    phCreds->dwLower = 0;
+    phCreds->dwUpper = 0;
 
     if ( certId == NULL )
     {
@@ -276,6 +279,8 @@ ClientHandshakeLoop(
     PUCHAR IoBuffer;
     DWORD cbIoBuffer;
     BOOL fDoRead;
+
+    RtlZeroMemory(pExtraData, sizeof(*pExtraData));
 
 
     dwSSPIFlags = ISC_REQ_SEQUENCE_DETECT   |
@@ -1066,7 +1071,7 @@ SECURITY_STATUS sendSChannelData(
         logger.logError(loggerId, scRet, "Sending data to server (3)\n");
         if ( scRet == WSAEWOULDBLOCK || scRet == 0 )
         {
-            logger.logInfo(loggerId, 0, " retry\n");
+            logger.logInfo(loggerId, 0, " retry sending\n");
             Sleep(SEND_LOOP_SLEEP);
             return sendSChannelData(
                         pbMessage,
@@ -1146,6 +1151,7 @@ receiveSChannelData(
             if ( cbData == SOCKET_ERROR )
             {
                 cbData = WSAGetLastError();
+                // get unblocking message polling some rest
                 if ( cbData == WSAEWOULDBLOCK )
                 {
                     Sleep(RECEIVE_LOOP_SLEEP);
@@ -1569,10 +1575,10 @@ cleanup:
 }
 
 void SChannel_clean(
-    _Out_ PCtxtHandle Context,
-    _Out_ PCredHandle ClientCreds,
-    _Out_ PCredHandle ServerCreds,
-    _Out_ HCERTSTORE* CertStore
+    _Inout_ PCtxtHandle Context,
+    _Inout_ PCredHandle ClientCreds,
+    _Inout_ PCredHandle ServerCreds,
+    _Inout_ HCERTSTORE* CertStore
 )
 {
     deleteSecurityContext(Context);
@@ -1589,7 +1595,7 @@ void SChannel_clean(
 }
 
 void deleteCreds(
-    _Out_ PCredHandle Creds
+    _Inout_ PCredHandle Creds
 )
 {
     if ( Creds && Creds->dwLower != 0 && Creds->dwUpper != 0 )
@@ -1601,7 +1607,7 @@ void deleteCreds(
 }
 
 void deleteSecurityContext(
-    _Out_ CtxtHandle *phContext
+    _Inout_ CtxtHandle *phContext
 )
 {
     if ( phContext != NULL && phContext->dwLower != 0 && phContext->dwUpper != 0 )
