@@ -45,7 +45,7 @@ int acceptTLSSocket(
     if ( *CSocket == INVALID_SOCKET )
     {
         s = getLastSError();
-        logger.logError(loggerId, s, " - accept failed with error: 0x%x\n");
+        logger.logError(loggerId, s, " - accept failed.\n");
         return SCHAT_ERROR_INVALID_SOCKET;
     }
     GetLocalTime(&sts);
@@ -168,7 +168,7 @@ int connectTLSSocket(
     s = initConnection(&addr_info, family, ip, port, Socket, AI_NUMERICHOST);
     if ( s != 0 )
     {
-        logger.logError(loggerId, s, "initConnection failed with error: 0x%x\n");
+        logger.logError(loggerId, s, "initConnection failed.\n");
         s = SCHAT_ERROR_INIT_CONNECTION;
         goto clean;
     }
@@ -177,7 +177,7 @@ int connectTLSSocket(
     if ( s != 0 )
     {
         s = getLastSError();
-        logger.logError(loggerId, s, "connectSock failed with error: 0x%x\n");
+        logger.logError(loggerId, s, "connectSock failed with error.\n");
         s = SCHAT_ERROR_CONNECT;
         goto clean;
     }

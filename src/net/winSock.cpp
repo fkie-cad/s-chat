@@ -73,7 +73,7 @@ int deblockSocket(SOCKET sock)
     int s = ioctlsocket(sock, FIONBIO, &mode);
     if ( s == SOCKET_ERROR )
     {
-        logger.logError(loggerId, s, "ioctlsocket failed.\n", getLastSError());
+        logger.logError(loggerId, getLastSError(), "ioctlsocket failed.\n");
     }
 
     return s;

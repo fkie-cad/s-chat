@@ -48,6 +48,9 @@
 #define MSG_CMD_FILE "\\file "
 #define MSG_CMD_FILE_LN (6)
 
+#define MSG_CMD_CLEAR "\\cls "
+#define MSG_CMD_CLEAR_LN (5)
+
 
 #define MSG_OPT_TH (0.95)
 #define MSG_OPT_CLR (0.2)

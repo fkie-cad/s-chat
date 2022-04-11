@@ -80,10 +80,10 @@ void sendReceivedFileInfo(
         int s = sha256File(path, hash, SHA256_BYTES_LN);
         if ( s != 0 )
         {
+#ifdef ERROR_PRINT
             logger.logError(loggerId, s, "Calculating hash failed!\n");
-    #ifdef GUI
+#endif
             showInfoStatus("ERROR: Calculating hash failed!\n");
-    #endif
             return;
         }
         hashToString(hash, SHA256_BYTES_LN, sHash, SHA256_STRING_BUFFER_LN);
@@ -123,7 +123,9 @@ void sendReceivedFileInfo(
     );
     if ( n != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, n, "error sending data\n");
+#endif
         //showInfoStatus("error sending data");
     }
 }
@@ -183,7 +185,9 @@ int sendAcceptedFileInfo(
         );
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "error sending data\n");
+#endif
         //showInfoStatus("error sending data");
     }
 
@@ -202,7 +206,9 @@ int saveFile(
     if ( bWritten != buffer_ln )
     {
         s = SCHAT_ERROR_WRITE_FILE;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "writing file failed\n");
+#endif
         return s;
     }
     ftd->written += bWritten;
@@ -238,7 +244,9 @@ ULONG WINAPI recvFTDataThread(
     s = allocateBuffer(rtd->Sizes, &rtd->pbIoBuffer, &rtd->cbIoBuffer);
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "allocate send file buffer failed!\n");
+#endif
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
@@ -291,7 +299,9 @@ ULONG WINAPI recvFTDataThread(
     if ( memcmp(other_cert_hash, other_ft_cert_hash, SHA256_BYTES_LN) != 0 )
     {
         s = SCHAT_ERROR_FT_CERT_MISSMATCH;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "SCHAT_ERROR_FT_CERT_MISSMATCH\n");
+#endif
         goto clean;
     }
 
@@ -385,7 +395,9 @@ int disconnectFTRecvSocket(
     }
     else
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "Disconnecting from server\n");
+#endif
     }
     
     // Free SSPI context handle.

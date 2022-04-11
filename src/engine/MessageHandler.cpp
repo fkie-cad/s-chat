@@ -233,7 +233,9 @@ int handleFileInfoMessage(
     if ( info->file_size == 0 )
     {
         s = SCHAT_ERROR_FILE_SIZE;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "File size is 0.\n");
+#endif
         goto clean;
     }
 
@@ -243,7 +245,9 @@ int handleFileInfoMessage(
 
     if ( ftd == NULL )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId,  GetLastError(), "malloc FILE_TRANSFER_DATA failed\n");
+#endif
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
@@ -252,7 +256,9 @@ int handleFileInfoMessage(
     path = ftd->path;
     if ( path == NULL )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, GetLastError(), "malloc path failed\n");
+#endif
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
@@ -270,7 +276,9 @@ int handleFileInfoMessage(
     s = fopen_s(&file, path, "wb");
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, GetLastError(), "open transfer file failed\n");
+#endif
         s = SCHAT_ERROR_OPEN_FILE;
         goto clean;
     }
@@ -302,7 +310,9 @@ int handleFileInfoMessage(
     rtd = (PFT_RECEIVE_THREAD_DATA)malloc(sizeof(FT_RECEIVE_THREAD_DATA));
     if ( rtd == NULL )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, GetLastError(), "malloc PFT_RECEIVE_THREAD_DATA failed\n");
+#endif
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
@@ -333,7 +343,9 @@ int handleFileInfoMessage(
             //rtd = NULL;
 
             s = GetLastError();
+#ifdef ERROR_PRINT
             logger.logError(loggerId, s, "CreateThread ft receive failed\n");
+#endif
             goto clean;
         }
 
@@ -369,7 +381,9 @@ int handleFileDataMessage(
     if ( ftd == NULL )
     {
         s = SCHAT_ERROR_OUT_OF_ORDER;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "FILE_TRANSFER_DATA not initialized\n");
+#endif
         return s;
     }
 
@@ -379,7 +393,9 @@ int handleFileDataMessage(
     if ( block_size == 0 )
     {
         s = SCHAT_ERROR_FT_CANCELED;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "Data message cancelled\n");
+#endif
         goto clean;
     }
 

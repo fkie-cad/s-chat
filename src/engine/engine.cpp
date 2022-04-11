@@ -138,28 +138,36 @@ int initClient(
     if ( ip == NULL || strlen(ip) == 0 )
     {
         s = SCHAT_ERROR_NO_IP;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "No ip!\n");
+#endif
         return s;
     }
 
     if ( family != AF_INET && family != AF_INET6 )
     {
         s = SCHAT_ERROR_WRONG_IPV;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "Wrong ip version!\n");
+#endif
         return s;
     }
 
     if ( port == NULL || strlen(port) == 0 )
     {
         s = SCHAT_ERROR_NO_PORT;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "No port!\n");
+#endif
         return s;
     }
 
     if ( cert_name == NULL || strlen(cert_name) == 0 )
     {
         s = SCHAT_ERROR_NO_CERT;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "No cert name!\n");
+#endif
         return s;
     }
 
@@ -168,7 +176,9 @@ int initClient(
     if ( !initSecurityInterface() )
     {
         s = SCHAT_ERROR_INIT_SEC_INTERFACE;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "initializing the security library failed\n");
+#endif
         goto clean;
     }
 
@@ -182,7 +192,9 @@ int initClient(
     );
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "creating credentials failed\n");
+#endif
         s = SCHAT_ERROR_CREATE_CREDENTIALS;
         goto clean;
     }
@@ -207,7 +219,9 @@ int initClient(
     s = readStreamEncryptionProperties(&Sizes, &hContext);
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "readStreamEncryptionProperties failed!\n");
+#endif
         s = SCHAT_ERROR_GET_SIZES;
         goto clean;
     }
@@ -215,14 +229,18 @@ int initClient(
     s = allocateBuffer(&Sizes, &SendBuffer, &SendBufferSize);
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "allocate SendBuffer failed!\n");
+#endif
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
     s = allocateBuffer(&Sizes, &ReceiveBuffer, &ReceiveBufferSize);
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "allocate ReceiveBuffer failed!\n");
+#endif
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
@@ -231,7 +249,9 @@ int initClient(
     s = ioctlsocket(ConnectSocket, FIONBIO, &iMode);
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, getLastSError(), "ioctlsocket failed!\n");
+#endif
         s = SCHAT_ERROR_IOCTL_SOCKET;
         goto clean;
     }
@@ -283,21 +303,27 @@ int initServer(
     if ( family != AF_INET && family != AF_INET6 )
     {
         s = SCHAT_ERROR_WRONG_IPV;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "Wrong ip version!\n");
+#endif
         return s;
     }
 
     if ( port == NULL || strlen(port) == 0 )
     {
         s = SCHAT_ERROR_NO_PORT;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "No port!\n");
+#endif
         return s;
     }
 
     if ( cert_name == NULL || strlen(cert_name) == 0 )
     {
         s = SCHAT_ERROR_NO_CERT;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "No cert name!\n");
+#endif
         return s;
     }
     
@@ -306,7 +332,9 @@ int initServer(
     if ( !initSecurityInterface() )
     {
         s = SCHAT_ERROR_INIT_SEC_INTERFACE;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "initializing the security library failed!\n");
+#endif
         goto clean;
     }
 
@@ -320,7 +348,9 @@ int initServer(
     if ( s != 0 )
     {
         s = SCHAT_ERROR_CREATE_CREDENTIALS;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "creating credentials failed\n");
+#endif
         goto clean;
     }
     //sCredsInitialized = true;
@@ -332,7 +362,9 @@ int initServer(
     if ( s != 0 )
     {
         s = SCHAT_ERROR_INIT_CONNECTION;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "initConnection failed\n");
+#endif
         goto clean;
     }
     wsaStarted = true;
@@ -356,7 +388,9 @@ int initServer(
     s = bind(ListenSocket, addr_info->ai_addr, (int)addr_info->ai_addrlen);
     if ( s == SOCKET_ERROR )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, getLastSError(), "bind failed\n");
+#endif
         s = SCHAT_ERROR_BIND;
         goto clean;
     }
@@ -371,7 +405,9 @@ int initServer(
     s = listen(ListenSocket, MAX_CONN);
     if ( s == SOCKET_ERROR )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, getLastSError(), "listen failed\n");
+#endif
         s = SCHAT_ERROR_LISTEN;
         goto clean;
     }
@@ -439,7 +475,9 @@ int handleConnection(
     s = readStreamEncryptionProperties(&Sizes, &hContext);
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "readStreamEncryptionProperties failed!\n");
+#endif
         s = SCHAT_ERROR_GET_SIZES;
         goto clean;
     }
@@ -447,14 +485,18 @@ int handleConnection(
     s = allocateBuffer(&Sizes, &SendBuffer, &SendBufferSize);
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "allocate SendBuffer failed!\n");
+#endif
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
     s = allocateBuffer(&Sizes, &ReceiveBuffer, &ReceiveBufferSize);
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "allocate ReceiveBuffer failed!\n");
+#endif
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
@@ -463,7 +505,9 @@ int handleConnection(
     s = ioctlsocket(ConnectSocket, FIONBIO, &iMode);
     if ( s != 0 )
     {
-        logger.logError(loggerId, s, "ioctlsocket failed\n", getLastSError());
+#ifdef ERROR_PRINT
+        logger.logError(loggerId, getLastSError(), "ioctlsocket failed\n");
+#endif
         s = SCHAT_ERROR_IOCTL_SOCKET;
         goto clean;
     }
@@ -487,7 +531,9 @@ int handleConnection(
 #endif
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, getLastSError(), "receiveMessages failed\n");
+#endif
         s = SCHAT_ERROR_RECEIVE_MESSAGES;
         goto clean;
     }
@@ -499,7 +545,9 @@ clean:
 
     if ( s != SEC_E_OK )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "Disconnecting from client\n");
+#endif
     }
     
     // closed by Disconect for sure
@@ -581,7 +629,9 @@ int receiveMessages(
     if ( engine_type == ENGINE_TYPE_NONE )
     {
         s = SCHAT_ERROR_NOT_INITIALIZED;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "Not initialized yet.");
+#endif
         return s;
     }
 
@@ -675,7 +725,9 @@ int client_sendMessage(
     if ( ConnectSocket == INVALID_SOCKET )
     {
         s = SCHAT_ERROR_INVALID_SOCKET;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "ConnectSocket invalid\n");
+#endif
         return s;
     }
     //uint32_t max_data_size = Sizes.cbMaximumMessage - sizeof(MESSAGE_HEADER);
@@ -683,7 +735,9 @@ int client_sendMessage(
     if ( cbMessage >= Sizes.cbMaximumMessage )
     {
         s = SCHAT_ERROR_MESSAGE_TOO_BIG;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "msg too big\n");
+#endif
         return s;
     }
     
@@ -715,7 +769,9 @@ int client_sendMessage(
     );
     if ( n != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, n, "error sending data\n");
+#endif
     }
     return n;
 }
@@ -758,7 +814,9 @@ int client_sendFile(
     if ( ConnectSocket == INVALID_SOCKET )
     {
         s = SCHAT_ERROR_INVALID_SOCKET;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "ConnectSocket invalid\n");
+#endif
         goto clean;
     }
     
@@ -768,21 +826,27 @@ int client_sendFile(
     if ( ip == NULL || strlen(ip) == 0 )
     {
         s = SCHAT_ERROR_NO_IP;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "No ip!\n");
+#endif
         goto clean;
     }
 
     if ( family_ != AF_INET && family_ != AF_INET6 )
     {
         s = SCHAT_ERROR_WRONG_IPV;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "Wrong ip version!\n");
+#endif
         goto clean;
     }
 
     if ( port == NULL || strlen(port) == 0 )
     {
         s = SCHAT_ERROR_NO_PORT;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "No port!\n");
+#endif
         goto clean;
     }
     
@@ -798,14 +862,18 @@ int client_sendFile(
     if ( sizeof(SCHAT_FILE_INFO_HEADER) + len >= Sizes.cbMaximumMessage )
     {
         s = SCHAT_ERROR_PATH_TOO_LONG;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "File path too long\n");
+#endif
         goto clean;
     }
 
     if ( !fileExists(path) )
     {
         s = SCHAT_ERROR_FILE_NOT_FOUND;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "file not found!\n");
+#endif
         goto clean;
     }
 
@@ -814,21 +882,27 @@ int client_sendFile(
     if ( s != 0 || file_size == 0 )
     {
         s = SCHAT_ERROR_FILE_SIZE;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "getFileSize failed or returned 0\n");
+#endif
         goto clean;
     }
     
     full_path_ln = GetFullPathNameA(path, MAX_PATH, full_path, &base_name);
     if ( full_path_ln == 0 || full_path_ln >= MAX_PATH )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, GetLastError(), "GetFullPathName failed!\n");
+#endif
         s = SCHAT_ERROR_FILE_NOT_FOUND;
         goto clean;
     }
     if ( base_name == NULL || base_name[0] == 0 )
     {
         s = SCHAT_ERROR_FILE_NOT_FOUND;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "file_name too short!\n");
+#endif
         goto clean;
     }
     base_name_ln = (ULONG)strlen(base_name);
@@ -836,7 +910,9 @@ int client_sendFile(
     s = sha256File(full_path, hash, SHA256_BYTES_LN);
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "Calculating hash failed!\n");
+#endif
         s = SCHAT_ERROR_CALCULATE_HASH;
         goto clean;
     }
@@ -878,7 +954,9 @@ int client_sendFile(
     );
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "error sending data\n");
+#endif
         goto clean;
     }
     
@@ -904,7 +982,9 @@ int client_sendFile(
         if ( tp == NULL )
         {
             s = SCHAT_ERROR_NO_MEMORY;
+#ifdef ERROR_PRINT
             logger.logError(loggerId, s, "malloc DATA_THREAD_PARAMS failed!\n");
+#endif
             goto clean;
         }
         tp->file_size = file_size;
@@ -930,7 +1010,9 @@ int client_sendFile(
             tp = NULL;
 
             s = GetLastError();
+#ifdef ERROR_PRINT
             logger.logError(loggerId, s, "CreateThread ft receive failed\n");
+#endif
             goto clean;
         }
 
@@ -986,7 +1068,9 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
     s = allocateBuffer(&Sizes, &buffer, &buffer_size);
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "allocate send file buffer failed!\n");
+#endif
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
@@ -1038,7 +1122,9 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
     else
     { 
         s = SCHAT_ERROR_UNKNOWN_ENGINE;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "SCHAT_ERROR_UNKNOWN_ENGINE\n");
+#endif
         goto clean;
     }
 
@@ -1046,7 +1132,9 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
     if ( memcmp(other_cert_hash, other_ft_cert_hash, SHA256_BYTES_LN) != 0 )
     {
         s = SCHAT_ERROR_FT_CERT_MISSMATCH;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "SCHAT_ERROR_FT_CERT_MISSMATCH\n");
+#endif
         goto clean;
     }
     
@@ -1070,7 +1158,9 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
         );
     if ( s != 0 )
     {
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "receving ft accept answer\n");
+#endif
         //s = SCHAT_ERROR_FT_NOT_ACCEPTED;
         goto clean;
     }
@@ -1087,7 +1177,9 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
     if ( s != 0 )
     {
         s = SCHAT_ERROR_OPEN_FILE;
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "file open failed!\n");
+#endif
         goto clean;
     }
 
@@ -1119,7 +1211,9 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
             bRead = fread(message->data, 1, block_size, file);
             if ( bRead != block_size )
             {
+#ifdef ERROR_PRINT
                 logger.logError(loggerId, GetLastError(), "reading data\n");
+#endif
                 s = SCHAT_ERROR_READ_FILE;
                 goto clean;
             }
@@ -1141,7 +1235,9 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
             );
         if ( s != 0 )
         {
+#ifdef ERROR_PRINT
             logger.logError(loggerId, s, "sending data\n");
+#endif
             s = SCHAT_ERROR_SENDING_DATA;
             goto clean;
         }
@@ -1167,7 +1263,9 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
             bRead = fread(message->data, 1, rest, file);
             if ( bRead != rest )
             {
+#ifdef ERROR_PRINT
                 logger.logError(loggerId, GetLastError(), "reading data\n");
+#endif
                 s = SCHAT_ERROR_READ_FILE;
                 goto clean;
             }
@@ -1191,7 +1289,9 @@ ULONG WINAPI sendDataThread(LPVOID lpParam)
             );
         if ( s != 0 )
         {
+#ifdef ERROR_PRINT
             logger.logError(loggerId, s, "sending data\n");
+#endif
             s = SCHAT_ERROR_SENDING_DATA;
             goto clean;
         }
@@ -1235,7 +1335,9 @@ sending_finished:
     {
         if ( s != SEC_I_CONTEXT_EXPIRED )
         {
+#ifdef ERROR_PRINT
             logger.logError(loggerId, s, "receving ft finished answer\n");
+#endif
             s = SCHAT_ERROR_RECEIVE_MESSAGES;
             goto clean;
         }
@@ -1295,10 +1397,12 @@ int cleanFtSendConnection(
     logger.logInfo(loggerId, 0, "cleanFtSendConnection()\n");
 #endif
     s = Disconnect(Socket, &hClientCreds, Context, Type);
+#ifdef ERROR_PRINT
     if ( s != 0 )
         logger.logError(loggerId, s, "disconnecting ft from server failed.\n");
     else
         logger.logInfo(loggerId, 0, "Disconnected ft connection successfully.\n");
+#endif
 
     initFTObject(&ft_send_obj);
 
@@ -1333,7 +1437,9 @@ int cleanClient()
         s = Disconnect(&ConnectSocket, &hClientCreds, &hContext, engine_type);
         if ( s != 0 )
         {
+#ifdef ERROR_PRINT
             logger.logError(loggerId, s, "disconnecting from server failed\n");
+#endif
         }
     
         // ConnectSocket is closed in Disconnect for sure

@@ -8,7 +8,7 @@ set /a engine=0
 set /a gui=0
 set /a debug=0
 set /a release=0
-set /a debug_print=0
+set /a debug_print=8
 set /a rtl=0
 set /a bitness=64
 set platform=x64
@@ -146,6 +146,14 @@ exit /B 0
             set rtl=None
         )
 
+        set /a "ep=%dp%&8"
+        if %dp% == 8 (
+            set /a dp=0
+        )
+        if not %ep% == 0 (
+            set /a ep=1
+        )
+
         echo build
         echo  - Project=%proj%
         echo  - Platform=%platform%
@@ -156,7 +164,7 @@ exit /B 0
         echo  - pdb=%pdb%
         echo.
         
-        msbuild %proj% /p:Platform=%platform% /p:Configuration=%conf% /p:DebugPrint=%dp% /p:RuntimeLib=%rtl% /p:PDB=%pdb%
+        msbuild %proj% /p:Platform=%platform% /p:Configuration=%conf% /p:DebugPrint=%dp% /p:ErrorPrint=%ep%  /p:RuntimeLib=%rtl% /p:PDB=%pdb%
         echo.
         echo ----------------------------------------------------
         echo.

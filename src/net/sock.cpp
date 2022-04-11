@@ -39,7 +39,7 @@ int initConnection(
     s = getaddrinfo(ip, port_str, &hints, addr_info);
     if ( s != 0 || (*addr_info)->ai_addr == NULL)
     {
-#ifdef DEBUG_PRINT
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "failed with error\n");
 #endif
         //s = -1;
@@ -54,7 +54,7 @@ int initConnection(
     if ( *sock == INVALID_SOCKET )
     {
         s = getLastSError();
-#ifdef DEBUG_PRINT
+#ifdef ERROR_PRINT
         logger.logError(loggerId, s, "Could not create socket.\n");
 #endif
         goto clean;
