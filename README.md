@@ -34,16 +34,19 @@ $devcmd> build.bat [/sc] [/d] [/r] [/dp] [/dphd] [/dpm] [/pdb]
 ```
 Targets:
 - /sc: Build sChat.
+
 Build modes:
 - /d: Build in debug mode.
 - /r: Build in release mode.
 - /b: Bitness of exe. 32^|64. Default: 64.
 - /rtl: Build with statically include runtime libs.
-- /pdb: Compile release version with pdbs.
+- /pdb: Compile release version with pdbs. Default in debug version.
+
 Flags:
 - /dp: Debug print output.
 - /dphd: Extended hex dump debug print output.
 - /dpm: Messages are logged in the log file.
+
 Other:
 - /h: Print this.
 
@@ -54,7 +57,8 @@ $devcmd> msbuild [server.vcxproj|client.vcxproj] [/p:Platform=x86|x64] [/p:Confi
 ```
 Options:
  - RunTimeLib: Statically include CRT debug or release runtime library.
- - DebugPrint: Show debug print for `1`, extendend hex dumps for `2` and message dump for `4`. Theses are flags and may be combined by `or` or `+`.
+ - DebugPrint: Show debug print for `1`, extendend hex dumps for `2` and message dump for `4`. 
+   Theses are flags and may be combined by `or` / `+`.
  - PDB: Generate PDB files for `1`.
 
 ## Run
@@ -81,7 +85,7 @@ $ SChat.exe [/i ip] [/v vs] [/p port] [/n name] [/c certThumb] [/l logDir] [/d c
 $ SChat.exe -i 123.456.789.876 -p 5432 -n alice -c aliceCertThumbPrint
 ```
 
-The cmd options may be skipped, because there are input fields in the app for them too.
+The cmd options can be skipped, because there are configuration fields in the app for them too.
 
 After starting, one partner has to play the **server** side.
 `User name`, `Port` and `Cert thumb` (thumbprint of the certificate) have to be filled with valid values.
@@ -97,19 +101,21 @@ After that, the communication partners can start sending messages to each other 
 Files can be sent by pressing the `File` button and browsing a file or by typing `/file path\to\the\file` and then pressing `Enter` or `Send`.
 On the receiving side, they are stored in the current directory (default).
 
-There is a log file beeing created, named `<SChat>-<date>-<time>.log` in the current working directory (default), which will be filled with infos, depending on the debug print compiler flags.
+A log file will be created in the current working directory (default), 
+named `<SChat>-<date>-<time>.log`, 
+which will be filled with infos, depending on the debug print compiler flags.
 
 The certificate of the other side is stored in `<sha1(cert)>.der` in the current working directory (default).
-The hash (sha1) of the certificate is also displayed with the connection info in the message output.
-This should by verified by calculating and comparing the hash with the comunication partner or sharing it in advance!
+The thumb hash (sha1) of the certificate is also displayed with the connection info in the message output.
+This should by verified by calculating and comparing the hash with the communication partner or sharing it in advance!
 
 Since SChat works with user created (self-signed) certificates, 
 there is no internal trust check to the certificate of the other side (i.e. the *untrusted* error is skipped).
 This is by design.
-Therfore, the validity of the certificate used by the other side has to be checked manually!
+Therefore, the validity of the certificate used by the other side has to be checked manually!
 
 
-The directory where the log files, transfered file and certificate files are saved may be changed by using the gui, .config or cmd line options.
+The directory where the log files, transferred file and certificate files are saved may be changed by using the gui, .config or cmd line options.
 
 An example .config is located in [res/.config.example](res/.config.example).
 
@@ -131,7 +137,7 @@ ps> New-SelfSignedCertificate -DnsName <name> -CertStoreLocation "Cert:\CurrentU
 ps> New-SelfSignedCertificate -DnsName <name> -CertStoreLocation "Cert:\CurrentUser\My\" -KeyAlgorithm ECDSA_nistP(256|384|521) -CurveExport CurveName
 ```
 DnsName may be any name and fills out `CN` and `Subject alternative name`.  
-For more options call help:
+Call help for more options:
 ```bash
 ps> New-SelfSignedCertificate -?
 ```
@@ -144,7 +150,7 @@ Just entries with a `Curve OID` are valid.
 That's why `RSA_curve25519` does not work (by default).
 
 Another way is to generate a full .pfx certificate with `openssl` and import it into the local user store.
-(But importing an openssl ed25519 curve certificate does not work either.)
+(Importing an openssl ed25519 curve certificate does not work either!)
 
 [1]: https://docs.microsoft.com/en-us/powershell/module/pki/new-selfsignedcertificate?view=windowsserver2019-ps
 
