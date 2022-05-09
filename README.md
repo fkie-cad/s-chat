@@ -4,8 +4,8 @@ Secure TLS/SSL Windows E2E Chat.
 Currently just supporting TLS 1.2 due to Windows SChannel restrictions.
 
 ## Version ##
-1.0.12  
-Last changed: 08.02.2022
+1.1.0  
+Last changed: 09.05.2022
 
 ## Descrtiption
 GUI chat application that connects two communication partners directly over TCP using TLS 1.2.
@@ -147,6 +147,7 @@ Another way is to generate a full .pfx certificate with `openssl` and import it 
 (But importing an openssl ed25519 curve certificate does not work either.)
 
 [1]: https://docs.microsoft.com/en-us/powershell/module/pki/new-selfsignedcertificate?view=windowsserver2019-ps
+
 
 ## List certificates in store with thumbprints
 ```bash

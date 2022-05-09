@@ -123,6 +123,7 @@ int Logger::closeFile(size_t id)
 int Logger::logInfo(size_t id, uint32_t flags, const char *format, ...)
 {
     int s = 0;
+#ifdef DEBUG_PRINT
     //FILE* file = NULL;
     HANDLE file = NULL;
     char fts[FORMATED_TIME_STAMP_SIZE];
@@ -187,13 +188,16 @@ int Logger::logInfo(size_t id, uint32_t flags, const char *format, ...)
 
     if ( dBuffer != NULL )
         free(dBuffer);
-
+#else
+    (id);(flags);(format);
+#endif
     return s;
 }
 
 int Logger::logError(size_t id, uint32_t code, const char *format, ...)
 {
     int s = 0;
+#ifdef ERROR_PRINT
     char fts[FORMATED_TIME_STAMP_SIZE];
     //FILE* file = NULL;
     HANDLE file = NULL;
@@ -247,7 +251,9 @@ int Logger::logError(size_t id, uint32_t code, const char *format, ...)
 
     if ( dBuffer != NULL )
         free(dBuffer);
-    
+#else
+    (id);(code);(format);
+#endif
     return s;
 }
 

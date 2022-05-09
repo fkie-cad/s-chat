@@ -1,7 +1,7 @@
 @echo off
 
-set prog_name=%~n0
-set user_dir="%~dp0"
+set my_name=%~n0
+set my_dir="%~dp0"
 set /a verbose=1
 
 set /a engine=0
@@ -175,8 +175,8 @@ exit /B 0
 
 
 :usage
-    echo Usage: %prog_name% [/sc] [/e] [/d] [/r] [/dp] [/dphd] [/dpm] [/rtl] [/b 32^|64] [/pdb]
-    echo Default: %prog_name% [/g /r /b 64]
+    echo Usage: %my_name% [/sc] [/e] [/d] [/r] [/dp] [/dphd] [/dpm] [/rtl] [/b 32^|64] [/pdb]
+    echo Default: %my_name% [/g /r /b 64]
     exit /B 0
     
 :help

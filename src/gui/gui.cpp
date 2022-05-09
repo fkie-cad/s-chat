@@ -185,7 +185,7 @@ RECT MessageIptRect;
 RECT StatusOptRect;
 RECT InfoStatusOptRect;
 
-int rows_y[] = { 10, 50, 70, 100 };
+int rows_y[] = { 10, 50, 70, 140 };
 
 size_t loggerId = 0;
 Logger logger;
@@ -301,14 +301,14 @@ VOID parseCmdLine(LPSTR lpCmdLine)
         return;
     }
 
-    ZeroMemory(ConnectionData.ip, MAX_IP_LN);
-    ZeroMemory(ConnectionData.port, MAX_PORT_LN);
-    ZeroMemory(ConnectionData.name, MAX_NAME_LN);
-    ZeroMemory(ConnectionData.CertThumb, SHA1_STRING_BUFFER_LN);
+    //ZeroMemory(ConnectionData.ip, MAX_IP_LN);
+    //ZeroMemory(ConnectionData.port, MAX_PORT_LN);
+    //ZeroMemory(ConnectionData.name, MAX_NAME_LN);
+    //ZeroMemory(ConnectionData.CertThumb, SHA1_STRING_BUFFER_LN);
 
-    ZeroMemory(PreferencesData.LogDir, MAX_PATH);
-    ZeroMemory(PreferencesData.CertDir, MAX_PATH);
-    ZeroMemory(PreferencesData.FileDir, MAX_PATH);
+    //ZeroMemory(PreferencesData.LogDir, MAX_PATH);
+    //ZeroMemory(PreferencesData.CertDir, MAX_PATH);
+    //ZeroMemory(PreferencesData.FileDir, MAX_PATH);
 
     int i;
     char iOption = NULL;
@@ -976,43 +976,8 @@ INT_PTR CALLBACK FTAcceptDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM l
     return FileTransferDlg.openCb(hDlg, message, wParam, lParam);
 }
 
-#include <shellapi.h>
-LRESULT CALLBACK MesageIptSC(HWND hWnd, UINT msg, WPARAM wParam,
-                               LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
-{
-    LRESULT result = 0;
-    (uIdSubclass);(dwRefData);
 
-    switch (msg)
-    {
-        case WM_CHAR :
-            switch ( wParam ) {
-                case VK_RETURN :
-                    onSend(hWnd);
-                    return 0;
-            }
-
-        //case WM_DROPFILES:
-        //{
-        //    CHAR buffer[MAX_PATH + MSG_CMD_FILE_LN];
-        //    StringCchPrintfA(buffer, MSG_CMD_FILE_LN+1, "%s", MSG_CMD_FILE); // +1 for '0' termination
-        //    UINT s = DragQueryFileA((HDROP)wParam, 0, &buffer[MSG_CMD_FILE_LN], MAX_PATH-1);
-        //    if ( s )
-        //    {
-        //        buffer[MAX_PATH + MSG_CMD_FILE_LN - 1] = 0;
-        //        SetWindowTextA(hWnd, buffer);
-        //    }
-        //    DragFinish((HDROP)wParam);
-        //    break;
-        //}
-
-       default:
-           result = DefSubclassProc(hWnd, msg, wParam, lParam);
-    } 
-
-    return result;
-}
-
+#include "controlls/MessageIpt.h"
 //#include "Richedit.h"
 //#include "commctrl.h"
 
@@ -1048,13 +1013,13 @@ LRESULT onCreate(HWND hWnd)
     MessageIptRect.left = PARENT_PADDING;
     MessageIptRect.top = rows_y[2];
     MessageIptRect.right = DEFAULT_WINDOW_WIDTH - PARENT_PADDING*2 - BTN_W*2 - IPT_MARGIN*2;
-    MessageIptRect.bottom = IPT_H;
+    MessageIptRect.bottom = IPT_H*3;
     MessageIpt = CreateWindowExA(
         0, // WS_EX_CLIENTEDGE
         //WS_EX_ACCEPTFILES,
         WC_EDITA, 
         (pmsg)?pmsg:"", 
-        WS_BORDER | WS_CHILD | WS_VISIBLE  | ES_AUTOHSCROLL | ES_MULTILINE,
+        WS_BORDER | WS_CHILD | WS_VISIBLE  | ES_AUTOHSCROLL | ES_MULTILINE | WS_VSCROLL,
         MessageIptRect.left, MessageIptRect.top, MessageIptRect.right, MessageIptRect.bottom,
         hWnd, 
         (HMENU)WND_MESSAGE_IPT_IDX, 
@@ -1155,11 +1120,9 @@ LRESULT onCreate(HWND hWnd)
     MessageOptFillThreash = (SIZE_T)(MessageOptMaxText * MSG_OPT_TH);
     MessageOptDeleteSize = (SIZE_T)(MessageOptMaxText * MSG_OPT_CLR);
 
-#ifdef DEBUG_PRINT
     logger.logInfo(loggerId, 0, "MessageOptMaxText: %zu\n", MessageOptMaxText);
     logger.logInfo(loggerId, 0, "MessageOptFillThreash: %zu\n", MessageOptFillThreash);
     logger.logInfo(loggerId, 0, "MessageOptDeleteSize: %zu\n", MessageOptDeleteSize);
-#endif
 
     sayHello();
     if ( type == 1 )
@@ -1417,10 +1380,19 @@ LRESULT onSend(HWND hWnd)
     char* msg = new char[msg_len];
     GetWindowTextA(MessageIpt, &msg[0], msg_len);
 
-    if ( StringUtil::startsWith(MSG_CMD_FILE,  msg) )
+    if ( isEmptyMessage(msg, msg_len-1) )
+    {
+        showInfoStatus("Type a message first!");
+        return 0;
+    }
+    else if ( StringUtil::startsWith(MSG_CMD_FILE, msg) )
+    {
         r = sendFile(msg, msg_len);
+    }
     else
+    {
         r = sendMessage(msg, msg_len);
+    }
 
     if ( msg )
         delete[] msg;

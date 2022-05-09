@@ -177,7 +177,7 @@ int connectTLSSocket(
     if ( s != 0 )
     {
         s = getLastSError();
-        logger.logError(loggerId, s, "connectSock failed with error.\n");
+        logger.logError(loggerId, s, "connectSock failed.\n");
         s = SCHAT_ERROR_CONNECT;
         goto clean;
     }

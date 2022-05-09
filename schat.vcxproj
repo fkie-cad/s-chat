@@ -168,8 +168,8 @@
 
   <ItemGroup>
     <ClCompile Include="src\gui\gui.cpp;" />
-    <ClCompile Include="src\gui\subEditControl.cpp;" />
     <ClCompile Include="src\gui\ToolTip.cpp;" />
+    <ClCompile Include="src\gui\controlls\subEditControl.cpp;" />
     <ClCompile Include="src\gui\dialogs\AboutDialog.cpp;" />
     <ClCompile Include="src\gui\dialogs\BasicDialog.cpp;" />
     <ClCompile Include="src\gui\dialogs\ConfirmCloseDialog.cpp;" />

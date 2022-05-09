@@ -2,9 +2,17 @@
 
 #include <shobjidl.h>
 
+#include "../keyCodes.h"
 
-LRESULT CALLBACK HexEditControl(HWND hWnd, UINT msg, WPARAM wParam,
-                               LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+
+LRESULT CALLBACK HexEditControl(
+    HWND hWnd, 
+    UINT msg, 
+    WPARAM wParam,
+    LPARAM lParam, 
+    UINT_PTR uIdSubclass, 
+    DWORD_PTR dwRefData
+)
 {
     LRESULT result = 0;
     (uIdSubclass);(dwRefData);
@@ -23,10 +31,10 @@ LRESULT CALLBACK HexEditControl(HWND hWnd, UINT msg, WPARAM wParam,
                     || wParam == VK_CONTROL
                     || wParam == VK_DELETE
                     || wParam == VK_BACK
-                    || wParam == 0x01 // CTRL-A
-                    || wParam == 0x03 // CTRL-C
-                    || wParam == 0x16 // CTRL-V
-                    || wParam == 0x18 // CTRL-X
+                    || wParam == VK_CTRL_A
+                    || wParam == VK_CTRL_C
+                    || wParam == VK_CTRL_V
+                    || wParam == VK_CTRL_X
                   )
                )
             {
@@ -41,8 +49,15 @@ LRESULT CALLBACK HexEditControl(HWND hWnd, UINT msg, WPARAM wParam,
     return result;
 }
 
-LRESULT CALLBACK IpEditControl(HWND hWnd, UINT msg, WPARAM wParam,
-                               LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+
+LRESULT CALLBACK IpEditControl(
+    HWND hWnd, 
+    UINT msg, 
+    WPARAM wParam,
+    LPARAM lParam, 
+    UINT_PTR uIdSubclass, 
+    DWORD_PTR dwRefData
+)
 {
     LRESULT result = 0;
     (uIdSubclass);(dwRefData);
@@ -62,10 +77,10 @@ LRESULT CALLBACK IpEditControl(HWND hWnd, UINT msg, WPARAM wParam,
                     || wParam == VK_CONTROL
                     || wParam == VK_DELETE
                     || wParam == VK_BACK
-                    || wParam == 0x01 // CTRL-A
-                    || wParam == 0x03 // CTRL-C
-                    || wParam == 0x16 // CTRL-V
-                    || wParam == 0x18 // CTRL-X
+                    || wParam == VK_CTRL_A
+                    || wParam == VK_CTRL_C
+                    || wParam == VK_CTRL_V
+                    || wParam == VK_CTRL_X
                   )
                )
             {

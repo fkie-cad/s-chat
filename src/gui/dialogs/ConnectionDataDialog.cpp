@@ -3,7 +3,7 @@
 #include "ConnectionDataDialog.h"
 #include "../../utils/ConfigFileParser.h"
 #include "../ToolTip.h"
-#include "../subEditControl.h"
+#include "../controlls/subEditControl.h"
 
 
 //Message handler for connection data
