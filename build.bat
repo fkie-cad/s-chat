@@ -164,7 +164,7 @@ exit /B 0
         echo  - pdb=%pdb%
         echo.
         
-        msbuild %proj% /p:Platform=%platform% /p:Configuration=%conf% /p:DebugPrint=%dp% /p:ErrorPrint=%ep%  /p:RuntimeLib=%rtl% /p:PDB=%pdb%
+        msbuild %proj% /p:Platform=%platform% /p:Configuration=%conf% /p:DebugPrint=%dp% /p:ErrorPrint=%ep% /p:RuntimeLib=%rtl% /p:PDB=%pdb%
         echo.
         echo ----------------------------------------------------
         echo.
