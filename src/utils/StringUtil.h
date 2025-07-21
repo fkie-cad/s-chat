@@ -52,7 +52,7 @@ class StringUtil
             uint8_t* Buffer,
             size_t BufferSize,
             uint32_t* NrLines
-        );	
+        );
         
         /**
          * Check if string starts with

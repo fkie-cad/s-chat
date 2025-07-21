@@ -314,7 +314,7 @@ ClientHandshakeLoop(
     while ( scRet == SEC_I_CONTINUE_NEEDED        ||
             scRet == SEC_E_INCOMPLETE_MESSAGE     ||
             scRet == SEC_I_INCOMPLETE_CREDENTIALS ) 
-   {
+    {
         // Read data from server.
         if ( 0 == cbIoBuffer || scRet == SEC_E_INCOMPLETE_MESSAGE )
         {
@@ -1231,7 +1231,7 @@ receiveSChannelData(
         // Locate data and (optional) extra buffers.
         pDataBuffer  = NULL;
         pExtraBuffer = NULL;
-        for ( i = 1; i < 4; i++ )
+        for ( i = 0; i < 4; i++ )
         {
 
             if ( pDataBuffer == NULL && Buffers[i].BufferType == SECBUFFER_DATA )
@@ -1253,32 +1253,6 @@ receiveSChannelData(
         else
         {
             cbIoBuffer = 0;
-        }
-
-        // Process the decrypted data.
-        if ( pDataBuffer )
-        {
-#ifdef DEBUG_PRINT_MESSAGE
-            logger.logInfo(loggerId, 0, "Decrypted data: 0x%x bytes\n", pDataBuffer->cbBuffer);
-#endif
-#if defined(DEBUG_PRINT_MESSAGE) && defined(DEBUG_PRINT_HEX_DUMP)
-            PrintHexDump(pDataBuffer->cbBuffer, pDataBuffer->pvBuffer);
-            logger.logInfo(loggerId, 0, "\n");
-#endif
-            
-            msgRet = handleMessage(
-                        pDataBuffer->pvBuffer, 
-                        pDataBuffer->cbBuffer,
-                        pSizes,
-                        type,
-                        running
-                    );
-            if ( msgRet != 0 || !(*running) )
-            {
-                // pbIoBuffer may be invalid now
-                *running = false;
-                break;
-            }
         }
 
         if ( scRet == SEC_I_RENEGOTIATE )
@@ -1306,10 +1280,41 @@ receiveSChannelData(
                     MoveMemory(pbIoBuffer, ExtraBuffer.pvBuffer, ExtraBuffer.cbBuffer);
                     cbIoBuffer = ExtraBuffer.cbBuffer;
                 }
+                else
+                {
+                    cbIoBuffer = 0;
+                    continue;
+                }
             }
             else
             {
                 logger.logInfo(loggerId, 0, "Client requested renegotiate : unhandled!\n");
+            }
+        }
+
+        // Process the decrypted data.
+        if ( pDataBuffer )
+        {
+#ifdef DEBUG_PRINT_MESSAGE
+            logger.logInfo(loggerId, 0, "Decrypted data: 0x%x bytes\n", pDataBuffer->cbBuffer);
+#endif
+#if defined(DEBUG_PRINT_MESSAGE) && defined(DEBUG_PRINT_HEX_DUMP)
+            PrintHexDump(pDataBuffer->cbBuffer, pDataBuffer->pvBuffer);
+            logger.logInfo(loggerId, 0, "\n");
+#endif
+            
+            msgRet = handleMessage(
+                        pDataBuffer->pvBuffer, 
+                        pDataBuffer->cbBuffer,
+                        pSizes,
+                        type,
+                        running
+                    );
+            if ( msgRet != 0 || !(*running) )
+            {
+                // pbIoBuffer may be invalid now
+                *running = false;
+                break;
             }
         }
 

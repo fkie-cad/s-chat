@@ -957,7 +957,7 @@ LRESULT onDestroy(HWND hWnd)
     
     KillTimer(MainWindow, IDT_INFO_TIMER); 
     
-	logger.clear();
+    logger.clear();
 
     if ( pmsg )
         delete[] pmsg;
@@ -1477,11 +1477,11 @@ VOID toggleFileBtn(FILE_TRANSFER_STATUS state)
     {
         case FILE_TRANSFER_STATUS::ACTIVE:
             SetWindowTextA(SelFileBtn, SC_BL_FILE_BTN_CANCEL);
-			break;
+            break;
 
         case FILE_TRANSFER_STATUS::STOPPED:
             SetWindowTextA(SelFileBtn, SC_BL_FILE_BTN_SELECT);
-			break;
+            break;
 
         default:
             break;
