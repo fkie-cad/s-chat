@@ -1,5 +1,6 @@
 #ifdef _WIN32
-#pragma warning( disable : 4996 )
+// C4996: 'fopen': This function or variable may be unsafe
+#pragma warning( disable : 4996 ) 
 #endif
 
 #include "ConfigFileParser.h"
@@ -143,7 +144,17 @@ uint16_t ConfigFileParser::getUInt16Value(const string& key, uint16_t def)
     if ( raw.empty() )
         return def;
 
-    return (uint16_t) stoul(raw, nullptr, 0);
+    try
+    {
+        unsigned long v = stoul(raw, nullptr, 0);
+        if ( v > 0xFFFF )
+            return def; // out of bounds
+        return (uint16_t) v;
+    }
+    catch ( const std::exception& )
+    {
+        return def; // malformed value
+    }
 }
 
 int ConfigFileParser::setUInt16Value(const string& key, uint16_t value)
@@ -165,7 +176,6 @@ map<string, string>* ConfigFileParser::getValues()
 int ConfigFileParser::save(const string& path)
 {
     FILE* file = NULL;
-    char buffer[0x100];
 
     if ( values.empty() )
         return 0;
@@ -175,18 +185,17 @@ int ConfigFileParser::save(const string& path)
         return -1;
 
     ValuesMap::const_iterator it = values.begin();
-    sprintf(buffer, "%c %s\n", marker, it->first.c_str());
-    fwrite(buffer, 1, it->first.size()+3, file);
+
+    fprintf(file, "%c %s\n", marker, it->first.c_str());
     fwrite(&it->second[0], 1, it->second.size(), file);
 
     for ( ++it; it != values.end(); ++it )
     {
-        sprintf(buffer, "\n%c %s\n", marker, it->first.c_str());
-        fwrite(buffer, 1, it->first.size()+4, file);
+        fprintf(file, "\n%c %s\n", marker, it->first.c_str());
         fwrite(&it->second[0], 1, it->second.size(), file);
     }
 
-    if ( file != NULL )
+    //if ( file != NULL )
         fclose(file);
 
     return 0;

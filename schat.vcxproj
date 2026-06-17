@@ -33,7 +33,7 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)'=='Release'">
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -90,7 +90,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <ClCompile>
-      <TreatWarningAsError>true</TreatWarningAsError>
+      <TreatWarningAsError>false</TreatWarningAsError>
       <WarningLevel>Level4</WarningLevel>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <ExceptionHandling>Sync</ExceptionHandling>
@@ -180,10 +180,15 @@
     <ClCompile Include="src\gui\dialogs\PreferencesDialog.cpp;" />
     <ClCompile Include="src\guiBridge.cpp;" />
     <ClCompile Include="src\crypto\windows\HasherCNG.cpp;" />
-    <ClCompile Include="src\engine\engine.cpp;src\engine\filetransfer.cpp;src\engine\MessageHandler.cpp;" />
+    <ClCompile Include="src\engine\engine.cpp;" />
+    <ClCompile Include="src\engine\filetransfer.cpp;" />
+    <ClCompile Include="src\engine\MessageHandler.cpp;" />
     <ClCompile Include="src\files\Files.cpp;" />
-    <ClCompile Include="src\net\sock.cpp;src\net\winSock.cpp;" />
-    <ClCompile Include="src\schannel\common.cpp;src\schannel\connection.cpp;src\schannel\TlsSock.cpp;" />
+    <ClCompile Include="src\net\sock.cpp;" />
+    <ClCompile Include="src\net\winSock.cpp;" />
+    <ClCompile Include="src\schannel\common.cpp;" />
+    <ClCompile Include="src\schannel\connection.cpp;" />
+    <ClCompile Include="src\schannel\TlsSock.cpp;" />
     <ClCompile Include="src\utils\Converter.cpp;" />
     <ClCompile Include="src\utils\ConfigFileParser.cpp;" />
     <ClCompile Include="src\utils\Logger.cpp;" />

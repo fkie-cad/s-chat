@@ -6,6 +6,7 @@
 
 #include "filetransfer.h"
 
+#define JOIN_TIMEOUT (1000)
 
 
 #include "../utils/Logger.h"
@@ -29,6 +30,8 @@ int handleMessage(
     _In_ ULONG type,
     _Inout_ BOOL* running
 );
+
+void reapRecvThread();
 
 int cancelFileReceive();
 

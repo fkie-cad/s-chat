@@ -203,12 +203,7 @@ NTSTATUS sha1BufferC(
  * @param   output char* The output hash string
  * @param   output_size uint16_t The outout buffer size. Should be at least hash_size*2 + 1.
  */
-void hashToString(
-    const uint8_t* hash, 
-    uint16_t hash_size, 
-    char* output, 
-    uint16_t output_size
-);
+NTSTATUS hashToString(_In_reads_bytes_(HashSize) const PUINT8 Hash, _In_ UINT16 HashSize, _Out_writes_z_(output_size) char* output, _In_ UINT16 output_size);
 
 /**
  * Print the hash to stdout.

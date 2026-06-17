@@ -301,8 +301,8 @@ VOID parseCmdLine(LPSTR lpCmdLine)
         return;
     }
 
-    //ZeroMemory(ConnectionData.ip, MAX_IP_LN);
-    //ZeroMemory(ConnectionData.port, MAX_PORT_LN);
+    //ZeroMemory(ConnectionData.ip, MAX_IP_STR_LN);
+    //ZeroMemory(ConnectionData.port, MAX_PORT_STR_LN);
     //ZeroMemory(ConnectionData.name, MAX_NAME_LN);
     //ZeroMemory(ConnectionData.CertThumb, SHA1_STRING_BUFFER_LN);
 
@@ -374,8 +374,8 @@ VOID parseCmdLine(LPSTR lpCmdLine)
             if ( pszOption == NULL )
                 break;
 
-            if ( pszOptionLen < MAX_IP_LN ) 
-                strcpy_s(ConnectionData.ip, MAX_IP_LN, pszOption);
+            if ( pszOptionLen < MAX_IP_STR_LN ) 
+                strcpy_s(ConnectionData.ip, MAX_IP_STR_LN, pszOption);
 
             i++;
             break;
@@ -417,8 +417,8 @@ VOID parseCmdLine(LPSTR lpCmdLine)
             if ( pszOption == NULL )
                 break;
             
-            if ( pszOptionLen < MAX_PORT_LN ) 
-                strcpy_s(ConnectionData.port, MAX_PORT_LN, pszOption);
+            if ( pszOptionLen < MAX_PORT_STR_LN ) 
+                strcpy_s(ConnectionData.port, MAX_PORT_STR_LN, pszOption);
 
             i++;
             break;
@@ -463,14 +463,14 @@ VOID parseCmdLine(LPSTR lpCmdLine)
 void fillParamDefaults()
 {
     if ( ConnectionData.port[0] == 0 )
-        strcpy_s(ConnectionData.port, MAX_PORT_LN, DEFAULT_PORT);
+        strcpy_s(ConnectionData.port, MAX_PORT_STR_LN, DEFAULT_PORT);
 
     if ( ConnectionData.name[0] == 0 )
         strcpy_s(ConnectionData.name, MAX_NAME_LN, ANONYMOUS);
 
     if ( ConnectionData.ip[0] == 0 )
     {
-        strcpy_s(ConnectionData.ip, MAX_IP_LN, DEFAULT_IP4);
+        strcpy_s(ConnectionData.ip, MAX_IP_STR_LN, DEFAULT_IP4);
     }
 
     if ( PreferencesData.CertDir[0] == 0 )
@@ -1154,7 +1154,7 @@ LRESULT onPaint(HWND hWnd)
 __forceinline
 ADDRESS_FAMILY deriveFamily(PCHAR ip_, size_t n)
 {
-    if ( n >= MAX_IP_LN )
+    if ( n >= MAX_IP_STR_LN )
         return 0;
     
     if ( n == 0 )
@@ -1330,8 +1330,8 @@ LRESULT onListen(HWND hWnd)
             0,            // use default stack size  
             ListenThread, // thread function name
             hWnd,        // argument to thread function 
-            CREATE_SUSPENDED,           // use default creation flags 
-            &ConnectionThreadId    // returns the thread identifier 
+            CREATE_SUSPENDED, // use default creation flags 
+            &ConnectionThreadId // returns the thread identifier 
         );
         if ( ConnectionThread == NULL )
         {
@@ -1710,14 +1710,14 @@ void parseConfigFile()
     
     if ( ConnectionData.ip[0] == 0 )
     {
-        tempStr = CfgFileParser->getStringValue(CfgFile.Keys[0], MAX_IP_LN-1, "");
-        strcpy_s(ConnectionData.ip, MAX_IP_LN, &tempStr[0]);
+        tempStr = CfgFileParser->getStringValue(CfgFile.Keys[0], MAX_IP_STR_LN-1, "");
+        strcpy_s(ConnectionData.ip, MAX_IP_STR_LN, &tempStr[0]);
     }
 
     if ( ConnectionData.port[0] == 0 )
     {
-        tempStr = CfgFileParser->getStringValue(CfgFile.Keys[1], MAX_PORT_LN-1, "");
-        strcpy_s(ConnectionData.port, MAX_PORT_LN, &tempStr[0]);
+        tempStr = CfgFileParser->getStringValue(CfgFile.Keys[1], MAX_PORT_STR_LN-1, "");
+        strcpy_s(ConnectionData.port, MAX_PORT_STR_LN, &tempStr[0]);
     }
 
     if ( ConnectionData.family == AF_UNSPEC )
@@ -1783,13 +1783,13 @@ VOID updateConfigFile(PCONNECTION_DATA ConnData, PPREFERENCES_DATA PrefsData)
     std::string tmpStr;
     uint16_t tmpShrt;
 
-    tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_IP], MAX_IP_LN-1, "");
+    tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_IP], MAX_IP_STR_LN-1, "");
     if ( strcmp(&tmpStr[0], ConnData->ip) != 0 )
     {
         CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_IP], ConnData->ip);
     }
 
-    tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_PORT], MAX_PORT_LN-1, "");
+    tmpStr = CfgFileParser->getStringValue(CfgFile.Keys[CONFIG_FILE_KEY_PORT], MAX_PORT_STR_LN-1, "");
     if ( strcmp(&tmpStr[0], ConnData->port) != 0 )
     {
         CfgFileParser->setStringValue(CfgFile.Keys[CONFIG_FILE_KEY_PORT], ConnData->port);

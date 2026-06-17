@@ -34,7 +34,7 @@ NTSTATUS hashData(
     errno = 0;
     bytes_read = fread(buffer, 1, to_read, fp);
     errsv = errno;
-    if ( (bytes_read == 0 || bytes_read != to_read) && errsv != 0 )
+    if ( bytes_read == 0 || bytes_read != to_read || errsv != 0 )
     {
 #ifdef ERROR_PRINT
         printf("ERROR (0x%x): Reading bytes failed!\n", errsv);
@@ -372,16 +372,39 @@ NTSTATUS md5BufferC(
     return hashBufferC(buffer, buffer_ln, hash_bytes, hash_bytes_size, ctxt);
 }
 
-void hashToString(const uint8_t* hash, uint16_t hash_size, char* output, uint16_t output_size)
+NTSTATUS hashToString(_In_reads_bytes_(HashSize) const PUINT8 Hash, _In_ UINT16 HashSize, _Out_writes_z_(output_size) char* output, _In_ UINT16 output_size)
 {
-    uint16_t i = 0;
+    UINT16 i = 0;
+    UINT16 j = 0;
+    UINT8 t = 0;
+    
+    if ( !Hash || !HashSize || !output || !output_size )
+        return STATUS_INVALID_PARAMETER;
+    
+    //output[0] = 0;
 
-    for (i = 0; i < hash_size; i++)
+    if ( HashSize+1 > UINT16_MAX/2 )
+        return STATUS_INVALID_PARAMETER;
+
+    if ( (HashSize*2)+1 > output_size )
     {
-        sprintf(output + (i * 2), "%02x", hash[i]);
+        return STATUS_BUFFER_TOO_SMALL;
     }
 
-    output[output_size-1] = 0;
+    for ( i = 0, j = 0; i < HashSize; i++, j+=2 )
+    {
+        t = (Hash[i]>>4)&0xF;
+        t = ( t < 10 ) ? t + 0x30 : t + 0x57;
+        output[j] = (CHAR)t;
+        
+        t = (Hash[i])&0xF;
+        t = ( t < 10 ) ? t + 0x30 : t + 0x57;
+        output[j+1] = (CHAR)t;
+    }
+
+    output[HashSize*2] = 0;
+
+    return 0;
 }
 
 void printHash(const uint8_t* hash, uint16_t hash_size, const char* prefix, const char* postfix)

@@ -99,6 +99,7 @@ sendSChannelData(
 SECURITY_STATUS
 receiveSChannelData(
     _In_ SOCKET Socket,
+    _In_ PCredHandle phServerCreds,
     _In_ PCredHandle phClientCreds,
     _In_ PCtxtHandle phContext,
     _In_ SecPkgContext_StreamSizes* pSizes,
@@ -135,7 +136,8 @@ SSPINegotiateLoop(
     _In_ BOOL fDoInitialRead,
     _In_ BOOL NewContext,
     _In_ PBYTE pbIoBuffer,
-    _In_ ULONG cbIoBuffer
+    _In_ ULONG cbIoBuffer,
+    _In_ ULONG cbInitialData
 );
 
 //LONG

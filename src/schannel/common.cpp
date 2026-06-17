@@ -393,7 +393,7 @@ DisplayCertChain(
 
 void
 DisplayConnectionInfo(
-    CtxtHandle *phContext,
+    CtxtHandle *Context,
     PSecurityFunctionTable SSPI
 )
 {
@@ -401,7 +401,7 @@ DisplayConnectionInfo(
     SecPkgContext_ConnectionInfo ConnectionInfo;
 
     Status = SSPI->QueryContextAttributes(
-        phContext,
+        Context,
         SECPKG_ATTR_CONNECTION_INFO,
         (PVOID)&ConnectionInfo
     );

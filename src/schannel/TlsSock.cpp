@@ -1,5 +1,6 @@
 #include "../net/sock.h"
 
+#include "../values.h"
 #include "TlsSock.h"
 
 #include "../dbg.h"
@@ -14,9 +15,9 @@ int acceptTLSSocket(
     _In_ PCredHandle Creds,
     _In_ PBYTE pbIoBuffer,
     _In_ ULONG cbIoBuffer,
-    _Out_writes_(SHA1_BYTES_LN) uint8_t* CertHash,
-    _Out_ SOCKADDR_STORAGE* addr,
-    _Out_ socklen_t* addr_ln
+    _Out_writes_(CERT_HASH_BYTES_LN) uint8_t* CertHash,
+    _Out_ SOCKADDR_STORAGE* Addr,
+    _Out_ socklen_t* AddrLn
 )
 {
     int s = 0;
@@ -35,29 +36,29 @@ int acceptTLSSocket(
 
     //SOCKADDR_STORAGE addr;
     //socklen_t addr_ln = sizeof(SOCKADDR_STORAGE);
-    *addr_ln = sizeof(SOCKADDR_STORAGE);
+    *AddrLn = sizeof(SOCKADDR_STORAGE);
 
-    PCCERT_CONTEXT pRemoteCertContext = NULL;
+    PCCERT_CONTEXT remoteCertContext = NULL;
 
     // Accept a client socket
-    logger.logInfo(loggerId, 0, "waiting for connection...\n");
-    *CSocket = accept(Listener, (PSOCKADDR)addr, addr_ln);
+    logger.logInfo(loggerId, 0, "Waiting for connection...\n");
+    *CSocket = accept(Listener, (PSOCKADDR)Addr, AddrLn);
     if ( *CSocket == INVALID_SOCKET )
     {
         s = getLastSError();
-        logger.logError(loggerId, s, " - accept failed.\n");
+        logger.logError(loggerId, s, "  accept failed.\n");
         return SCHAT_ERROR_INVALID_SOCKET;
     }
     GetLocalTime(&sts);
-    logger.logInfo(loggerId, 0, "connection accepted %02d.%02d.%04d %02d:%02d:%02d\n------------------------------------------------------------------\n",
+    logger.logInfo(loggerId, 0, "Connection accepted %02d.%02d.%04d %02d:%02d:%02d\n------------------------------------------------------------------\n",
         sts.wDay, sts.wMonth, sts.wYear, 
         sts.wHour, sts.wMinute, sts.wSecond);
-    if ( *addr_ln > 0)
+    if ( *AddrLn > 0 )
     {
         logger.logInfo(loggerId, 0, "Connected Client Info:\n");
-        printSockAddr(addr, (int)*addr_ln);
+        printSockAddr(Addr, (int)*AddrLn);
     }
-    
+
     // Perform handshake
     s = SSPINegotiateLoop(
             *CSocket,
@@ -66,7 +67,8 @@ int acceptTLSSocket(
             TRUE,
             TRUE,
             pbIoBuffer,
-            cbIoBuffer
+            cbIoBuffer,
+            0
         );
     if ( !s )
     {
@@ -80,7 +82,7 @@ int acceptTLSSocket(
         // Read the client certificate.
         s = g_pSSPI->QueryContextAttributes(Context,
                                         SECPKG_ATTR_REMOTE_CERT_CONTEXT,
-                                        (PVOID)&pRemoteCertContext);
+                                        (PVOID)&remoteCertContext);
         if ( s != SEC_E_OK )
         {
             logger.logError(loggerId, s, "querying client certificate\n");
@@ -89,15 +91,15 @@ int acceptTLSSocket(
         }
 
 #ifdef DEBUG_PRINT_HEX_DUMP
-        printCert(pRemoteCertContext);
+        printCert(remoteCertContext);
 #endif
 
-        hashCert(pRemoteCertContext, CertHash);
-        char hash[SHA1_STRING_BUFFER_LN];
-        hashToString(CertHash, SHA1_BYTES_LN, hash, SHA1_STRING_BUFFER_LN);
-        logger.logInfo(loggerId, 0, "sha1 of certificate: %s\n", hash);
+        hashCert(remoteCertContext, CertHash);
+        char hash[CERT_HASH_STRING_BUFFER_LN];
+        hashToString(CertHash, CERT_HASH_BYTES_LN, hash, CERT_HASH_STRING_BUFFER_LN);
+        logger.logInfo(loggerId, 0, "hash of certificate: %s\n", hash);
 
-        s = saveCert(pRemoteCertContext, hash, cert_dir);
+        s = saveCert(remoteCertContext, hash, cert_dir);
         if ( s != 0 )
         {
             logger.logError(loggerId, s, "Saving client cert failed.\n");
@@ -105,11 +107,11 @@ int acceptTLSSocket(
             goto clean;
         }
 
-        DisplayCertChain(pRemoteCertContext, TRUE);
+        DisplayCertChain(remoteCertContext, TRUE);
 
         // Attempt to validate client certificate.
         // may be skipped due to manual verification
-        s = VerifyClientCertificate(pRemoteCertContext, 0);
+        s = VerifyClientCertificate(remoteCertContext, 0);
         if ( s )
         {
             logger.logError(loggerId, s, "authenticating client credentials\n");
@@ -134,23 +136,23 @@ int acceptTLSSocket(
     logger.logInfo(loggerId, 0, "\n");
 
 clean:
-    if ( pRemoteCertContext )
+    if ( remoteCertContext )
     {
-        CertFreeCertificateContext(pRemoteCertContext);
-        pRemoteCertContext = NULL;
+        CertFreeCertificateContext(remoteCertContext);
+        remoteCertContext = NULL;
     }
 
     return s;
 }
 
 int connectTLSSocket(
-    _In_ char* ip, 
-    _In_ char* port,
-    _In_ ADDRESS_FAMILY family,
+    _In_ char* Ip, 
+    _In_ char* Port,
+    _In_ ADDRESS_FAMILY Family,
     _Out_ SOCKET* Socket,
     _Out_ PCtxtHandle Context,
     _In_ PCredHandle Creds,
-    _Out_writes_(SHA1_BYTES_LN) uint8_t* CertHash
+    _Out_writes_(CERT_HASH_BYTES_LN) uint8_t* CertHash
 )
 {
     int s = 0;
@@ -163,9 +165,9 @@ int connectTLSSocket(
     logger.logInfo(loggerId, 0, "connectTLSSocket()\n");
 #endif
 
-    RtlZeroMemory(CertHash, SHA1_BYTES_LN);
+    RtlZeroMemory(CertHash, CERT_HASH_BYTES_LN);
 
-    s = initConnection(&addr_info, family, ip, port, Socket, AI_NUMERICHOST);
+    s = initConnection(&addr_info, Family, Ip, Port, Socket, AI_NUMERICHOST);
     if ( s != 0 )
     {
         logger.logError(loggerId, s, "initConnection failed.\n");
@@ -187,7 +189,7 @@ int connectTLSSocket(
     s = PerformClientHandshake(
             *Socket,
             Creds,
-            ip,
+            Ip,
             Context,
             &ExtraData
         );
@@ -220,9 +222,9 @@ int connectTLSSocket(
     
     hashCert(remoteCertContext, CertHash);
 
-    char hash[SHA1_STRING_BUFFER_LN];
-    hashToString(CertHash, SHA1_BYTES_LN, hash, SHA1_STRING_BUFFER_LN);
-    logger.logInfo(loggerId, 0, "sha1 of certificate: %s\n", hash);
+    char hash[CERT_HASH_STRING_BUFFER_LN];
+    hashToString(CertHash, CERT_HASH_BYTES_LN, hash, CERT_HASH_STRING_BUFFER_LN);
+    logger.logInfo(loggerId, 0, "hash of certificate: %s\n", hash);
 
     s = saveCert(remoteCertContext, hash, cert_dir);
     if ( s != 0 )
@@ -239,7 +241,7 @@ int connectTLSSocket(
     // may be skipped because of manual verification
     s = VerifyServerCertificate(
         remoteCertContext,
-        ip,
+        Ip,
         0
     );
     if ( s != 0 )
@@ -272,13 +274,17 @@ clean:
 }
 
 int hashCert(
-    _In_ PCCERT_CONTEXT cert, 
-    _Out_writes_(SHA1_BYTES_LN) uint8_t* bytes
+    _In_ PCCERT_CONTEXT Cert, 
+    _Out_writes_(CERT_HASH_BYTES_LN) uint8_t* Bytes
 )
 {
     int s;
-
-    s = sha1Buffer(cert->pbCertEncoded, cert->cbCertEncoded, bytes, SHA1_BYTES_LN);
+    
+#if CERT_HASH_TYPE == CERT_HASH_TYPE_SHA1
+    s = sha1Buffer(Cert->pbCertEncoded, Cert->cbCertEncoded, Bytes, CERT_HASH_BYTES_LN);
+#elif CERT_HASH_TYPE == CERT_HASH_TYPE_SHA256
+    s = sha256Buffer(Cert->pbCertEncoded, Cert->cbCertEncoded, Bytes, CERT_HASH_BYTES_LN);
+#endif
     if ( s != 0 )
     {
         logger.logError(loggerId, s, "Calculating hash failed!\n");

@@ -28,6 +28,9 @@ const char* StringUtil::ltrim(const char* s)
 
 const char* StringUtil::rtrim(char* s)
 {
+    if ( !s || s[0] == 0 )
+        return s;
+
     size_t n = strlen(s);
     size_t i = n - 1;
     while ( i >= 0 )

@@ -3,6 +3,8 @@
 #include "../net/sock.h"
 #include "../schannel/sec.h"
 
+#include <shlwapi.h>
+
 #include <mutex>
 
 #include "MessageHandler.h"
@@ -143,10 +145,17 @@ int handleTextMessage(
 #ifdef DEBUG_PRINT_MESSAGE
     logger.logInfo(loggerId, 0, "MSG_TYPE_TEXT:\n");
 #endif
+    
+    if ( dataSize < sizeof(SCHAT_MESSAGE_HEADER ) )
+        return ERROR_INVALID_PARAMETER;
+    
+    
     PSCHAT_MESSAGE_HEADER message = (PSCHAT_MESSAGE_HEADER)data;
     message->name[MAX_NAME_LN-1] = 0;
-    //message->data_ln = strlen(message->data)+1;
     ((CHAR*)data)[dataSize-1] = 0;
+    if ( strlen(message->data)+1 >= (UINT32)-1 )
+        return ERROR_INVALID_PARAMETER;
+    message->data_ln = (uint32_t)strlen(message->data)+1;
 #ifdef DEBUG_PRINT_MESSAGE
     logger.logInfo(loggerId, 0, "%s : %s\n", message->name, message->data);
 #endif
@@ -167,10 +176,22 @@ int handleFTStatusMessage(
 #ifdef DEBUG_PRINT_MESSAGE
     logger.logInfo(loggerId, 0, "MSG_TYPE_FT_STATUS:\n");
 #endif
+
     PSCHAT_FILE_STATUS_HEADER message = (PSCHAT_FILE_STATUS_HEADER)data;
+
+    if ( dataSize < sizeof(SCHAT_FILE_STATUS_HEADER )
+      || dataSize < offsetof(SCHAT_FILE_STATUS_HEADER, base_name)
+      || message->base_name_ln >= dataSize - offsetof(SCHAT_FILE_STATUS_HEADER, base_name) )
+        return -1;
     
+    message->name[MAX_NAME_LN-1] = 0;
+    message->base_name[message->base_name_ln] = 0;
+
     // fills other name for sender side
-    StringCchPrintfA(other_name, MAX_NAME_LN, message->name);
+    s = StringCchPrintfA(other_name, MAX_NAME_LN, "%s", message->name);
+    if ( s != 0 )
+        return s;
+
     other_name[MAX_NAME_LN-1] = 0;
 
     if ( message->bh.flags & MSG_FLAG_CANCEL )
@@ -205,6 +226,7 @@ int handleFileInfoMessage(
     int s = 0;
     size_t path_ln;
     char* path = NULL;
+    PCHAR sBaseName = NULL;
 
     mtx.lock();
     if ( ft_send_obj.flags&FT_FLAG_ACTIVE || ft_recv_obj.flags&FT_FLAG_ACTIVE )
@@ -220,6 +242,16 @@ int handleFileInfoMessage(
     logger.logInfo(loggerId, 0, "MSG_TYPE_FILE_INFO:\n");
 #endif
     PSCHAT_FILE_INFO_HEADER info = (PSCHAT_FILE_INFO_HEADER)data;
+    
+    if ( dataSize < offsetof(SCHAT_FILE_INFO_HEADER, base_name) ||
+     info->base_name_ln >= dataSize - offsetof(SCHAT_FILE_INFO_HEADER, base_name) )
+    {
+#ifdef ERROR_PRINT
+        logger.logError(loggerId, GetLastError(), "base_name_ln exceeds dataSize!\n");
+#endif
+        goto clean;
+    }
+
     info->name[MAX_NAME_LN-1] = 0;
     info->base_name[info->base_name_ln] = 0;
     ((CHAR*)data)[dataSize-1] = 0;
@@ -262,7 +294,8 @@ int handleFileInfoMessage(
         s = SCHAT_ERROR_NO_MEMORY;
         goto clean;
     }
-    StringCchPrintfA(path, path_ln, "%s\\%s", ((file_dir==NULL)?".":file_dir), info->base_name);
+    sBaseName = PathFindFileNameA(info->base_name);
+    StringCchPrintfA(path, path_ln, "%s\\%s", ((file_dir==NULL)?".":file_dir), sBaseName);
     path[path_ln-1] = 0;
     ftd->path_ln = path_ln;
     strcpy_s(ftd->name, MAX_NAME_LN, info->name);
@@ -317,6 +350,8 @@ int handleFileInfoMessage(
         goto clean;
     }
     ZeroMemory(rtd, sizeof(FT_RECEIVE_THREAD_DATA));
+    
+    reapRecvThread();
 
     // start receiving loop thread with the connected socket
     ft_recv_obj.running = true;
@@ -351,8 +386,8 @@ int handleFileInfoMessage(
 
         ft_recv_obj.flags |= FT_FLAG_RUNNING;
         ResumeThread(ft_recv_obj.thread);
-        CloseHandle(ft_recv_obj.thread);
-        ft_recv_obj.thread = NULL;
+        //CloseHandle(ft_recv_obj.thread);
+        //ft_recv_obj.thread = NULL;
     }
 
 clean:
@@ -372,6 +407,10 @@ int handleFileDataMessage(
 )
 {
     int s = 0;
+
+    FILE* f = NULL;
+    size_t size = 0;
+    size_t written = 0;
 
 #ifdef DEBUG_PRINT_MESSAGE
     logger.logInfo(loggerId, 0, "MSG_TYPE_FILE_DATA:\n");
@@ -403,8 +442,26 @@ int handleFileDataMessage(
     PrintHexDump((ULONG)block_size, blob->data);
 #endif
 
-    s = saveFile(ftd, blob->data, block_size);
-    showProgress(ftd->written, ftd->size);
+    mtx.lock();
+    f = ftd->file;
+    size = ftd->size;
+    written = ftd->written;
+    mtx.unlock();
+
+    s = saveFile(f, &written, blob->data, block_size);
+    showProgress(written, ftd->size);
+    
+    mtx.lock();
+    ftd->written = written;
+    mtx.unlock();
+
+    if ( written >= size )
+    {
+        fclose(f);
+        mtx.lock();
+        ftd->file = NULL;
+        mtx.unlock();
+    }
 
 clean:
     // error or finished
@@ -434,6 +491,21 @@ clean:
     return s;
 }
 
+void reapRecvThread()
+{
+    mtx.lock();
+    HANDLE t = ft_recv_obj.thread;
+    ft_recv_obj.thread = NULL;
+    ft_recv_obj.thread_id = 0;
+    mtx.unlock();
+
+    if ( t )
+    {
+        WaitForSingleObject(t, JOIN_TIMEOUT);
+        CloseHandle(t);
+    }
+}
+
 // Disconneting is the only option to tell the sender, that it's canceled.
 // In case we don't want to send a received reply after each packet arrived.
 // Sender will clean, if error occurs.
@@ -442,32 +514,32 @@ clean:
 // Creating another ft meta communication socket would be an option
 int cancelFileReceive()
 {
-    
-    if ( ft_recv_obj.thread != NULL )
-    {
-        CancelSynchronousIo(
-            ft_recv_obj.thread
-        );
-    }
-
     if ( !rtd || !ftd )
         return 0;
 
-    //if ( rtd )
-    //{
-    //    // unblock accept / connect
-    //    u_long iMode = 1;
-    //    ioctlsocket(ListenSocket, FIONBIO, &iMode);
-    //    iMode = 0;
-    //    ioctlsocket(ListenSocket, FIONBIO, &iMode);
-    //}
-    // ???
-    // 
-    //if ( rtd )
-    //{
-    //    shutdown(rtd->Socket, SD_BOTH);
-    //}
+    mtx.lock();
+    ft_recv_obj.running = false;
+    HANDLE t = ft_recv_obj.thread; // copy under lock
+    SOCKET s = rtd ? rtd->Socket : INVALID_SOCKET;
+    mtx.unlock();
 
+    if ( t != NULL )
+        CancelSynchronousIo(t);
+
+    if ( s != INVALID_SOCKET )
+        shutdown(s, SD_BOTH); // unblock a blocked recv
+
+    if ( t )
+        WaitForSingleObject(t, JOIN_TIMEOUT); // wait, don't free
+    
+    reapRecvThread();
+
+    mtx.lock();
+    bool alive = (ftd != NULL);
+    mtx.unlock();
+    if ( !alive )
+        return 0; // thread already cleaned up
+    
     const char* base_name = NULL;
     size_t base_name_ln = getBaseName(ftd->path, ftd->path_ln, &base_name);
     showSentFileInfo(
@@ -479,62 +551,102 @@ int cancelFileReceive()
         nick,
         true
     );
+
     cleanFileReceive(false);
 
     return 0;
 }
 
-int cleanFileReceive(
-    bool success
-)
+int cleanFileReceive(bool Success)
 {
+    PFT_RECEIVE_THREAD_DATA r = NULL;
+    PFILE_TRANSFER_DATA     f = NULL;
+
     mtx.lock();
-
-    // stop receiving loop in thread, if still running
     ft_recv_obj.running = false;
-
-    if ( rtd )
-    {
-        disconnectFTRecvSocket(
-            &rtd->Socket, 
-            &rtd->Context, 
-            &hServerCreds, 
-            rtd->type
-        );
-
-        if ( rtd->pbIoBuffer )
-            HeapFree(GetProcessHeap(), 0, rtd->pbIoBuffer);
-
-        free(rtd);
-        rtd = NULL;
-    }
-
-    if ( ftd != NULL )
-    {
-        if ( ftd->file != NULL )
-        {
-            fclose(ftd->file);
-            if ( !success )
-            {
-                remove(ftd->path);
-            }
-        }
-        free(ftd);
-        ftd = NULL;
-    }
-
-    // thread closes after handleMessage finishes and breaks out of receiveSChannelData
-    togglePBar(FALSE);
-    toggleFileBtn(FILE_TRANSFER_STATUS::STOPPED);
-    
-    if ( ft_recv_obj.thread != NULL )
-        CloseHandle(ft_recv_obj.thread);
-    ft_recv_obj.thread = NULL;
-    ft_recv_obj.thread_id = 0;
-    
-    ft_recv_obj.flags = 0;
-
+    // claim ownership atomically
+    r = rtd;
+    rtd = NULL;
+    f = ftd;
+    ftd = NULL;
+    ft_recv_obj.flags = 0; // clears FT_FLAG_ACTIVE => next transfer allowed
+    // thread / thread_id intentionally NOT touched here
     mtx.unlock();
 
+    if ( r )
+    {
+        disconnectFTRecvSocket(&r->Socket, &r->Context, &hServerCreds, r->type);
+        if ( r->pbIoBuffer )
+            HeapFree(GetProcessHeap(), 0, r->pbIoBuffer);
+        free(r);
+    }
+
+    if ( f )
+    {
+        if ( f->file )
+        {
+            fclose(f->file);
+            if ( !Success )
+                remove(f->path);
+        }
+        free(f);
+    }
+
+    togglePBar(FALSE);
+    toggleFileBtn(FILE_TRANSFER_STATUS::STOPPED);
     return 0;
 }
+//int cleanFileReceive(
+//    bool success
+//)
+//{
+//    mtx.lock();
+//
+//    // stop receiving loop in thread, if still running
+//    ft_recv_obj.running = false;
+//
+//    if ( rtd )
+//    {
+//        disconnectFTRecvSocket(
+//            &rtd->Socket, 
+//            &rtd->Context, 
+//            &hServerCreds, 
+//            rtd->type
+//        );
+//
+//        if ( rtd->pbIoBuffer )
+//            HeapFree(GetProcessHeap(), 0, rtd->pbIoBuffer);
+//
+//        free(rtd);
+//        rtd = NULL;
+//    }
+//
+//    if ( ftd != NULL )
+//    {
+//        if ( ftd->file != NULL )
+//        {
+//            fclose(ftd->file);
+//            if ( !success )
+//            {
+//                remove(ftd->path);
+//            }
+//        }
+//        free(ftd);
+//        ftd = NULL;
+//    }
+//
+//    // thread closes after handleMessage finishes and breaks out of receiveSChannelData
+//    togglePBar(FALSE);
+//    toggleFileBtn(FILE_TRANSFER_STATUS::STOPPED);
+//    
+//    if ( ft_recv_obj.thread != NULL )
+//        CloseHandle(ft_recv_obj.thread);
+//    ft_recv_obj.thread = NULL;
+//    ft_recv_obj.thread_id = 0;
+//    
+//    ft_recv_obj.flags = 0;
+//
+//    mtx.unlock();
+//
+//    return 0;
+//}

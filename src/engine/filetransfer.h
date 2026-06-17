@@ -37,8 +37,8 @@ typedef struct _FT_RECEIVE_THREAD_DATA {
 } FT_RECEIVE_THREAD_DATA, *PFT_RECEIVE_THREAD_DATA;
 
 typedef struct _FT_SEND_THREAD_DATA {
-    CHAR ip[MAX_IP_LN];
-    CHAR port[MAX_PORT_LN];
+    CHAR ip[MAX_IP_STR_LN];
+    CHAR port[MAX_PORT_STR_LN];
     size_t file_size;
     ADDRESS_FAMILY family;
     size_t path_ln;
@@ -64,11 +64,11 @@ FT_RECV_OBJECTS, *PFT_RECV_OBJECTS;
 extern Logger logger;
 extern size_t loggerId;
 
-extern char* target_ip;
-extern char* target_port;
+extern char target_ip[MAX_IP_STR_LN];
+extern char target_port[MAX_PORT_STR_LN];
 extern ADDRESS_FAMILY family;
 
-extern uint8_t other_cert_hash[SHA256_BYTES_LN];
+extern uint8_t other_cert_hash[CERT_HASH_BYTES_LN];
 
 extern CredHandle hClientCreds;
 extern CredHandle hServerCreds;
@@ -116,7 +116,8 @@ int sendAcceptedFileInfo(
 );
 
 int saveFile(
-    _In_ PFILE_TRANSFER_DATA ftd, 
+    _In_ FILE* File, 
+    _In_ size_t* FileWritten,
     _In_ uint8_t* buffer, 
     _In_ size_t buffer_ln
 );

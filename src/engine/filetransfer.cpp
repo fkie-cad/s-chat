@@ -1,5 +1,6 @@
 #include "../net/sock.h" // before windows.h !!!
 
+#include <strsafe.h>
 #include <string>
 
 #include "filetransfer.h"
@@ -52,10 +53,10 @@ void showSentFileInfo(
     smsg->data_ln = (uint32_t)msgd_ln;
     char* msgd = smsg->data;
     if ( sha256 != NULL )
-        sprintf_s(msgd, msgd_ln, "[%s]\r\nfile: %s\r\nsize: 0x%zx\r\nhash: %s\r\n[\\%s]\r\n", label, base_name, size, sHash, label); 
+        StringCchPrintfA(msgd, msgd_ln, "[%s]\r\nfile: %s\r\nsize: 0x%zx\r\nhash: %s\r\n[\\%s]\r\n", label, base_name, size, sHash, label);
     else
-        sprintf_s(msgd, msgd_ln, "[%s]\r\nfile: %s\r\n[\\%s]\r\n", label, base_name, label); 
-
+        StringCchPrintfA(msgd, msgd_ln, "[%s]\r\nfile: %s\r\n[\\%s]\r\n", label, base_name, label); 
+    
     showMessages(smsg, self);
     delete[] msgb;
 }
@@ -67,7 +68,7 @@ void sendReceivedFileInfo(
     _In_ const char* name,
     _In_ bool self,
     _In_ SOCKET Socket,
-    _In_ PCtxtHandle phContext,
+    _In_ PCtxtHandle Context,
     _In_ SecPkgContext_StreamSizes* pSizes,
     _In_ PBYTE pbIoBuffer,
     _In_ ULONG cbIoBuffer
@@ -114,7 +115,7 @@ void sendReceivedFileInfo(
         (PUCHAR)message, 
         (ULONG)message->bh.size, 
         Socket, 
-        phContext,
+        Context,
         pSizes,
         pbIoBuffer,
         cbIoBuffer
@@ -127,12 +128,12 @@ void sendReceivedFileInfo(
 }
 
 int sendAcceptedFileInfo(
-    _In_ bool accepted,
+    _In_ bool Accepted,
     _In_ const char* name,
     _In_ const char* path,
     _In_ size_t path_ln,
     _In_ SOCKET Socket,
-    _In_ PCtxtHandle phContext,
+    _In_ PCtxtHandle Context,
     _In_ SecPkgContext_StreamSizes* pSizes,
     _In_ PBYTE pbIoBuffer,
     _In_ ULONG cbIoBuffer
@@ -144,7 +145,7 @@ int sendAcceptedFileInfo(
     size_t base_name_ln = getBaseName(path, path_ln, &base_name);
 
     size_t msgb_size = sizeof(SCHAT_FILE_STATUS_HEADER) + base_name_ln;
-    ULONG flag = accepted ? MSG_FLAG_ACCEPT : MSG_FLAG_CANCEL;
+    ULONG flag = Accepted ? MSG_FLAG_ACCEPT : MSG_FLAG_CANCEL;
 
     PSCHAT_FILE_STATUS_HEADER message = (PSCHAT_FILE_STATUS_HEADER)(pbIoBuffer + pSizes->cbHeader);
     ZeroMemory(message, msgb_size);
@@ -157,7 +158,7 @@ int sendAcceptedFileInfo(
     strcpy_s(message->name, MAX_NAME_LN, name);
     message->name[MAX_NAME_LN-1] = 0;
 
-    if ( !accepted )
+    if ( !Accepted )
     {
         showSentFileInfo(
             FT_INFO_LABEL_CANCELED,
@@ -174,7 +175,7 @@ int sendAcceptedFileInfo(
             (PUCHAR)message, 
             (ULONG)message->bh.size, 
             Socket, 
-            phContext,
+            Context,
             pSizes,
             pbIoBuffer,
             cbIoBuffer
@@ -189,28 +190,26 @@ int sendAcceptedFileInfo(
 }
 
 int saveFile(
-    _In_ PFILE_TRANSFER_DATA ftd, 
+    _In_ FILE* File, 
+    _In_ size_t* FileWritten,
     _In_ uint8_t* buffer, 
     _In_ size_t buffer_ln
 )
 {
     int s = 0;
-    
-    size_t bWritten = fwrite(buffer, 1, buffer_ln, ftd->file);
+
+    if ( !File )
+        return SCHAT_ERROR_WRITE_FILE;
+
+    size_t bWritten = fwrite(buffer, 1, buffer_ln, File);
     if ( bWritten != buffer_ln )
     {
         s = SCHAT_ERROR_WRITE_FILE;
         logger.logError(loggerId, s, "writing file failed\n");
         return s;
     }
-    ftd->written += bWritten;
+    (*FileWritten) += bWritten;
     
-    if ( ftd->written >= ftd->size )
-    {
-        fclose(ftd->file);
-        ftd->file = NULL;
-    }
-
     return s;
 }
 
@@ -261,7 +260,7 @@ ULONG WINAPI recvFTDataThread(
         if ( s != 0 )
             goto clean;
 #ifdef DEBUG_PRINT
-        logger.logInfo(loggerId, 0, "FT accepted\n");
+        logger.logInfo(loggerId, 0, "FT Accepted\n");
 #endif
     }
     // or connect to an accepting socket
@@ -286,7 +285,7 @@ ULONG WINAPI recvFTDataThread(
     }
 
     // compare ft certificate hash to main connection certificate
-    if ( memcmp(other_cert_hash, other_ft_cert_hash, SHA256_BYTES_LN) != 0 )
+    if ( memcmp(other_cert_hash, other_ft_cert_hash, CERT_HASH_BYTES_LN) != 0 )
     {
         s = SCHAT_ERROR_FT_CERT_MISSMATCH;
         logger.logError(loggerId, s, "SCHAT_ERROR_FT_CERT_MISSMATCH\n");
@@ -342,6 +341,7 @@ ULONG WINAPI recvFTDataThread(
     *(rtd->running) = TRUE;
     s = receiveSChannelData(
             rtd->Socket, 
+            &hServerCreds, 
             &hClientCreds, 
             &rtd->Context, 
             rtd->Sizes, 

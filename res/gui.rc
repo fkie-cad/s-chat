@@ -212,8 +212,14 @@ END
 #define APP_NAME                    "SChat"
 #define BIN_TYPE                    ".exe"
 
-#define VER_FILEVERSION             1.0.6.0
-#define VER_FILEVERSION_STR         "1.0.6.0\0"
+// #define TT_CD_IP                    "Server Ip. The Server may leave this empty."
+// #define TT_CD_PORT                  "Server/Listening Port"
+// #define TT_CD_IPVS                  "Ip version 4 or 6. Can be left empty, if Ip is filled."
+// #define TT_CD_NICK                  "Your nick name appearing in the chat."
+// #define TT_CD_TP                    "Thumbprint (sha1) of your certificate."
+
+#define VER_FILEVERSION             1.1.0.0
+#define VER_FILEVERSION_STR         "1.1.0.0\0"
 
 #define VER_PRODUCTVERSION          VER_FILEVERSION
 #define VER_PRODUCTVERSION_STR      VER_FILEVERSION_STR
@@ -236,10 +242,10 @@ BEGIN
 		VALUE "FileDescription",  APP_NAME ": a secure E2E TLS chat"
 		VALUE "FileVersion",      VER_FILEVERSION_STR
 		VALUE "InternalName",     APP_NAME
-		VALUE "LegalCopyright",   "(C) 2021 " COMPANY_NAME
+		VALUE "LegalCopyright",   "(C) 2021-2026 " COMPANY_NAME
 		VALUE "OriginalFilename", APP_NAME BIN_TYPE
 		VALUE "ProductName",      APP_NAME
-		VALUE "ProductVersion",	  VER_PRODUCTVERSION_STR
+		VALUE "ProductVersion",   VER_PRODUCTVERSION_STR
         END
 	END
 	BLOCK "VarFileInfo"
@@ -303,8 +309,13 @@ END
 
 STRINGTABLE
 BEGIN
-   IDC_GUI APP_NAME
-   IDS_APP_TITLE APP_NAME
+    IDC_GUI APP_NAME
+    IDS_APP_TITLE APP_NAME
+    // IDS_TT_CD_IP TT_CD_IP
+    // IDS_TT_CD_PORT TT_CD_PORT
+    // IDS_TT_CD_IPVS TT_CD_IPVS
+    // IDS_TT_CD_NICK TT_CD_NICK
+    // IDS_TT_CD_TP TT_CD_TP
 END
 
 #endif

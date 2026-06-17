@@ -379,8 +379,8 @@ void showCertSha(
     _In_ const char* hash
 )
 {
-    char msg[SHA1_STRING_BUFFER_LN + 7];
-    sprintf_s(msg, (SHA1_STRING_BUFFER_LN + 6), "cert: %s", hash);
+    char msg[CERT_HASH_STRING_BUFFER_LN + 7];
+    sprintf_s(msg, (CERT_HASH_STRING_BUFFER_LN + 7), "cert: %s", hash);
     showMessages(msg, MSG_TYPE_INFO);
 }
 

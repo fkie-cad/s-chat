@@ -25,7 +25,7 @@ extern const char* cert_dir;
  * @param 
  * @param 
  * @param 
- * @param CertHash uint8_t[SHA256_BYTES_LN] preallocated buffer
+ * @param CertHash uint8_t[CERT_HASH_BYTES_LN] preallocated buffer
  */
 int acceptTLSSocket(
     _In_ SOCKET Listener,
@@ -34,7 +34,7 @@ int acceptTLSSocket(
     _In_ PCredHandle Creds,
     _In_ PBYTE pbIoBuffer,
     _In_ ULONG cbIoBuffer,
-    _Out_writes_(SHA1_BYTES_LN) uint8_t* CertHash,
+    _Out_writes_(CERT_HASH_BYTES_LN) uint8_t* CertHash,
     _Out_ SOCKADDR_STORAGE* addr,
     _Out_ socklen_t* addr_ln
 );
@@ -48,7 +48,7 @@ int acceptTLSSocket(
  * @param 
  * @param 
  * @param 
- * @param CertHash uint8_t[SHA256_BYTES_LN] preallocated buffer
+ * @param CertHash uint8_t[CERT_HASH_BYTES_LN] preallocated buffer
  */
 int connectTLSSocket(
     _In_ char* ip, 
@@ -57,12 +57,12 @@ int connectTLSSocket(
     _Out_ SOCKET* Socket,
     _Out_ PCtxtHandle Context,
     _In_ PCredHandle Creds,
-    _Out_writes_(SHA1_BYTES_LN) uint8_t* CertHash
+    _Out_writes_(CERT_HASH_BYTES_LN) uint8_t* CertHash
 );
 
 int hashCert(
     _In_ PCCERT_CONTEXT cert, 
-    _Out_writes_(SHA1_BYTES_LN) uint8_t* bytes
+    _Out_writes_(CERT_HASH_BYTES_LN) uint8_t* bytes
 );
 
 #endif

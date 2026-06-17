@@ -17,8 +17,8 @@ static
 SECURITY_STATUS
 ClientHandshakeLoop(
     _In_ SOCKET Socket,
-    _In_ PCredHandle phCreds,
-    _Inout_ CtxtHandle *phContext,
+    _In_ PCredHandle Creds,
+    _Inout_ CtxtHandle *Context,
     _In_ BOOL fDoInitialRead,
     _Out_ SecBuffer *pExtraData
 );
@@ -42,24 +42,24 @@ initSecurityInterface()
 SECURITY_STATUS
 CreateCredentials(
     _In_ LPSTR certId,
-    _Out_ PCredHandle phCreds,
+    _Out_ PCredHandle Creds,
     _In_ ULONG credFlags,
     _In_ ULONG fCredentialUse
 )
 {
     TimeStamp tsExpiry;
-    SECURITY_STATUS Status = SEC_E_OK;
+    SECURITY_STATUS status = SEC_E_OK;
     PCCERT_CONTEXT pCertContext = NULL;
-    SCH_CREDENTIALS SchCreds;
+    SCH_CREDENTIALS schCreds;
     
-    phCreds->dwLower = 0;
-    phCreds->dwUpper = 0;
+    Creds->dwLower = 0;
+    Creds->dwUpper = 0;
 
     if ( certId == NULL )
     {
-        Status = SEC_E_NO_CREDENTIALS;
-        logger.logError(loggerId, Status, "Missing certificate identifier\n");
-        return Status;
+        status = SEC_E_NO_CREDENTIALS;
+        logger.logError(loggerId, status, "Missing certificate identifier\n");
+        return status;
     }
 
     if ( hMyCertStore == NULL )
@@ -68,18 +68,18 @@ CreateCredentials(
 
         if ( !hMyCertStore )
         {
-            Status = GetLastError();
-            logger.logError(loggerId, Status, "CertOpenSystemStore\n");
-            return Status;
+            status = GetLastError();
+            logger.logError(loggerId, status, "CertOpenSystemStore\n");
+            return status;
         }
     }
 
     uint8_t hash_data[SHA1_BYTES_LN];
     uint8_t* hash_ptr = hash_data; // passing &hash_data to function does not work
-    Status = parsePlainBytes(certId, &hash_ptr, SHA1_BYTES_LN);
-    if ( Status != 0 )
+    status = parsePlainBytes(certId, &hash_ptr, SHA1_BYTES_LN);
+    if ( status != 0 )
     {
-        logger.logError(loggerId, Status, "parsePlainBytes\n");
+        logger.logError(loggerId, status, "parsePlainBytes\n");
         goto cleanup;
     }
 
@@ -109,17 +109,17 @@ CreateCredentials(
     //                                   SP_PROT_TLS1_1 |
     //                                   SP_PROT_TLS1_2;
 
-    ZeroMemory(&SchCreds, sizeof(SchCreds));
-    SchCreds.dwVersion  = SCH_CREDENTIALS_VERSION;
-    SchCreds.cCreds = 1;
-    SchCreds.paCred = &pCertContext;
-    SchCreds.dwFlags |= credFlags;
-    //SchCreds.cTlsParameters = 1;
-    //SchCreds.pTlsParameters = &tlsParams;
-    SchCreds.dwSessionLifespan = 10; // 0 for default of 36000000 milliseconds (ten hours)
+    ZeroMemory(&schCreds, sizeof(schCreds));
+    schCreds.dwVersion  = SCH_CREDENTIALS_VERSION;
+    schCreds.cCreds = 1;
+    schCreds.paCred = &pCertContext;
+    schCreds.dwFlags |= credFlags;
+    //schCreds.cTlsParameters = 1;
+    //schCreds.pTlsParameters = &tlsParams;
+    schCreds.dwSessionLifespan = 10; // 0 for default of 36000000 milliseconds (ten hours)
 
     // Create an SSPI credential.
-    Status = g_pSSPI->AcquireCredentialsHandleA(
+    status = g_pSSPI->AcquireCredentialsHandleA(
                         NULL,                   // Name of principal    
                         //TLS1SP_NAME_A,    // Name of package
                         //SCHANNEL_NAME_A,    // Name of package
@@ -127,14 +127,14 @@ CreateCredentials(
                         (CHAR*)UNISP_NAME_A,    // Name of package
                         fCredentialUse,   // Flags indicating use
                         NULL,                   // Pointer to logon ID
-                        &SchCreds,          // Package specific data
+                        &schCreds,          // Package specific data
                         NULL,                   // Pointer to GetKey() func
                         NULL,                   // Value to pass to GetKey()
-                        phCreds,                // (out) Cred Handle
+                        Creds,                // (out) Cred Handle
                         &tsExpiry);             // (out) Lifetime (optional)
-    if ( Status != SEC_E_OK )
+    if ( status != SEC_E_OK )
     {
-        logger.logError(loggerId, Status, "%s returned by AcquireCredentialsHandle\n", getSecErrorString(Status));
+        logger.logError(loggerId, status, "%s returned by AcquireCredentialsHandle\n", getSecErrorString(status));
         goto cleanup;
     }
 
@@ -161,20 +161,20 @@ cleanup:
         hMyCertStore = NULL;
     }
 
-    return Status;
+    return status;
 }
 
 SECURITY_STATUS
 PerformClientHandshake(
     _In_ SOCKET Socket,
-    _In_ PCredHandle phCreds,
+    _In_ PCredHandle Creds,
     _In_ LPSTR ServerIp,
-    _Out_ CtxtHandle *phContext,
+    _Out_ CtxtHandle *Context,
     _Out_ SecBuffer *pExtraData
 )
 {
-    SecBufferDesc OutBuffer;
-    SecBuffer OutBuffers[1];
+    SecBufferDesc outBuffer;
+    SecBuffer outBuffers[1];
     DWORD dwSSPIFlags;
     DWORD dwSSPIOutFlags;
     TimeStamp tsExpiry;
@@ -196,16 +196,16 @@ PerformClientHandshake(
     //  Initiate a ClientHello message and generate a token.
     //
 
-    OutBuffers[0].pvBuffer = NULL;
-    OutBuffers[0].BufferType = SECBUFFER_TOKEN;
-    OutBuffers[0].cbBuffer = 0;
+    outBuffers[0].pvBuffer = NULL;
+    outBuffers[0].BufferType = SECBUFFER_TOKEN;
+    outBuffers[0].cbBuffer = 0;
 
-    OutBuffer.cBuffers = 1;
-    OutBuffer.pBuffers = OutBuffers;
-    OutBuffer.ulVersion = SECBUFFER_VERSION;
+    outBuffer.cBuffers = 1;
+    outBuffer.pBuffers = outBuffers;
+    outBuffer.ulVersion = SECBUFFER_VERSION;
 
     scRet = g_pSSPI->InitializeSecurityContextA(
-                    phCreds,
+                    Creds,
                     NULL,
                     ServerIp,
                     dwSSPIFlags,
@@ -213,8 +213,8 @@ PerformClientHandshake(
                     0,
                     NULL,
                     0,
-                    phContext,
-                    &OutBuffer,
+                    Context,
+                    &outBuffer,
                     &dwSSPIOutFlags,
                     &tsExpiry);
 
@@ -225,17 +225,17 @@ PerformClientHandshake(
     }
 
     // Send response to server if there is one.
-    if ( OutBuffers[0].cbBuffer != 0 && OutBuffers[0].pvBuffer != NULL )
+    if ( outBuffers[0].cbBuffer != 0 && outBuffers[0].pvBuffer != NULL )
     {
         cbData = send(Socket,
-                      (PCHAR)OutBuffers[0].pvBuffer,
-                      OutBuffers[0].cbBuffer,
+                      (PCHAR)outBuffers[0].pvBuffer,
+                      outBuffers[0].cbBuffer,
                       0);
         if ( cbData == SOCKET_ERROR || cbData == 0 )
         {
             logger.logError(loggerId, WSAGetLastError(), "Sending hello data to server (1)\n");
-            g_pSSPI->FreeContextBuffer(OutBuffers[0].pvBuffer);
-            deleteSecurityContext(phContext);
+            g_pSSPI->FreeContextBuffer(outBuffers[0].pvBuffer);
+            deleteSecurityContext(Context);
             return SEC_E_INTERNAL_ERROR;
         }
 
@@ -243,33 +243,33 @@ PerformClientHandshake(
         logger.logInfo(loggerId, 0, "0x%x bytes of handshake data sent\n", cbData);
 #endif
 #ifdef DEBUG_PRINT_HEX_DUMP
-        PrintHexDump(cbData, OutBuffers[0].pvBuffer);
+        PrintHexDump(cbData, outBuffers[0].pvBuffer);
         logger.logInfo(loggerId, 0, "\n");
 #endif
 
         // Free output buffer.
-        g_pSSPI->FreeContextBuffer(OutBuffers[0].pvBuffer);
-        OutBuffers[0].pvBuffer = NULL;
+        g_pSSPI->FreeContextBuffer(outBuffers[0].pvBuffer);
+        outBuffers[0].pvBuffer = NULL;
     }
 
 
-    return ClientHandshakeLoop(Socket, phCreds, phContext, TRUE, pExtraData);
+    return ClientHandshakeLoop(Socket, Creds, Context, TRUE, pExtraData);
 }
 
 static
 SECURITY_STATUS
 ClientHandshakeLoop(
     _In_ SOCKET Socket,
-    _In_ PCredHandle phCreds,
-    _Inout_ CtxtHandle *phContext,
+    _In_ PCredHandle Creds,
+    _Inout_ CtxtHandle *Context,
     _In_ BOOL fDoInitialRead,
     _Out_ SecBuffer *pExtraData
 )
 {
-    SecBufferDesc InBuffer;
-    SecBuffer InBuffers[2];
-    SecBufferDesc OutBuffer;
-    SecBuffer OutBuffers[1];
+    SecBufferDesc inBuffer;
+    SecBuffer inBuffers[2];
+    SecBufferDesc outBuffer;
+    SecBuffer outBuffers[1];
     DWORD dwSSPIFlags;
     DWORD dwSSPIOutFlags;
     TimeStamp tsExpiry;
@@ -362,17 +362,17 @@ ClientHandshakeLoop(
         // given a buffer type of SECBUFFER_EXTRA.
         //
 
-        InBuffers[0].pvBuffer   = IoBuffer;
-        InBuffers[0].cbBuffer   = cbIoBuffer;
-        InBuffers[0].BufferType = SECBUFFER_TOKEN;
+        inBuffers[0].pvBuffer   = IoBuffer;
+        inBuffers[0].cbBuffer   = cbIoBuffer;
+        inBuffers[0].BufferType = SECBUFFER_TOKEN;
 
-        InBuffers[1].pvBuffer   = NULL;
-        InBuffers[1].cbBuffer   = 0;
-        InBuffers[1].BufferType = SECBUFFER_EMPTY;
+        inBuffers[1].pvBuffer   = NULL;
+        inBuffers[1].cbBuffer   = 0;
+        inBuffers[1].BufferType = SECBUFFER_EMPTY;
 
-        InBuffer.cBuffers       = 2;
-        InBuffer.pBuffers       = InBuffers;
-        InBuffer.ulVersion      = SECBUFFER_VERSION;
+        inBuffer.cBuffers       = 2;
+        inBuffer.pBuffers       = inBuffers;
+        inBuffer.ulVersion      = SECBUFFER_VERSION;
 
         //
         // Set up the output buffers. These are initialized to NULL
@@ -380,29 +380,29 @@ ClientHandshakeLoop(
         // garbage later.
         //
 
-        OutBuffers[0].pvBuffer  = NULL;
-        OutBuffers[0].BufferType= SECBUFFER_TOKEN;
-        OutBuffers[0].cbBuffer  = 0;
+        outBuffers[0].pvBuffer  = NULL;
+        outBuffers[0].BufferType= SECBUFFER_TOKEN;
+        outBuffers[0].cbBuffer  = 0;
 
-        OutBuffer.cBuffers      = 1;
-        OutBuffer.pBuffers      = OutBuffers;
-        OutBuffer.ulVersion     = SECBUFFER_VERSION;
+        outBuffer.cBuffers      = 1;
+        outBuffer.pBuffers      = outBuffers;
+        outBuffer.ulVersion     = SECBUFFER_VERSION;
 
         //
         // Call InitializeSecurityContext.
         //
 
         scRet = g_pSSPI->InitializeSecurityContextA(
-                            phCreds,
-                            phContext,
+                            Creds,
+                            Context,
                             NULL,
                             dwSSPIFlags,
                             0,
                             0,
-                            &InBuffer,
+                            &inBuffer,
                             0,
                             NULL,
-                            &OutBuffer,
+                            &outBuffer,
                             &dwSSPIOutFlags,
                             &tsExpiry
                         );
@@ -417,18 +417,18 @@ ClientHandshakeLoop(
              scRet == SEC_I_CONTINUE_NEEDED   ||
              FAILED(scRet) && (dwSSPIOutFlags & ISC_RET_EXTENDED_ERROR) )
         {
-            if ( OutBuffers[0].cbBuffer != 0 && OutBuffers[0].pvBuffer != NULL )
+            if ( outBuffers[0].cbBuffer != 0 && outBuffers[0].pvBuffer != NULL )
             {
                 cbData = send(Socket,
-                              (PCHAR)OutBuffers[0].pvBuffer,
-                              OutBuffers[0].cbBuffer,
+                              (PCHAR)outBuffers[0].pvBuffer,
+                              outBuffers[0].cbBuffer,
                               0);
                 if ( cbData == SOCKET_ERROR || cbData == 0 )
                 {
                     scRet = SEC_E_INTERNAL_ERROR;
                     logger.logError(loggerId, WSAGetLastError(), "sending data to server (2)\n");
-                    g_pSSPI->FreeContextBuffer(OutBuffers[0].pvBuffer);
-                    deleteSecurityContext(phContext);
+                    g_pSSPI->FreeContextBuffer(outBuffers[0].pvBuffer);
+                    deleteSecurityContext(Context);
                     return scRet;
                 }
 
@@ -436,13 +436,13 @@ ClientHandshakeLoop(
                 logger.logInfo(loggerId, 0, "0x%x bytes of handshake data sent\n", cbData);
 #endif
 #ifdef DEBUG_PRINT_HEX_DUMP
-                PrintHexDump(cbData, OutBuffers[0].pvBuffer);
+                PrintHexDump(cbData, outBuffers[0].pvBuffer);
                 logger.logInfo(loggerId, 0, "\n");
 #endif
 
                 // Free output buffer.
-                g_pSSPI->FreeContextBuffer(OutBuffers[0].pvBuffer);
-                OutBuffers[0].pvBuffer = NULL;
+                g_pSSPI->FreeContextBuffer(outBuffers[0].pvBuffer);
+                outBuffers[0].pvBuffer = NULL;
             }
         }
 
@@ -473,10 +473,10 @@ ClientHandshakeLoop(
 
             logger.logInfo(loggerId, 0, "Handshake was successful\n");
 
-            if ( InBuffers[1].BufferType == SECBUFFER_EXTRA )
+            if ( inBuffers[1].BufferType == SECBUFFER_EXTRA )
             {
                 pExtraData->pvBuffer = (PVOID)LocalAlloc(LMEM_FIXED, 
-                                                  InBuffers[1].cbBuffer);
+                                                  inBuffers[1].cbBuffer);
                 if ( pExtraData->pvBuffer == NULL )
                 {
                     scRet = SEC_E_INTERNAL_ERROR;
@@ -485,10 +485,10 @@ ClientHandshakeLoop(
                 }
 
                 MoveMemory(pExtraData->pvBuffer,
-                           IoBuffer + (cbIoBuffer - InBuffers[1].cbBuffer),
-                           InBuffers[1].cbBuffer);
+                           IoBuffer + (cbIoBuffer - inBuffers[1].cbBuffer),
+                           inBuffers[1].cbBuffer);
 
-                pExtraData->cbBuffer = InBuffers[1].cbBuffer;
+                pExtraData->cbBuffer = inBuffers[1].cbBuffer;
                 pExtraData->BufferType = SECBUFFER_TOKEN;
 
                 logger.logInfo(loggerId, 0, "INFO: 0x%x bytes of app data was bundled with handshake data\n",
@@ -537,7 +537,7 @@ ClientHandshakeLoop(
             // credentials).
             //
             
-            //GetNewClientCredentials(phCreds, phContext);
+            //GetNewClientCredentials(Creds, Context);
 
             //// Go around again.
             //fDoRead = FALSE;
@@ -551,13 +551,13 @@ ClientHandshakeLoop(
         // again.
         //
 
-        if ( InBuffers[1].BufferType == SECBUFFER_EXTRA )
+        if ( inBuffers[1].BufferType == SECBUFFER_EXTRA )
         {
             MoveMemory(IoBuffer,
-                       IoBuffer + (cbIoBuffer - InBuffers[1].cbBuffer),
-                       InBuffers[1].cbBuffer);
+                       IoBuffer + (cbIoBuffer - inBuffers[1].cbBuffer),
+                       inBuffers[1].cbBuffer);
 
-            cbIoBuffer = InBuffers[1].cbBuffer;
+            cbIoBuffer = inBuffers[1].cbBuffer;
         }
         else
         {
@@ -569,7 +569,7 @@ ClientHandshakeLoop(
     if ( FAILED(scRet) )
     {
         logger.logError(loggerId, scRet, "client handshake loop (%s)\n", getSecErrorString(scRet));
-        deleteSecurityContext(phContext);
+        deleteSecurityContext(Context);
     }
 
     LocalFree(IoBuffer);
@@ -584,9 +584,9 @@ VerifyServerCertificate(
     _In_ DWORD CertFlags)
 {
     HTTPSPolicyCallbackData polHttps;
-    CERT_CHAIN_POLICY_PARA PolicyPara;
-    CERT_CHAIN_POLICY_STATUS PolicyStatus;
-    CERT_CHAIN_PARA ChainPara;
+    CERT_CHAIN_POLICY_PARA policyPara;
+    CERT_CHAIN_POLICY_STATUS policyStatus;
+    CERT_CHAIN_PARA chainPara;
     PCCERT_CHAIN_CONTEXT pChainContext = NULL;
 
     LPSTR rgszUsages[] = {  (CHAR*)szOID_PKIX_KP_SERVER_AUTH,
@@ -596,11 +596,11 @@ VerifyServerCertificate(
 
     PWSTR pwszServerName = NULL;
     DWORD cchServerName;
-    LONG Status;
+    LONG status;
 
     if ( Cert == NULL )
     {
-        Status = SEC_E_WRONG_PRINCIPAL;
+        status = SEC_E_WRONG_PRINCIPAL;
         goto cleanup;
     }
 
@@ -611,7 +611,7 @@ VerifyServerCertificate(
 
     if ( ServerIp == NULL || strlen(ServerIp) == 0 )
     {
-        Status = SEC_E_WRONG_PRINCIPAL;
+        status = SEC_E_WRONG_PRINCIPAL;
         goto cleanup;
     }
 
@@ -619,13 +619,13 @@ VerifyServerCertificate(
     pwszServerName = (PWSTR) LocalAlloc(LMEM_FIXED, cchServerName * sizeof(WCHAR));
     if ( pwszServerName == NULL )
     {
-        Status = SEC_E_INSUFFICIENT_MEMORY;
+        status = SEC_E_INSUFFICIENT_MEMORY;
         goto cleanup;
     }
     cchServerName = MultiByteToWideChar(CP_ACP, 0, ServerIp, -1, pwszServerName, cchServerName);
     if ( cchServerName == 0 )
     {
-        Status = SEC_E_WRONG_PRINCIPAL;
+        status = SEC_E_WRONG_PRINCIPAL;
         goto cleanup;
     }
 
@@ -634,24 +634,24 @@ VerifyServerCertificate(
     // Build certificate chain.
     //
 
-    ZeroMemory(&ChainPara, sizeof(ChainPara));
-    ChainPara.cbSize = sizeof(ChainPara);
-    ChainPara.RequestedUsage.dwType = USAGE_MATCH_TYPE_OR;
-    ChainPara.RequestedUsage.Usage.cUsageIdentifier = cUsages;
-    ChainPara.RequestedUsage.Usage.rgpszUsageIdentifier = rgszUsages;
+    ZeroMemory(&chainPara, sizeof(chainPara));
+    chainPara.cbSize = sizeof(chainPara);
+    chainPara.RequestedUsage.dwType = USAGE_MATCH_TYPE_OR;
+    chainPara.RequestedUsage.Usage.cUsageIdentifier = cUsages;
+    chainPara.RequestedUsage.Usage.rgpszUsageIdentifier = rgszUsages;
 
     if ( !CertGetCertificateChain(
                             NULL,
                             Cert,
                             NULL,
                             Cert->hCertStore,
-                            &ChainPara,
+                            &chainPara,
                             0,
                             NULL,
                             &pChainContext) )
     {
-        Status = GetLastError();
-        logger.logError(loggerId, Status, "CertGetCertificateChain!\n");
+        status = GetLastError();
+        logger.logError(loggerId, status, "CertGetCertificateChain!\n");
         goto cleanup;
     }
 
@@ -666,36 +666,36 @@ VerifyServerCertificate(
     polHttps.fdwChecks          = CertFlags;
     polHttps.pwszServerName     = pwszServerName;
 
-    memset(&PolicyPara, 0, sizeof(PolicyPara));
-    PolicyPara.cbSize            = sizeof(PolicyPara);
-    PolicyPara.pvExtraPolicyPara = &polHttps;
+    memset(&policyPara, 0, sizeof(policyPara));
+    policyPara.cbSize = sizeof(policyPara);
+    policyPara.pvExtraPolicyPara = &polHttps;
 
-    memset(&PolicyStatus, 0, sizeof(PolicyStatus));
-    PolicyStatus.cbSize = sizeof(PolicyStatus);
+    memset(&policyStatus, 0, sizeof(policyStatus));
+    policyStatus.cbSize = sizeof(policyStatus);
 
     if ( !CertVerifyCertificateChainPolicy(
                             CERT_CHAIN_POLICY_SSL,
                             pChainContext,
-                            &PolicyPara,
-                            &PolicyStatus) )
+                            &policyPara,
+                            &policyStatus) )
     {
-        Status = GetLastError();
-        logger.logError(loggerId, Status, "CertVerifyCertificateChainPolicy!\n");
+        status = GetLastError();
+        logger.logError(loggerId, status, "CertVerifyCertificateChainPolicy!\n");
         goto cleanup;
     }
 
-    if ( PolicyStatus.dwError )
+    if ( policyStatus.dwError )
     {
-        Status = PolicyStatus.dwError;
-        logger.logError(loggerId, Status, "%s!\n", GetWinVerifyTrustError(Status));
-        if ( PolicyStatus.dwError == CERT_E_UNTRUSTEDROOT )
+        status = policyStatus.dwError;
+        logger.logError(loggerId, status, "%s!\n", GetWinVerifyTrustError(status));
+        if ( policyStatus.dwError == CERT_E_UNTRUSTEDROOT )
             logger.logInfo(loggerId, 0, "skipping\n");
         else
             goto cleanup;
     }
 
 
-    Status = SEC_E_OK;
+    status = SEC_E_OK;
 
 cleanup:
 
@@ -709,26 +709,27 @@ cleanup:
         LocalFree(pwszServerName);
     }
 
-    return Status;
+    return status;
 }
 
 BOOL
 SSPINegotiateLoop(
     _In_ SOCKET Socket,
-    _Out_ PCtxtHandle phContext,
+    _Out_ PCtxtHandle Context,
     _In_ PCredHandle phCred,
     _In_ BOOL fDoInitialRead,
     _In_ BOOL NewContext,
     _In_ PBYTE pbIoBuffer,
-    _In_ ULONG cbIoBuffer
+    _In_ ULONG cbIoBuffer,
+    _In_ ULONG cbInitialData
 )
 {
     TimeStamp tsExpiry;
     SECURITY_STATUS scRet;
-    SecBufferDesc InBuffer;
-    SecBufferDesc OutBuffer;
-    SecBuffer InBuffers[2];
-    SecBuffer OutBuffers[1];
+    SecBufferDesc inBuffer;
+    SecBufferDesc outBuffer;
+    SecBuffer inBuffers[2];
+    SecBuffer outBuffers[1];
     DWORD cbData = 0;
 
     BOOL fDoRead;
@@ -753,16 +754,16 @@ SSPINegotiateLoop(
 
 
     //
-    //  set OutBuffer for InitializeSecurityContext call
+    //  set outBuffer for InitializeSecurityContext call
     //
 
-    OutBuffer.cBuffers = 1;
-    OutBuffer.pBuffers = OutBuffers;
-    OutBuffer.ulVersion = SECBUFFER_VERSION;
+    outBuffer.cBuffers = 1;
+    outBuffer.pBuffers = outBuffers;
+    outBuffer.ulVersion = SECBUFFER_VERSION;
 
 
     scRet = SEC_I_CONTINUE_NEEDED;
-    cbIoBuffer = 0;
+    cbIoBuffer = fDoInitialRead ? 0 : cbInitialData;
 
     while( scRet == SEC_I_CONTINUE_NEEDED ||
            scRet == SEC_E_INCOMPLETE_MESSAGE ||
@@ -770,9 +771,15 @@ SSPINegotiateLoop(
     {
         if ( 0 == cbIoBuffer || scRet == SEC_E_INCOMPLETE_MESSAGE )
         {
+            if ( cbIoBuffer >= cbIoBufferLength )
+            {
+                logger.logError(loggerId, SCHAT_ERROR_TLS_NEGOTIATION, "buffer too big\n");
+                return FALSE;
+            }
+
             if ( fDoRead )
             {
-                cbData = recv(Socket, (PCHAR)(pbIoBuffer+cbIoBuffer), cbIoBufferLength, 0);
+                cbData = recv(Socket, (PCHAR)(pbIoBuffer+cbIoBuffer), cbIoBufferLength - cbIoBuffer, 0);
 
                 if ( cbData == SOCKET_ERROR || cbData == 0 )
                 {
@@ -795,22 +802,22 @@ SSPINegotiateLoop(
 
 
         //
-        // InBuffers[1] is for getting extra data that
+        // inBuffers[1] is for getting extra data that
         //  SSPI/SCHANNEL doesn't proccess on this
         //  run around the loop.
         //
 
-        InBuffers[0].pvBuffer = pbIoBuffer;
-        InBuffers[0].cbBuffer = cbIoBuffer;
-        InBuffers[0].BufferType = SECBUFFER_TOKEN;
+        inBuffers[0].pvBuffer = pbIoBuffer;
+        inBuffers[0].cbBuffer = cbIoBuffer;
+        inBuffers[0].BufferType = SECBUFFER_TOKEN;
 
-        InBuffers[1].pvBuffer = NULL;
-        InBuffers[1].cbBuffer = 0;
-        InBuffers[1].BufferType = SECBUFFER_EMPTY;
+        inBuffers[1].pvBuffer = NULL;
+        inBuffers[1].cbBuffer = 0;
+        inBuffers[1].BufferType = SECBUFFER_EMPTY;
 
-        InBuffer.cBuffers = 2;
-        InBuffer.pBuffers = InBuffers;
-        InBuffer.ulVersion = SECBUFFER_VERSION;
+        inBuffer.cBuffers = 2;
+        inBuffer.pBuffers = inBuffers;
+        inBuffer.ulVersion = SECBUFFER_VERSION;
 
 
         //
@@ -818,19 +825,19 @@ SSPINegotiateLoop(
         // so we don't try to free random garbage at the quit
         //
 
-        OutBuffers[0].pvBuffer = NULL;
-        OutBuffers[0].BufferType = SECBUFFER_TOKEN;
-        OutBuffers[0].cbBuffer = 0;
+        outBuffers[0].pvBuffer = NULL;
+        outBuffers[0].BufferType = SECBUFFER_TOKEN;
+        outBuffers[0].cbBuffer = 0;
 
 
         scRet = g_pSSPI->AcceptSecurityContext(
                         phCred,
-                        (fInitContext?NULL:phContext),
-                        &InBuffer,
+                        (fInitContext?NULL:Context),
+                        &inBuffer,
                         dwSSPIFlags,
                         0,
-                        (fInitContext?phContext:NULL),
-                        &OutBuffer,
+                        (fInitContext?Context:NULL),
+                        &outBuffer,
                         &dwSSPIOutFlags,
                         &tsExpiry);
 
@@ -840,35 +847,34 @@ SSPINegotiateLoop(
              scRet == SEC_I_CONTINUE_NEEDED ||
              (FAILED(scRet) && (0 != (dwSSPIOutFlags & ISC_RET_EXTENDED_ERROR))))
         {
-            if  (OutBuffers[0].cbBuffer != 0    &&
-                 OutBuffers[0].pvBuffer != NULL )
+            if  (outBuffers[0].cbBuffer != 0    &&
+                 outBuffers[0].pvBuffer != NULL )
             {
                 // Send response to server if there is one
                 cbData = send(Socket,
-                              (PCHAR)OutBuffers[0].pvBuffer,
-                              OutBuffers[0].cbBuffer,
+                              (PCHAR)outBuffers[0].pvBuffer,
+                              outBuffers[0].cbBuffer,
                               0);
 
-                logger.logInfo(loggerId, 0, "\nSend 0x%x handshake bytes to client\n", OutBuffers[0].cbBuffer);
+                logger.logInfo(loggerId, 0, "\nSend 0x%x handshake bytes to client\n", outBuffers[0].cbBuffer);
 
 #ifdef DEBUG_PRINT_HEX_DUMP
-                PrintHexDump(OutBuffers[0].cbBuffer, OutBuffers[0].pvBuffer);
+                PrintHexDump(outBuffers[0].cbBuffer, outBuffers[0].pvBuffer);
 #endif
 
-                g_pSSPI->FreeContextBuffer(OutBuffers[0].pvBuffer);
-                OutBuffers[0].pvBuffer = NULL;
+                g_pSSPI->FreeContextBuffer(outBuffers[0].pvBuffer);
+                outBuffers[0].pvBuffer = NULL;
             }
         }
 
-
         if ( scRet == SEC_E_OK )
         {
-            if ( InBuffers[1].BufferType == SECBUFFER_EXTRA )
+            if ( inBuffers[1].BufferType == SECBUFFER_EXTRA )
             {
                 memcpy(pbIoBuffer,
-                       (LPBYTE) (pbIoBuffer + (cbIoBuffer - InBuffers[1].cbBuffer)),
-                       InBuffers[1].cbBuffer);
-                cbIoBuffer = InBuffers[1].cbBuffer;
+                       (LPBYTE) (pbIoBuffer + (cbIoBuffer - inBuffers[1].cbBuffer)),
+                       inBuffers[1].cbBuffer);
+                cbIoBuffer = inBuffers[1].cbBuffer;
             }
             else
             {
@@ -884,19 +890,19 @@ SSPINegotiateLoop(
         }
         else if (FAILED(scRet) && (scRet != SEC_E_INCOMPLETE_MESSAGE))
         {
-            logger.logError(loggerId, scRet, "Accept Security Context Failed : %s\n", getSecErrorString(scRet));
+            logger.logError(loggerId, scRet, "Accept Security Context failed : %s\n", getSecErrorString(scRet));
             return FALSE;
         }
 
         if ( scRet != SEC_E_INCOMPLETE_MESSAGE &&
-             scRet != SEC_I_INCOMPLETE_CREDENTIALS)
+             scRet != SEC_I_INCOMPLETE_CREDENTIALS )
         {
-            if ( InBuffers[1].BufferType == SECBUFFER_EXTRA )
+            if ( inBuffers[1].BufferType == SECBUFFER_EXTRA )
             {
                 memcpy(pbIoBuffer,
-                       (LPBYTE) (pbIoBuffer + (cbIoBuffer - InBuffers[1].cbBuffer)),
-                        InBuffers[1].cbBuffer);
-                cbIoBuffer = InBuffers[1].cbBuffer;
+                       (LPBYTE) (pbIoBuffer + (cbIoBuffer - inBuffers[1].cbBuffer)),
+                        inBuffers[1].cbBuffer);
+                cbIoBuffer = inBuffers[1].cbBuffer;
             }
             else
             {
@@ -911,21 +917,21 @@ SSPINegotiateLoop(
 
 INT
 CheckConnectionInfo(
-    _In_ CtxtHandle *phContext,
+    _In_ CtxtHandle *Context,
     _In_ PSecurityFunctionTable SSPI
 )
 {
-    SECURITY_STATUS Status;
+    SECURITY_STATUS status;
     SecPkgContext_ConnectionInfo ConnectionInfo;
 
-    Status = SSPI->QueryContextAttributes(
-        phContext,
+    status = SSPI->QueryContextAttributes(
+        Context,
         SECPKG_ATTR_CONNECTION_INFO,
         (PVOID)&ConnectionInfo
     );
-    if ( Status != SEC_E_OK )
+    if ( status != SEC_E_OK )
     {
-        logger.logError(loggerId, Status, "querying connection info\n");
+        logger.logError(loggerId, status, "querying connection info\n");
         return -1;
     }
 
@@ -940,13 +946,13 @@ CheckConnectionInfo(
 
 INT
 readStreamEncryptionProperties(
-    _Out_ SecPkgContext_StreamSizes* pSizes,
-    _In_ CtxtHandle *phContext
+    _Out_ SecPkgContext_StreamSizes* Sizes,
+    _In_ CtxtHandle *Context
 )
 {
-    int scRet = g_pSSPI->QueryContextAttributes(phContext,
+    int scRet = g_pSSPI->QueryContextAttributes(Context,
                                    SECPKG_ATTR_STREAM_SIZES,
-                                   pSizes);
+                                   Sizes);
     if ( scRet != SEC_E_OK )
     {
         logger.logError(loggerId, scRet, "reading SECPKG_ATTR_STREAM_SIZES\n");
@@ -954,11 +960,11 @@ readStreamEncryptionProperties(
     }
 #ifdef DEBUG_PRINT
     logger.logInfo(loggerId, 0, "Sizes:\n - Header: 0x%x\n - Trailer: 0x%x\n - MaxMessage: 0x%x\n - Buffers: 0x%x\n - BlockSize: 0x%x\n",
-        pSizes->cbHeader,
-        pSizes->cbTrailer,
-        pSizes->cbMaximumMessage,
-        pSizes->cBuffers,
-        pSizes->cbBlockSize
+        Sizes->cbHeader,
+        Sizes->cbTrailer,
+        Sizes->cbMaximumMessage,
+        Sizes->cBuffers,
+        Sizes->cbBlockSize
     );
 #endif
     return 0;
@@ -995,17 +1001,17 @@ SECURITY_STATUS sendSChannelData(
     _In_ PUCHAR pbMessage,
     _In_ ULONG cbMessage, 
     _In_ SOCKET Socket,
-    _In_ CtxtHandle *phContext,
-    _In_ SecPkgContext_StreamSizes* pSizes,
+    _In_ CtxtHandle *Context,
+    _In_ SecPkgContext_StreamSizes* Sizes,
     _In_ PBYTE pbIoBuffer,
     _In_ ULONG cbIoBuffer
 )
 {
     SECURITY_STATUS scRet;
-    SecBufferDesc Message;
-    SecBuffer Buffers[4];
+    SecBufferDesc encMessage;
+    SecBuffer buffers[4];
 
-    DWORD cbData;
+    //DWORD cbData;
 
     UNREFERENCED_PARAMETER(cbIoBuffer);
 
@@ -1023,28 +1029,28 @@ SECURITY_STATUS sendSChannelData(
     // Encrypt the HTTP request.
     //
 
-    Buffers[0].pvBuffer = pbIoBuffer;
-    Buffers[0].cbBuffer = pSizes->cbHeader;
-    Buffers[0].BufferType = SECBUFFER_STREAM_HEADER;
+    buffers[0].pvBuffer = pbIoBuffer;
+    buffers[0].cbBuffer = Sizes->cbHeader;
+    buffers[0].BufferType = SECBUFFER_STREAM_HEADER;
 
-    Buffers[1].pvBuffer = pbMessage;
-    Buffers[1].cbBuffer = cbMessage;
-    Buffers[1].BufferType = SECBUFFER_DATA;
+    buffers[1].pvBuffer = pbMessage;
+    buffers[1].cbBuffer = cbMessage;
+    buffers[1].BufferType = SECBUFFER_DATA;
 
-    Buffers[2].pvBuffer = pbMessage + cbMessage;
-    Buffers[2].cbBuffer = pSizes->cbTrailer;
-    Buffers[2].BufferType = SECBUFFER_STREAM_TRAILER;
+    buffers[2].pvBuffer = pbMessage + cbMessage;
+    buffers[2].cbBuffer = Sizes->cbTrailer;
+    buffers[2].BufferType = SECBUFFER_STREAM_TRAILER;
 
-    Buffers[3].BufferType = SECBUFFER_EMPTY;
+    buffers[3].BufferType = SECBUFFER_EMPTY;
 
-    Message.ulVersion = SECBUFFER_VERSION;
-    Message.cBuffers = 4;
-    Message.pBuffers = Buffers;
+    encMessage.ulVersion = SECBUFFER_VERSION;
+    encMessage.cBuffers = 4;
+    encMessage.pBuffers = buffers;
      
     scRet = g_pSSPI->EncryptMessage(
-                        phContext, 
+                        Context, 
                         0, 
-                        &Message, 
+                        &encMessage, 
                         0
                     );
 
@@ -1058,45 +1064,65 @@ SECURITY_STATUS sendSChannelData(
     // 
     // Send the encrypted data to the server.
     //
-
-    cbData = send(Socket,
-                  (PCHAR)pbIoBuffer,
-                  Buffers[0].cbBuffer + Buffers[1].cbBuffer + Buffers[2].cbBuffer,
-                  0);
-    if ( cbData == SOCKET_ERROR || cbData == 0 )
+    ULONG total = buffers[0].cbBuffer + buffers[1].cbBuffer + buffers[2].cbBuffer;
+    ULONG sent  = 0;
+    while ( sent < total )
     {
-        //deleteSecurityContext(phContext);
-
-        scRet = WSAGetLastError();
-        logger.logError(loggerId, scRet, "Sending data to server (3)\n");
-        if ( scRet == WSAEWOULDBLOCK || scRet == 0 )
+        int n = send(Socket, (PCHAR)(pbIoBuffer + sent), total - sent, 0);
+        if ( n == SOCKET_ERROR )
         {
-            logger.logInfo(loggerId, 0, " retry sending\n");
-            Sleep(SEND_LOOP_SLEEP);
-            return sendSChannelData(
-                        pbMessage,
-                        cbMessage, 
-                        Socket,
-                        phContext,
-                        pSizes,
-                        pbIoBuffer,
-                        cbIoBuffer
-                    );
-        }
-        else
-        {
-            logger.logInfo(loggerId, 0, " break\n");
+            scRet = WSAGetLastError();
+            if ( scRet == WSAEWOULDBLOCK )
+            {
+                Sleep(SEND_LOOP_SLEEP);
+                continue;                 // retry the REMAINING bytes — do NOT re-encrypt
+            }
+            logger.logError(loggerId, scRet, "Sending data to server (3)\n");
             return scRet;
         }
+        if ( n == 0 )                     // peer closed
+            return SEC_E_INTERNAL_ERROR;
+        sent += (ULONG)n;
     }
 
-#ifdef DEBUG_PRINT
-    logger.logInfo(loggerId, 0, "0x%x bytes of application data sent\n", cbData);
-#endif
-#ifdef DEBUG_PRINT_HEX_DUMP
-    PrintHexDump(cbData, pbIoBuffer);
-    logger.logInfo(loggerId, 0, "\n");
-#endif
+    //cbData = send(Socket,
+    //              (PCHAR)pbIoBuffer,
+    //              Buffers[0].cbBuffer + Buffers[1].cbBuffer + Buffers[2].cbBuffer,
+    //              0);
+    //if ( cbData == SOCKET_ERROR || cbData == 0 )
+    //{
+    //    //deleteSecurityContext(Context);
+    //
+    //    scRet = WSAGetLastError();
+    //    logger.logError(loggerId, scRet, "Sending data to server (3)\n");
+    //    if ( scRet == WSAEWOULDBLOCK || scRet == 0 )
+    //    {
+    //        logger.logInfo(loggerId, 0, " retry sending\n");
+    //        Sleep(SEND_LOOP_SLEEP);
+    //        return sendSChannelData(
+    //                    pbMessage,
+    //                    cbMessage, 
+    //                    Socket,
+    //                    Context,
+    //                    pSizes,
+    //                    pbIoBuffer,
+    //                    cbIoBuffer
+    //                );
+    //    }
+    //    else
+    //    {
+    //        logger.logInfo(loggerId, 0, " break\n");
+    //        return scRet;
+    //    }
+    //}
+
+//#ifdef DEBUG_PRINT
+//    logger.logInfo(loggerId, 0, "0x%x bytes of application data sent\n", cbData);
+//#endif
+//#ifdef DEBUG_PRINT_HEX_DUMP
+//    PrintHexDump(cbData, pbIoBuffer);
+//    logger.logInfo(loggerId, 0, "\n");
+//#endif
     
     return SEC_E_OK;
 }
@@ -1104,29 +1130,30 @@ SECURITY_STATUS sendSChannelData(
 SECURITY_STATUS
 receiveSChannelData(
     _In_ SOCKET Socket,
-    _In_ PCredHandle phClientCreds,
-    _In_ PCtxtHandle phContext,
-    _In_ SecPkgContext_StreamSizes* pSizes,
+    _In_ PCredHandle ServerCreds,
+    _In_ PCredHandle ClientCreds,
+    _In_ PCtxtHandle Context,
+    _In_ SecPkgContext_StreamSizes* Sizes,
     _Inout_ PBYTE pbIoBuffer,
     _In_ ULONG cbIoBuffer,
-    _In_ ULONG type,
-    _In_ BOOL* running
+    _In_ ULONG Type,
+    _In_ BOOL* Running
 )
 {
     SECURITY_STATUS scRet = SEC_E_OK;
     int msgRet = 0;
-    SecBufferDesc Message;
-    SecBuffer Buffers[4];
-    SecBuffer *pDataBuffer;
+    SecBufferDesc message;
+    SecBuffer buffers[4];
+    SecBuffer *dataBuffer;
     SecBuffer *pExtraBuffer;
-    SecBuffer ExtraBuffer;
+    SecBuffer hsExtraBuffer;
 
     DWORD cbIoBufferLength = cbIoBuffer;
 
     DWORD cbData;
     INT i;
 
-    UNREFERENCED_PARAMETER(pSizes);
+    UNREFERENCED_PARAMETER(Sizes);
     
 #ifdef DEBUG_PRINT
     logger.logInfo(loggerId, 0, "receiveSChannelData\n");
@@ -1134,11 +1161,11 @@ receiveSChannelData(
 
     cbIoBuffer = 0;
 
-    Message.ulVersion = SECBUFFER_VERSION;
-    Message.cBuffers = 4;
-    Message.pBuffers = Buffers;
+    message.ulVersion = SECBUFFER_VERSION;
+    message.cBuffers = 4;
+    message.pBuffers = buffers;
 
-    while ( *running )
+    while ( *Running )
     {
         // Read some data.
         if ( cbIoBuffer == 0 || scRet == SEC_E_INCOMPLETE_MESSAGE )
@@ -1197,15 +1224,15 @@ receiveSChannelData(
         // Attempt to decrypt the received data.
         //
 
-        Buffers[0].pvBuffer = pbIoBuffer;
-        Buffers[0].cbBuffer = cbIoBuffer;
-        Buffers[0].BufferType = SECBUFFER_DATA;
+        buffers[0].pvBuffer = pbIoBuffer;
+        buffers[0].cbBuffer = cbIoBuffer;
+        buffers[0].BufferType = SECBUFFER_DATA;
 
-        Buffers[1].BufferType = SECBUFFER_EMPTY;
-        Buffers[2].BufferType = SECBUFFER_EMPTY;
-        Buffers[3].BufferType = SECBUFFER_EMPTY;
+        buffers[1].BufferType = SECBUFFER_EMPTY;
+        buffers[2].BufferType = SECBUFFER_EMPTY;
+        buffers[3].BufferType = SECBUFFER_EMPTY;
 
-        scRet = g_pSSPI->DecryptMessage(phContext, &Message, 0, NULL);
+        scRet = g_pSSPI->DecryptMessage(Context, &message, 0, NULL);
 
         if ( scRet == SEC_E_INCOMPLETE_MESSAGE )
         {
@@ -1229,18 +1256,44 @@ receiveSChannelData(
         }
 
         // Locate data and (optional) extra buffers.
-        pDataBuffer  = NULL;
+        dataBuffer  = NULL;
         pExtraBuffer = NULL;
         for ( i = 0; i < 4; i++ )
         {
 
-            if ( pDataBuffer == NULL && Buffers[i].BufferType == SECBUFFER_DATA )
+            if ( dataBuffer == NULL && buffers[i].BufferType == SECBUFFER_DATA )
             {
-                pDataBuffer = &Buffers[i];
+                dataBuffer = &buffers[i];
             }
-            if ( pExtraBuffer == NULL && Buffers[i].BufferType == SECBUFFER_EXTRA )
+            if ( pExtraBuffer == NULL && buffers[i].BufferType == SECBUFFER_EXTRA )
             {
-                pExtraBuffer = &Buffers[i];
+                pExtraBuffer = &buffers[i];
+            }
+        }
+
+        // Process the decrypted data.
+        if ( dataBuffer && dataBuffer->cbBuffer > 0 )
+        {
+#ifdef DEBUG_PRINT_MESSAGE
+            logger.logInfo(loggerId, 0, "Decrypted data: 0x%x bytes\n", dataBuffer->cbBuffer);
+#endif
+#if defined(DEBUG_PRINT_MESSAGE) && defined(DEBUG_PRINT_HEX_DUMP)
+            PrintHexDump(dataBuffer->cbBuffer, dataBuffer->pvBuffer);
+            logger.logInfo(loggerId, 0, "\n");
+#endif
+            
+            msgRet = handleMessage(
+                        dataBuffer->pvBuffer, 
+                        dataBuffer->cbBuffer,
+                        Sizes,
+                        Type,
+                        Running
+                    );
+            if ( msgRet != 0 || !(*Running) )
+            {
+                // pbIoBuffer may be invalid now
+                *Running = false;
+                break;
             }
         }
 
@@ -1257,7 +1310,7 @@ receiveSChannelData(
 
         if ( scRet == SEC_I_RENEGOTIATE )
         {
-            if ( type == ENGINE_TYPE_CLIENT )
+            if ( Type == ENGINE_TYPE_CLIENT )
             {
                 // The server wants to perform another handshake
                 // sequence.
@@ -1265,20 +1318,20 @@ receiveSChannelData(
                 logger.logInfo(loggerId, 0, "Server requested renegotiate!\n");
 
                 scRet = ClientHandshakeLoop(Socket, 
-                                            phClientCreds, 
-                                            phContext, 
+                                            ClientCreds, 
+                                            Context, 
                                             FALSE, 
-                                            &ExtraBuffer);
+                                            &hsExtraBuffer);
                 if ( scRet != SEC_E_OK )
                 {
                     break;
                 }
 
                 // Move any "extra" data to the input buffer.
-                if ( ExtraBuffer.pvBuffer )
+                if ( hsExtraBuffer.pvBuffer )
                 {
-                    MoveMemory(pbIoBuffer, ExtraBuffer.pvBuffer, ExtraBuffer.cbBuffer);
-                    cbIoBuffer = ExtraBuffer.cbBuffer;
+                    MoveMemory(pbIoBuffer, hsExtraBuffer.pvBuffer, hsExtraBuffer.cbBuffer);
+                    cbIoBuffer = hsExtraBuffer.cbBuffer;
                 }
                 else
                 {
@@ -1288,33 +1341,27 @@ receiveSChannelData(
             }
             else
             {
-                logger.logInfo(loggerId, 0, "Client requested renegotiate : unhandled!\n");
-            }
-        }
+                // The client  wants to perform another handshake sequence.
+                logger.logInfo(loggerId, 0, "Client requested renegotiate!\n");
 
-        // Process the decrypted data.
-        if ( pDataBuffer )
-        {
-#ifdef DEBUG_PRINT_MESSAGE
-            logger.logInfo(loggerId, 0, "Decrypted data: 0x%x bytes\n", pDataBuffer->cbBuffer);
-#endif
-#if defined(DEBUG_PRINT_MESSAGE) && defined(DEBUG_PRINT_HEX_DUMP)
-            PrintHexDump(pDataBuffer->cbBuffer, pDataBuffer->pvBuffer);
-            logger.logInfo(loggerId, 0, "\n");
-#endif
-            
-            msgRet = handleMessage(
-                        pDataBuffer->pvBuffer, 
-                        pDataBuffer->cbBuffer,
-                        pSizes,
-                        type,
-                        running
-                    );
-            if ( msgRet != 0 || !(*running) )
-            {
-                // pbIoBuffer may be invalid now
-                *running = false;
-                break;
+                scRet = !SSPINegotiateLoop(
+                            Socket, 
+                            Context, 
+                            ServerCreds,
+                            /*fDoInitialRead=*/FALSE,
+                            /*NewContext=*/FALSE,
+                            pbIoBuffer, 
+                            cbIoBufferLength,
+                            cbIoBuffer
+                        );
+                if ( !scRet )
+                {
+                    scRet = SEC_E_INTERNAL_ERROR;
+                    break;
+                }
+
+                cbIoBuffer = 0;
+                continue;
             }
         }
 
@@ -1330,130 +1377,130 @@ receiveSChannelData(
 LONG
 Disconnect(
     _Inout_ SOCKET* Socket, 
-    _In_ PCredHandle phCreds,
-    _Inout_ CtxtHandle *phContext,
-    _In_ ULONG type
+    _In_ PCredHandle Creds,
+    _Inout_ CtxtHandle *Context,
+    _In_ ULONG Type
 )
 {
-    DWORD dwType;
+    DWORD type;
     PBYTE pbMessage;
     DWORD cbMessage;
     DWORD cbData;
 
-    SecBufferDesc OutBuffer;
-    SecBuffer OutBuffers[1];
-    DWORD dwSSPIFlags;
-    DWORD dwSSPIOutFlags;
-    TimeStamp tsExpiry;
-    DWORD Status = 0;
+    SecBufferDesc outBuffer;
+    SecBuffer outBuffers[1];
+    DWORD sspiFlags;
+    DWORD sspiOutFlags;
+    TimeStamp expiry;
+    DWORD status = 0;
     
     logger.logInfo(loggerId, 0, "Disconnect()\n");
-
+    
     //
     // Notify schannel that we are about to close the connection.
     //
-
-    dwType = SCHANNEL_SHUTDOWN;
-
+    
+    type = SCHANNEL_SHUTDOWN;
+    
     if ( *Socket == INVALID_SOCKET )
         goto cleanup;
-    if ( phCreds == NULL || (phCreds->dwLower == 0 && phCreds->dwUpper == 0) )
+    if ( Creds == NULL || (Creds->dwLower == 0 && Creds->dwUpper == 0) )
         goto cleanup;
-    if ( phContext == NULL || (phContext->dwLower == 0 && phContext->dwUpper == 0) )
+    if ( Context == NULL || (Context->dwLower == 0 && Context->dwUpper == 0) )
         goto cleanup;
-
-    OutBuffers[0].pvBuffer = &dwType;
-    OutBuffers[0].BufferType = SECBUFFER_TOKEN;
-    OutBuffers[0].cbBuffer = sizeof(dwType);
-
-    OutBuffer.cBuffers = 1;
-    OutBuffer.pBuffers = OutBuffers;
-    OutBuffer.ulVersion = SECBUFFER_VERSION;
-
-    Status = g_pSSPI->ApplyControlToken(phContext, &OutBuffer);
-
-    if ( FAILED(Status) ) 
+    
+    outBuffers[0].pvBuffer = &type;
+    outBuffers[0].BufferType = SECBUFFER_TOKEN;
+    outBuffers[0].cbBuffer = sizeof(type);
+    
+    outBuffer.cBuffers = 1;
+    outBuffer.pBuffers = outBuffers;
+    outBuffer.ulVersion = SECBUFFER_VERSION;
+    
+    status = g_pSSPI->ApplyControlToken(Context, &outBuffer);
+    
+    if ( FAILED(status) ) 
     {
-        logger.logError(loggerId, Status, "ApplyControlToken\n");
+        logger.logError(loggerId, status, "ApplyControlToken\n");
         goto cleanup;
     }
-
+    
     //
     // Build an SSL close notify message.
     //
-
-    dwSSPIFlags =   ASC_REQ_SEQUENCE_DETECT     |
+    
+    sspiFlags =   ASC_REQ_SEQUENCE_DETECT     |
                     ASC_REQ_REPLAY_DETECT       |
                     ASC_REQ_CONFIDENTIALITY     |
                     ASC_REQ_EXTENDED_ERROR      |
                     ASC_REQ_ALLOCATE_MEMORY     |
                     ASC_REQ_STREAM;
-
-    OutBuffers[0].pvBuffer   = NULL;
-    OutBuffers[0].BufferType = SECBUFFER_TOKEN;
-    OutBuffers[0].cbBuffer   = 0;
-
-    OutBuffer.cBuffers  = 1;
-    OutBuffer.pBuffers  = OutBuffers;
-    OutBuffer.ulVersion = SECBUFFER_VERSION;
     
-    if ( type == ENGINE_TYPE_SERVER )
+    outBuffers[0].pvBuffer   = NULL;
+    outBuffers[0].BufferType = SECBUFFER_TOKEN;
+    outBuffers[0].cbBuffer   = 0;
+
+    outBuffer.cBuffers  = 1;
+    outBuffer.pBuffers  = outBuffers;
+    outBuffer.ulVersion = SECBUFFER_VERSION;
+    
+    if ( Type == ENGINE_TYPE_SERVER )
     {
-        Status = g_pSSPI->AcceptSecurityContext(
-                        phCreds,
-                        phContext,
+        status = g_pSSPI->AcceptSecurityContext(
+                        Creds,
+                        Context,
                         NULL,
-                        dwSSPIFlags,
+                        sspiFlags,
                         0,
                         NULL,
-                        &OutBuffer,
-                        &dwSSPIOutFlags,
-                        &tsExpiry);
+                        &outBuffer,
+                        &sspiOutFlags,
+                        &expiry);
 
-        if ( FAILED(Status) ) 
+        if ( FAILED(status) ) 
         {
-            logger.logError(loggerId, Status, "AcceptSecurityContext\n");
+            logger.logError(loggerId, status, "AcceptSecurityContext\n");
             goto cleanup;
         }
     }
-    else if ( type == ENGINE_TYPE_CLIENT )
+    else if ( Type == ENGINE_TYPE_CLIENT )
     {
-        Status = g_pSSPI->InitializeSecurityContextA(
-                        phCreds,
-                        phContext,
+        status = g_pSSPI->InitializeSecurityContextA(
+                        Creds,
+                        Context,
                         NULL,
-                        dwSSPIFlags,
+                        sspiFlags,
                         0,
                         0,
                         NULL,
                         0,
-                        phContext,
-                        &OutBuffer,
-                        &dwSSPIOutFlags,
-                        &tsExpiry);
+                        Context,
+                        &outBuffer,
+                        &sspiOutFlags,
+                        &expiry);
     
-        if ( FAILED(Status) ) 
+        if ( FAILED(status) ) 
         {
-            logger.logError(loggerId, Status, "InitializeSecurityContext\n");
+            logger.logError(loggerId, status, "InitializeSecurityContext\n");
             goto cleanup;
         }
     }
-
-    pbMessage = (PBYTE)OutBuffers[0].pvBuffer;
-    cbMessage = OutBuffers[0].cbBuffer;
-
-
+    
+    pbMessage = (PBYTE)outBuffers[0].pvBuffer;
+    cbMessage = outBuffers[0].cbBuffer;
+    
+    
     //
     // Send the close notify message to the client.
     //
-
+    
     if ( pbMessage != NULL && cbMessage != 0 )
     {
         cbData = send(*Socket, (PCHAR)pbMessage, cbMessage, 0);
         if ( cbData == SOCKET_ERROR || cbData == 0 )
         {
-            Status = WSAGetLastError();
-            logger.logError(loggerId, Status, "Sending close notify : %s\n", getWSAErrorString(Status));
+            status = WSAGetLastError();
+            logger.logError(loggerId, status, "Sending close notify : %s\n", getWSAErrorString(status));
             goto cleanup;
         }
         
@@ -1465,19 +1512,17 @@ Disconnect(
         PrintHexDump(cbData, pbMessage);
         logger.logInfo(loggerId, 0, "\n");
 #endif
-
         // Free output buffer.
         g_pSSPI->FreeContextBuffer(pbMessage);
     }
     
-
 cleanup:
-    deleteSecurityContext(phContext);
+    deleteSecurityContext(Context);
     if ( *Socket != INVALID_SOCKET )
         closesocket(*Socket);
     *Socket = INVALID_SOCKET;
 
-    return Status;
+    return status;
 }
 
 LONG
@@ -1487,13 +1532,13 @@ VerifyClientCertificate(
 )
 {
     HTTPSPolicyCallbackData polHttps;
-    CERT_CHAIN_POLICY_PARA PolicyPara;
-    CERT_CHAIN_POLICY_STATUS PolicyStatus;
-    CERT_CHAIN_PARA ChainPara;
+    CERT_CHAIN_POLICY_PARA policyPara;
+    CERT_CHAIN_POLICY_STATUS policyStatus;
+    CERT_CHAIN_PARA chainPara;
     PCCERT_CHAIN_CONTEXT pChainContext = NULL;
     LPSTR pszUsage;
 
-    DWORD Status;
+    DWORD status;
 
     if ( Cert == NULL )
     {
@@ -1507,24 +1552,24 @@ VerifyClientCertificate(
 
     pszUsage = (CHAR*)szOID_PKIX_KP_CLIENT_AUTH;
 
-    ZeroMemory(&ChainPara, sizeof(ChainPara));
-    ChainPara.cbSize = sizeof(ChainPara);
-    ChainPara.RequestedUsage.dwType = USAGE_MATCH_TYPE_OR;
-    ChainPara.RequestedUsage.Usage.cUsageIdentifier = 1;
-    ChainPara.RequestedUsage.Usage.rgpszUsageIdentifier = &pszUsage;
+    ZeroMemory(&chainPara, sizeof(chainPara));
+    chainPara.cbSize = sizeof(chainPara);
+    chainPara.RequestedUsage.dwType = USAGE_MATCH_TYPE_OR;
+    chainPara.RequestedUsage.Usage.cUsageIdentifier = 1;
+    chainPara.RequestedUsage.Usage.rgpszUsageIdentifier = &pszUsage;
 
     if ( !CertGetCertificateChain(
                             NULL,
                             Cert,
                             NULL,
                             Cert->hCertStore,
-                            &ChainPara,
+                            &chainPara,
                             0,
                             NULL,
                             &pChainContext) )
     {
-        Status = GetLastError();
-        logger.logError(loggerId, Status, "returned by CertGetCertificateChain!\n");
+        status = GetLastError();
+        logger.logError(loggerId, status, "returned by CertGetCertificateChain!\n");
         goto cleanup;
     }
 
@@ -1539,35 +1584,35 @@ VerifyClientCertificate(
     polHttps.fdwChecks = CertFlags;
     polHttps.pwszServerName = NULL;
 
-    memset(&PolicyPara, 0, sizeof(PolicyPara));
-    PolicyPara.cbSize = sizeof(PolicyPara);
-    PolicyPara.pvExtraPolicyPara = &polHttps;
+    memset(&policyPara, 0, sizeof(policyPara));
+    policyPara.cbSize = sizeof(policyPara);
+    policyPara.pvExtraPolicyPara = &polHttps;
 
-    memset(&PolicyStatus, 0, sizeof(PolicyStatus));
-    PolicyStatus.cbSize = sizeof(PolicyStatus);
+    memset(&policyStatus, 0, sizeof(policyStatus));
+    policyStatus.cbSize = sizeof(policyStatus);
 
     if ( !CertVerifyCertificateChainPolicy(
                             CERT_CHAIN_POLICY_SSL,
                             pChainContext,
-                            &PolicyPara,
-                            &PolicyStatus) )
+                            &policyPara,
+                            &policyStatus) )
     {
-        Status = GetLastError();
-        logger.logError(loggerId, Status, "returned by CertVerifyCertificateChainPolicy!\n");
+        status = GetLastError();
+        logger.logError(loggerId, status, "returned by CertVerifyCertificateChainPolicy!\n");
         goto cleanup;
     }
 
-    if ( PolicyStatus.dwError )
+    if ( policyStatus.dwError )
     {
-        Status = PolicyStatus.dwError;
-        logger.logError(loggerId, Status, "%s!\n", GetWinVerifyTrustError(Status));
-        if ( PolicyStatus.dwError == CERT_E_UNTRUSTEDROOT )
+        status = policyStatus.dwError;
+        logger.logError(loggerId, status, "%s!\n", GetWinVerifyTrustError(status));
+        if ( policyStatus.dwError == CERT_E_UNTRUSTEDROOT )
             logger.logInfo(loggerId, 0, "skipping\n");
         else
             goto cleanup;
     }
 
-    Status = SEC_E_OK;
+    status = SEC_E_OK;
 
 cleanup:
 
@@ -1576,7 +1621,7 @@ cleanup:
         CertFreeCertificateChain(pChainContext);
     }
 
-    return Status;
+    return status;
 }
 
 void SChannel_clean(
@@ -1612,13 +1657,13 @@ void deleteCreds(
 }
 
 void deleteSecurityContext(
-    _Inout_ CtxtHandle *phContext
+    _Inout_ CtxtHandle *Context
 )
 {
-    if ( phContext != NULL && phContext->dwLower != 0 && phContext->dwUpper != 0 )
+    if ( Context != NULL && Context->dwLower != 0 && Context->dwUpper != 0 )
     {
-        g_pSSPI->DeleteSecurityContext(phContext);
-        phContext->dwLower = 0;
-        phContext->dwUpper = 0;
+        g_pSSPI->DeleteSecurityContext(Context);
+        Context->dwLower = 0;
+        Context->dwUpper = 0;
     }
 }

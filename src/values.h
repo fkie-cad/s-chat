@@ -23,9 +23,26 @@
 #define ENGINE_TYPE_SERVER_FT (3)
 #define ENGINE_TYPE_CLIENT_FT (4)
 
+// timmeout for joining threads
+#define JOIN_TIMEOUT (1000)
 
-#define MAX_IP_LN (0x28)
-#define MAX_PORT_LN (0x6)
+
+#define MAX_IP_STR_LN (0x28)
+#define MAX_PORT_STR_LN (0x6)
+
+// hash type for displaying certificate hash to the user
+#define CERT_HASH_TYPE_SHA1 (128)
+#define CERT_HASH_TYPE_SHA256 (256)
+
+#define CERT_HASH_TYPE CERT_HASH_TYPE_SHA1
+
+#if CERT_HASH_TYPE == CERT_HASH_TYPE_SHA1
+#define CERT_HASH_STRING_BUFFER_LN SHA1_STRING_BUFFER_LN
+#define CERT_HASH_BYTES_LN SHA1_BYTES_LN
+#elif CERT_HASH_TYPE == CERT_HASH_TYPE_SHA256
+#define CERT_HASH_STRING_BUFFER_LN SHA256_STRING_BUFFER_LN
+#define CERT_HASH_BYTES_LN SHA256_BYTES_LN
+#endif
 
 
 #ifndef ADDRESS_FAMILY
@@ -116,8 +133,8 @@ typedef struct _SCHAT_FILE_DATA_HEADER {
 
 typedef struct _CONNECTION_DATA
 {
-    CHAR ip[MAX_IP_LN];
-    CHAR port[MAX_PORT_LN];
+    CHAR ip[MAX_IP_STR_LN];
+    CHAR port[MAX_PORT_STR_LN];
     CHAR name[MAX_NAME_LN];
     CHAR CertThumb[SHA1_STRING_BUFFER_LN];
     ADDRESS_FAMILY family;

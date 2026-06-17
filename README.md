@@ -5,7 +5,7 @@ Currently just supporting TLS 1.2 due to Windows SChannel restrictions.
 
 ## Version ##
 1.1.0  
-Last changed: 09.05.2022
+Last changed: 16.06.2026  
 
 ## Descrtiption
 GUI chat application that connects two communication partners directly over TCP using TLS 1.2.
@@ -173,8 +173,6 @@ Feel free to open an issue.
 
 
 ## COPYRIGHT, CREDITS & CONTACT
-### License
-Published under [GNU GENERAL PUBLIC LICENSE](LICENSE).   
 
-### Author
-- Henning Braun ([henning.braun@fkie.fraunhofer.de](henning.braun@fkie.fraunhofer.de)) 
+### License
+Published under [GNU GENERAL PUBLIC LICENSE](LICENSE).

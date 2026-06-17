@@ -8,7 +8,6 @@
 #include "../net/sock.h"
 #include "../schannel/connection.h"
 
-
 #include "../utils/Logger.h"
 extern Logger logger;
 extern size_t loggerId;

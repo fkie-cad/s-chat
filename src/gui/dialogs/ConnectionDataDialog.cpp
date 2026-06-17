@@ -5,6 +5,11 @@
 #include "../ToolTip.h"
 #include "../controlls/subEditControl.h"
 
+ #define TT_CD_IP                    "Server Ip. The Server may leave this empty."
+ #define TT_CD_PORT                  "Server/Listening Port"
+ #define TT_CD_IPVS                  "Ip version 4 or 6. Can be left empty, if Ip is filled."
+ #define TT_CD_NICK                  "Your nick name appearing in the chat."
+ #define TT_CD_TP                    "Thumbprint (sha1) of your certificate."
 
 //Message handler for connection data
 INT_PTR CALLBACK ConnectionDataDialog::openCb(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -17,11 +22,11 @@ INT_PTR CALLBACK ConnectionDataDialog::openCb(HWND hDlg, UINT message, WPARAM wP
         case WM_INITDIALOG:
             has_changed = FALSE;
 
-            ToolTip::forChildId(IDC_CD_IP_IPT, hDlg, "Server Ip. The Server may leave this empty.");
-            ToolTip::forChildId(IDC_CD_PORT_IPT, hDlg, "Server/Listening Port");
-            ToolTip::forChildId(IDC_CD_VS_IPT, hDlg, "Ip version 4 or 6. Can be left empty, if Ip is filled.");
-            ToolTip::forChildId(IDC_CD_NAME_IPT, hDlg, "Your nick name apearing in the chat.");
-            ToolTip::forChildId(IDC_CD_CT_IPT, hDlg, "Thumb print (sha1) of your certificate.");
+            ToolTip::forChildId(IDC_CD_IP_IPT, hDlg, TT_CD_IP);
+            ToolTip::forChildId(IDC_CD_PORT_IPT, hDlg, TT_CD_PORT);
+            ToolTip::forChildId(IDC_CD_VS_IPT, hDlg, TT_CD_IPVS);
+            ToolTip::forChildId(IDC_CD_NAME_IPT, hDlg, TT_CD_NICK);
+            ToolTip::forChildId(IDC_CD_CT_IPT, hDlg, TT_CD_TP);
 
             initInputs();
             fillInputs(data);
@@ -55,11 +60,11 @@ VOID ConnectionDataDialog::initInputs()
 {
     // limit input size
     HWND child = GetDlgItem(BaseDlg, IDC_CD_IP_IPT);
-    SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(MAX_IP_LN-1), NULL);
+    SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(MAX_IP_STR_LN-1), NULL);
 	SetWindowSubclass(child, IpEditControl, IDC_CD_IP_IPT, 0);
 
     child = GetDlgItem(BaseDlg, IDC_CD_PORT_IPT);
-    SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(MAX_PORT_LN-1), NULL);
+    SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(MAX_PORT_STR_LN-1), NULL);
     
     child = GetDlgItem(BaseDlg, IDC_CD_VS_IPT);
     SendMessageA(child, EM_SETLIMITTEXT, (WPARAM)(1), NULL);
@@ -92,12 +97,12 @@ VOID ConnectionDataDialog::updateData(PCONNECTION_DATA data)
     CHAR tmpStr[MAX_PATH];
     USHORT tmpShrt;
 
-    len = GetDlgItemTextA(BaseDlg, IDC_CD_IP_IPT, tmpStr, MAX_IP_LN);
-    if ( len >= MAX_IP_LN )
-        tmpStr[MAX_IP_LN-1] = 0;
+    len = GetDlgItemTextA(BaseDlg, IDC_CD_IP_IPT, tmpStr, MAX_IP_STR_LN);
+    if ( len >= MAX_IP_STR_LN )
+        tmpStr[MAX_IP_STR_LN-1] = 0;
     if ( strcmp(tmpStr, data->ip) != 0 )
     {
-        strcpy_s(data->ip, MAX_IP_LN, tmpStr);
+        strcpy_s(data->ip, MAX_IP_STR_LN, tmpStr);
         has_changed = TRUE;
     }
 
@@ -137,12 +142,12 @@ VOID ConnectionDataDialog::updateData(PCONNECTION_DATA data)
         }
     }
 
-    len = GetDlgItemTextA(BaseDlg, IDC_CD_PORT_IPT, tmpStr, MAX_PORT_LN);
-    if ( len >= MAX_PORT_LN )
-        tmpStr[MAX_PORT_LN-1] = 0;
+    len = GetDlgItemTextA(BaseDlg, IDC_CD_PORT_IPT, tmpStr, MAX_PORT_STR_LN);
+    if ( len >= MAX_PORT_STR_LN )
+        tmpStr[MAX_PORT_STR_LN-1] = 0;
     if ( strcmp(tmpStr, data->port) != 0 )
     {
-        strcpy_s(data->port, MAX_PORT_LN, tmpStr);
+        strcpy_s(data->port, MAX_PORT_STR_LN, tmpStr);
         has_changed = TRUE;
     }
 

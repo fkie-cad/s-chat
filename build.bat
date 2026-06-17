@@ -2,7 +2,9 @@
 
 set my_name=%~n0
 set my_dir="%~dp0"
-set /a verbose=1
+set "my_dir=%my_dir:~1,-2%"
+
+set /a verbose=0
 
 set /a engine=0
 set /a gui=0
@@ -14,6 +16,7 @@ set /a bitness=64
 set platform=x64
 set configuration=Debug
 set /a pdb=0
+set /a cln=0
 
 set engine_proj=engine.vcxproj
 set gui_proj=schat.vcxproj
@@ -41,6 +44,11 @@ GOTO :ParseParams
     )
     IF /i "%~1"=="/sc" (
         SET /a gui=1
+        goto reParseParams
+    )
+
+    IF /i "%~1"=="/cln" (
+        SET /a cln=1
         goto reParseParams
     )
 
@@ -79,7 +87,12 @@ GOTO :ParseParams
         SET bitness=%~2
         SHIFT
         goto reParseParams
-    ) ELSE (
+    )
+
+    IF /i "%~1"=="/v" (
+        SET /a verbose=1
+        goto reParseParams
+    ) ELSE IF /i "%~1" neq "" (
         echo Unknown option : "%~1"
     )
     
@@ -92,32 +105,37 @@ GOTO :ParseParams
 
 :main
 
-set /a "s=%debug%+%release%"
-if [%s%]==[0] (
-    set /a debug=0
-    set /a release=1
-)
-set /a "s=%engine%+%gui%"
-if [%s%]==[0] (
-    set /a engine=0
-    set /a gui=1
-)
-
-if [%bitness%]==[64] (
-    set platform=x64
-)
-if [%bitness%]==[32] (
-    set platform=x86
-)
-if not [%bitness%]==[32] (
-    if not [%bitness%]==[64] (
-        echo ERROR: Bitness /b has to be 32 or 64!
-        EXIT /B 1
+    set /a "s=%debug%+%release%"
+    if %s% == 0 (
+        set /a debug=0
+        set /a release=1
     )
-)
+    set /a "s=%engine%+%gui%+%cln%"
+    if %s% == 0 (
+        set /a engine=0
+        set /a gui=1
+    )
 
-if [%engine%]==[1] call :build %engine_proj%
-if [%gui%]==[1] call :build %gui_proj%
+    if [%bitness%]==[64] (
+        set platform=x64
+    )
+    if [%bitness%]==[32] (
+        set platform=x86
+    )
+    if not [%bitness%]==[32] (
+        if not [%bitness%]==[64] (
+            echo ERROR: Bitness /b has to be 32 or 64!
+            EXIT /B 1
+        )
+    )
+
+    if %cln% == 1 (
+        echo removing "%my_dir%\build"
+        rmdir /s /q "%my_dir%\build" >nul 2>&1 
+    )
+
+    if [%engine%]==[1] call :build %engine_proj%
+    if [%gui%]==[1] call :build %gui_proj%
 
 exit /B 0
 
