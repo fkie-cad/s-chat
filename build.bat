@@ -21,6 +21,7 @@ set /a cln=0
 set engine_proj=engine.vcxproj
 set gui_proj=schat.vcxproj
 
+set pts=v145
 
 set msb=msbuild
 
@@ -81,7 +82,12 @@ GOTO :ParseParams
     IF /i "%~1"=="/pdb" (
         SET /a pdb=1
         goto reParseParams
-    ) 
+    )
+    IF /i "%~1"=="/pts" (
+        SET pts=%~2
+        SHIFT
+        goto reParseParams
+    )
    
     IF /i "%~1"=="/b" (
         SET bitness=%~2
@@ -129,6 +135,18 @@ GOTO :ParseParams
         )
     )
 
+    if %verbose% == 1 (
+        echo cln: %cln%
+        echo.
+        echo debug: %debug%
+        echo release: %release%
+        echo bitness: %bitness%
+        echo pdb: %pdb%
+        echo dprint: %debug_print%
+        echo rtl: %rtl%
+        echo pts: %pts%
+    )
+
     if %cln% == 1 (
         echo removing "%my_dir%\build"
         rmdir /s /q "%my_dir%\build" >nul 2>&1 
@@ -143,8 +161,8 @@ exit /B 0
 :build
     SETLOCAL
         set proj=%~1
-        if [%debug%]==[1] call :buildEx %proj%,%platform%,Debug,%debug_print%,%rtl%,1
-        if [%release%]==[1] call :buildEx %proj%,%platform%,Release,%debug_print%,%rtl%,%pdb%
+        if [%debug%]==[1] call :buildEx %proj%,%platform%,Debug,%debug_print%,%rtl%,1,%pts%
+        if [%release%]==[1] call :buildEx %proj%,%platform%,Release,%debug_print%,%rtl%,%pdb%,%pts%
     ENDLOCAL
     
     EXIT /B %ERRORLEVEL%
@@ -157,6 +175,7 @@ exit /B 0
         set dp=%~4
         set rtl=%~5
         set /a pdb=%~6
+        set pts=%~7
         
         if %rtl% == 1 (
             set rtl=%conf%
@@ -172,17 +191,20 @@ exit /B 0
             set /a ep=1
         )
 
-        echo build
-        echo  - Project=%proj%
-        echo  - Platform=%platform%
-        echo  - Configuration=%conf%
-        echo  - DebugPrint=%dp%
-        echo  - DebugPrintHexDump=%dphd%
-        echo  - RuntimeLib=%rtl%
-        echo  - pdb=%pdb%
-        echo.
+        if %verbose% EQU 1 (
+            echo build
+            echo  - Project=%proj%
+            echo  - Platform=%platform%
+            echo  - Configuration=%conf%
+            echo  - DebugPrint=%dp%
+            echo  - DebugPrintHexDump=%dphd%
+            echo  - RuntimeLib=%rtl%
+            echo  - pdb=%pdb%
+            echo  - PTS=%pts%
+            echo.
+        )
         
-        msbuild %proj% /p:Platform=%platform% /p:Configuration=%conf% /p:DebugPrint=%dp% /p:ErrorPrint=%ep% /p:RuntimeLib=%rtl% /p:PDB=%pdb%
+        msbuild %proj% /p:Platform=%platform% /p:Configuration=%conf% /p:PlatformToolset=%pts% /p:DebugPrint=%dp% /p:ErrorPrint=%ep% /p:RuntimeLib=%rtl% /p:PDB=%pdb%
         echo.
         echo ----------------------------------------------------
         echo.
